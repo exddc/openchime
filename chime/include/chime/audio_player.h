@@ -6,7 +6,7 @@
 #include <string>
 #include <thread>
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -21,14 +21,14 @@ class AudioPlayer {
 
 class AplayAudioPlayer final : public AudioPlayer {
  public:
-  explicit AplayAudioPlayer(vc::logging::Logger& logger);
+  explicit AplayAudioPlayer(oc::logging::Logger& logger);
   ~AplayAudioPlayer() override;
 
   void Play(const std::string& path, int volume_percent = 100) override;
   bool IsPlaying() const override;
 
  private:
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   std::atomic<bool> playing_{false};
   std::mutex playback_thread_mutex_;
   std::thread playback_thread_;

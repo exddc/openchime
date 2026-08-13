@@ -10,28 +10,28 @@
 #include "chime/audio_player.h"
 #include "chime/chime_config.h"
 #include "chime/wifi_monitor.h"
-#include "vc/mqtt/client.h"
+#include "oc/mqtt/client.h"
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
-namespace vc::runtime {
+namespace oc::runtime {
 class SignalHandler;
 }
 
 namespace chime {
 
-class ChimeService final : public vc::mqtt::EventHandler {
+class ChimeService final : public oc::mqtt::EventHandler {
  public:
-  ChimeService(const ChimeConfig& config, vc::logging::Logger& logger,
+  ChimeService(const ChimeConfig& config, oc::logging::Logger& logger,
                AudioPlayer& audio_player, const WifiMonitor& wifi_monitor);
 
-  int Run(vc::runtime::SignalHandler& signal_handler);
+  int Run(oc::runtime::SignalHandler& signal_handler);
 
   void OnConnect(int rc) override;
   void OnDisconnect(int rc) override;
-  void OnMessage(const vc::mqtt::Message& message) override;
+  void OnMessage(const oc::mqtt::Message& message) override;
 
  private:
   enum class NotificationSoundType { kSuccess, kFailure };
@@ -46,8 +46,8 @@ class ChimeService final : public vc::mqtt::EventHandler {
   bool PersistObservedTopics(std::string* error) const;
 
   const ChimeConfig& config_;
-  vc::logging::Logger& logger_;
-  vc::mqtt::Client mqtt_client_;
+  oc::logging::Logger& logger_;
+  oc::mqtt::Client mqtt_client_;
   AudioPlayer& audio_player_;
   const WifiMonitor& wifi_monitor_;
 

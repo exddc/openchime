@@ -9,7 +9,7 @@ config BR2_PACKAGE_CHIME
 	  This is the main chime notification daemon that receives
 	  doorbell events and plays audio notifications.
 
-	  https://github.com/exddc/virtualchime
+	  https://github.com/exddc/openchime
 
 comment "chime needs a toolchain w/ C++"
 	depends on !BR2_INSTALL_LIBSTDCPP

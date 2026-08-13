@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -24,7 +24,7 @@ struct WifiScanResult {
 
 class WifiScanner {
  public:
-  WifiScanner(vc::logging::Logger& logger, std::string interface_name);
+  WifiScanner(oc::logging::Logger& logger, std::string interface_name);
 
   WifiScanResult Scan() const;
 
@@ -32,7 +32,7 @@ class WifiScanner {
   WifiScanResult ScanWithWpaCli() const;
   WifiScanResult ScanWithIw() const;
 
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   std::string interface_name_;
 };
 

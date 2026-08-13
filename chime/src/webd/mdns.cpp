@@ -19,7 +19,7 @@
 #include <unistd.h>
 
 #include "chime/webd_string_utils.h"
-#include "vc/logging/logger.h"
+#include "oc/logging/logger.h"
 
 namespace chime::webd {
 namespace {
@@ -259,7 +259,7 @@ std::vector<uint8_t> BuildAnswerPacket(const std::string &fqdn, const struct in_
 
 } // namespace
 
-MdnsResponder::MdnsResponder(vc::logging::Logger &logger, std::string host_label, std::string interface_name)
+MdnsResponder::MdnsResponder(oc::logging::Logger &logger, std::string host_label, std::string interface_name)
     : logger_(logger), host_label_(std::move(host_label)), interface_name_(std::move(interface_name)) {}
 
 MdnsResponder::~MdnsResponder() {

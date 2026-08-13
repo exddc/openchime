@@ -1,16 +1,16 @@
-#ifndef VC_MQTT_CLIENT_H
-#define VC_MQTT_CLIENT_H
+#ifndef OC_MQTT_CLIENT_H
+#define OC_MQTT_CLIENT_H
 
 #include <string>
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
 struct mosquitto;
 struct mosquitto_message;
 
-namespace vc::mqtt {
+namespace oc::mqtt {
 
 struct Message {
   std::string topic;
@@ -44,7 +44,7 @@ class EventHandler {
 
 class Client {
  public:
-  Client(vc::logging::Logger& logger, EventHandler& handler);
+  Client(oc::logging::Logger& logger, EventHandler& handler);
   ~Client();
 
   Client(const Client&) = delete;
@@ -70,7 +70,7 @@ class Client {
   void SetLastError(const std::string& message);
   void DestroyClient();
 
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   EventHandler& handler_;
   struct mosquitto* mosq_ = nullptr;
   bool connected_ = false;
@@ -78,6 +78,6 @@ class Client {
   std::string last_error_;
 };
 
-}  // namespace vc::mqtt
+}  // namespace oc::mqtt
 
 #endif

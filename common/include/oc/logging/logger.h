@@ -1,10 +1,10 @@
-#ifndef VC_LOGGING_LOGGER_H
-#define VC_LOGGING_LOGGER_H
+#ifndef OC_LOGGING_LOGGER_H
+#define OC_LOGGING_LOGGER_H
 
 #include <mutex>
 #include <string_view>
 
-namespace vc::logging {
+namespace oc::logging {
 
 enum class Level { kInfo, kWarn, kError };
 
@@ -36,6 +36,6 @@ class StderrLogger final : public Logger {
   std::mutex mutex_;
 };
 
-}  // namespace vc::logging
+}  // namespace oc::logging
 
 #endif

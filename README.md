@@ -1,8 +1,8 @@
-# Virtual Chime Open Smart Doorbell System
+# Open Chime Smart Doorbell System
 
-Virtual Chime is an open source smart doorbell system built for people who want control over their home security without sacrificing privacy or design. Instead of trusting your doorbell data to cloud services, everything runs locally on hardware you own.
+Open Chime is an open-source smart doorbell system built for people who want control over their home security without sacrificing privacy or design. Instead of trusting your doorbell data to cloud services, everything runs locally on hardware you own.
 
-The system is designed to be a simple and affordable alternative to expensive designer doorbells. There should not be a compromise between security, privacy and good design. Virtual Chime aims to be as beautiful as designer doorbells, as secure as the most expensive security systems, and as private as your own home.
+The system is designed to be a simple and affordable alternative to expensive designer doorbells. There should not be a compromise between security, privacy and good design. Open Chime aims to be as beautiful as designer doorbells, as secure as the most expensive security systems, and as private as your own home.
 
 Read more about the rewrite process in my [blog post](https://timoweiss.me/blog/rewriting-virtual-chime).
 
@@ -22,7 +22,7 @@ The rewrite focuses on:
 
 ## Products
 
-The Virtual Chime family consists of multiple products working together:
+The Open Chime family consists of multiple products working together:
 
 ### Chime (Speaker Box)
 

@@ -1,4 +1,4 @@
-#include "vc/mqtt/client.h"
+#include "oc/mqtt/client.h"
 
 #include <mosquitto.h>
 
@@ -12,9 +12,9 @@
 #include <string>
 #include <vector>
 
-#include "vc/logging/logger.h"
+#include "oc/logging/logger.h"
 
-namespace vc::mqtt {
+namespace oc::mqtt {
 namespace {
 std::mutex g_lib_mutex;
 int g_lib_users = 0;
@@ -107,7 +107,7 @@ std::string DescribeHostLookup(const std::string& host, int port) {
 }
 }  // namespace
 
-Client::Client(vc::logging::Logger& logger, EventHandler& handler)
+Client::Client(oc::logging::Logger& logger, EventHandler& handler)
     : logger_(logger), handler_(handler) {
   std::string error;
   lib_ready_ = AcquireMosquittoLib(&error);
@@ -339,4 +339,4 @@ void Client::DestroyClient() {
   connected_ = false;
 }
 
-}  // namespace vc::mqtt
+}  // namespace oc::mqtt

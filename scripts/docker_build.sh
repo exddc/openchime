@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# docker_build.sh - Build the Virtual Chime Buildroot image using Docker
+# docker_build.sh - Build the Open Chime Buildroot image using Docker
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,8 +12,8 @@ SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 DOCKER_TTY="${DOCKER_TTY:-0}"
 CLEAR_DOCKER_CACHE=0
 
-IMAGE_NAME="virtualchime-builder"
-VOLUME_NAME="virtualchime-buildroot-cache"
+IMAGE_NAME="openchime-builder"
+VOLUME_NAME="openchime-buildroot-cache"
 OUTPUT_DIR="$PROJECT_DIR/buildroot/output"
 IMAGE_PATH="$OUTPUT_DIR/sdcard.img"
 VERSION_FILE="$PROJECT_DIR/buildroot/version.env"
@@ -142,9 +142,9 @@ check_versions() {
     [ -n "$app_version" ] || error "Missing app version in $APP_VERSION_FILE"
     [[ "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
         error "Invalid app version '$app_version' in $APP_VERSION_FILE (expected SemVer like 1.2.3)"
-    [ -n "${VIRTUALCHIME_OS_VERSION:-}" ] || error "Missing VIRTUALCHIME_OS_VERSION in $VERSION_FILE"
+    [ -n "${OPENCHIME_OS_VERSION:-}" ] || error "Missing OPENCHIME_OS_VERSION in $VERSION_FILE"
     [ -n "${CHIME_CONFIG_VERSION:-}" ] || error "Missing CHIME_CONFIG_VERSION in $VERSION_FILE"
-    log "Versions: os=$VIRTUALCHIME_OS_VERSION chime=$app_version config=$CHIME_CONFIG_VERSION"
+    log "Versions: os=$OPENCHIME_OS_VERSION chime=$app_version config=$CHIME_CONFIG_VERSION"
 }
 
 write_build_metadata() {
@@ -166,7 +166,7 @@ run_build() {
     docker volume create "$VOLUME_NAME" >/dev/null 2>&1 || true
 
     docker run --rm ${docker_tty_opt:+$docker_tty_opt} \
-        -v "$PROJECT_DIR:/home/builder/virtualchime:ro" \
+        -v "$PROJECT_DIR:/home/builder/openchime:ro" \
         -v "$VOLUME_NAME:/home/builder/work" \
         -e BUILDROOT_VERSION="$BUILDROOT_VERSION" \
         -e JOBS="$JOBS" \
@@ -207,16 +207,16 @@ echo "[build] Using make jobs: $JOBS"
 echo "[build] Setting up external tree and chime source..."
 mkdir -p /home/builder/br2-external /home/builder/chime-src/chime /home/builder/chime-src/common
 sync_start="$(step_start)"
-rsync -a --delete /home/builder/virtualchime/buildroot/ /home/builder/br2-external/
-rsync -a --delete /home/builder/virtualchime/chime/ /home/builder/chime-src/chime/
-rsync -a --delete /home/builder/virtualchime/common/ /home/builder/chime-src/common/
+rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
+rsync -a --delete /home/builder/openchime/chime/ /home/builder/chime-src/chime/
+rsync -a --delete /home/builder/openchime/common/ /home/builder/chime-src/common/
 step_done "sync" "$sync_start"
 
 cd "buildroot-$BUILDROOT_VERSION"
 
 echo "[build] Configuring for Raspberry Pi Zero W..."
 defconfig_start="$(step_start)"
-make BR2_EXTERNAL=/home/builder/br2-external virtualchime_rpi0w_defconfig
+make BR2_EXTERNAL=/home/builder/br2-external openchime_rpi0w_defconfig
 step_done "defconfig" "$defconfig_start"
 
 echo "[build] Building (this takes 30-90 min)..."
@@ -281,7 +281,7 @@ EOF
 }
 
 parse_args "$@"
-log "Virtual Chime Buildroot Docker Build"
+log "Open Chime Buildroot Docker Build"
 validate_inputs
 check_secrets
 check_versions

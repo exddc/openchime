@@ -1,10 +1,10 @@
-#include "vc/util/filesystem.h"
+#include "oc/util/filesystem.h"
 
 #include <fstream>
 
-#include "vc/config/kv_config.h"
+#include "oc/config/kv_config.h"
 
-namespace vc::util {
+namespace oc::util {
 
 bool FileExists(const std::string& path) {
   std::ifstream file(path);
@@ -18,7 +18,7 @@ std::string ReadTrimmedFile(const std::string& path) {
   }
   std::string line;
   std::getline(file, line);
-  return vc::config::trim(line);
+  return oc::config::trim(line);
 }
 
-}  // namespace vc::util
+}  // namespace oc::util

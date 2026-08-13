@@ -19,8 +19,8 @@
 #include <unistd.h>
 
 #include "chime/chime_config.h"
-#include "vc/config/kv_config.h"
-#include "vc/logging/logger.h"
+#include "oc/config/kv_config.h"
+#include "oc/logging/logger.h"
 
 namespace chime::webd {
 namespace {
@@ -158,7 +158,7 @@ bool ParseInt(std::string_view text, int min_value, int max_value, int* output) 
     return false;
   }
 
-  const std::string trimmed = vc::config::trim(text);
+  const std::string trimmed = oc::config::trim(text);
   if (trimmed.empty()) {
     return false;
   }
@@ -177,7 +177,7 @@ bool ParseBool(std::string_view text, bool* output) {
   if (output == nullptr) {
     return false;
   }
-  std::string normalized = vc::config::trim(text);
+  std::string normalized = oc::config::trim(text);
   if (normalized.empty()) {
     return false;
   }
@@ -201,7 +201,7 @@ bool ParseBool(std::string_view text, bool* output) {
 std::string BoolToConfig(bool value) { return value ? "true" : "false"; }
 
 std::string StripQuotes(std::string_view value) {
-  const std::string trimmed = vc::config::trim(value);
+  const std::string trimmed = oc::config::trim(value);
   if (trimmed.size() < 2 || trimmed.front() != '"' || trimmed.back() != '"') {
     return trimmed;
   }
@@ -254,7 +254,7 @@ WpaData ParseWpaData(const std::vector<std::string>& lines) {
   bool in_block = false;
   bool block_closed = false;
   for (std::size_t i = 0; i < lines.size(); ++i) {
-    const std::string trimmed = vc::config::trim(lines[i]);
+    const std::string trimmed = oc::config::trim(lines[i]);
     if (!in_block && trimmed == "network={") {
       in_block = true;
       data.has_network_block = true;
@@ -277,8 +277,8 @@ WpaData ParseWpaData(const std::vector<std::string>& lines) {
       continue;
     }
 
-    const std::string key = vc::config::trim(trimmed.substr(0, separator));
-    const std::string value = vc::config::trim(trimmed.substr(separator + 1));
+    const std::string key = oc::config::trim(trimmed.substr(0, separator));
+    const std::string value = oc::config::trim(trimmed.substr(separator + 1));
 
     if (key == "ssid") {
       data.ssid = StripQuotes(value);
@@ -300,12 +300,12 @@ std::string ExtractConfigValue(const std::vector<std::string>& lines,
   const std::string prefix = key + "=";
 
   for (const auto& line : lines) {
-    const std::string trimmed = vc::config::trim(line);
+    const std::string trimmed = oc::config::trim(line);
     if (trimmed.empty() || trimmed[0] == '#') {
       continue;
     }
     if (trimmed.rfind(prefix, 0) == 0) {
-      output = vc::config::trim(trimmed.substr(prefix.size()));
+      output = oc::config::trim(trimmed.substr(prefix.size()));
     }
   }
 
@@ -327,7 +327,7 @@ bool IsTopicValid(const std::string& topic) {
 
 }  // namespace
 
-ConfigStore::ConfigStore(vc::logging::Logger& logger, std::string chime_config_path,
+ConfigStore::ConfigStore(oc::logging::Logger& logger, std::string chime_config_path,
                          std::string wpa_supplicant_path)
     : logger_(logger),
       chime_config_path_(std::move(chime_config_path)),
@@ -457,7 +457,7 @@ std::vector<ValidationError> ConfigStore::ValidateRequest(
       return;
     }
 
-    const std::string trimmed = vc::config::trim(value);
+    const std::string trimmed = oc::config::trim(value);
     if (trimmed.empty() || trimmed.size() > 256) {
       errors.push_back(
           {field_name, field_name + " must be 1-256 chars after trimming"});
@@ -528,7 +528,7 @@ SaveResult ConfigStore::LoadCoreConfigInternal() const {
   config.mqtt_tls_key_file = ExtractConfigValue(chime_lines, "mqtt_tls_key_file");
 
   const std::string topics_csv = ExtractConfigValue(chime_lines, "mqtt_topics");
-  config.mqtt_topics = vc::config::split_csv(topics_csv);
+  config.mqtt_topics = oc::config::split_csv(topics_csv);
 
   const std::string ring_topic = ExtractConfigValue(chime_lines, "ring_topic");
   config.ring_topic = ring_topic.empty() ? defaults.ring_topic : ring_topic;
@@ -625,7 +625,7 @@ bool ConfigStore::SaveChimeConfig(const SaveRequest& request,
 
   std::set<std::string> seen;
   for (auto& line : lines) {
-    const std::string trimmed = vc::config::trim(line);
+    const std::string trimmed = oc::config::trim(line);
     if (trimmed.empty() || trimmed[0] == '#') {
       continue;
     }
@@ -635,7 +635,7 @@ bool ConfigStore::SaveChimeConfig(const SaveRequest& request,
       continue;
     }
 
-    const std::string key = vc::config::trim(trimmed.substr(0, separator));
+    const std::string key = oc::config::trim(trimmed.substr(0, separator));
     const auto it = replacements.find(key);
     if (it == replacements.end()) {
       continue;
@@ -706,13 +706,13 @@ bool ConfigStore::SaveWpaSupplicant(const SaveRequest& request,
     bool psk_written = false;
 
     for (std::size_t i = parsed.block_start + 1; i < parsed.block_end; ++i) {
-      const std::string trimmed = vc::config::trim(lines[i]);
+      const std::string trimmed = oc::config::trim(lines[i]);
       const auto separator = trimmed.find('=');
       if (separator == std::string::npos) {
         continue;
       }
 
-      const std::string key = vc::config::trim(trimmed.substr(0, separator));
+      const std::string key = oc::config::trim(trimmed.substr(0, separator));
       if (key == "ssid") {
         lines[i] = ssid_line;
         ssid_written = true;

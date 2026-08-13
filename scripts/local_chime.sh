@@ -86,7 +86,7 @@ get_openssl_flags() {
 
 load_versions() {
     CHIME_APP_VERSION="dev"
-    VIRTUALCHIME_OS_VERSION="dev"
+    OPENCHIME_OS_VERSION="dev"
     CHIME_CONFIG_VERSION="dev"
 
     if [ -f "$APP_VERSION_FILE" ]; then
@@ -99,7 +99,7 @@ load_versions() {
     if [ -f "$BUILDROOT_VERSION_FILE" ]; then
         # shellcheck disable=SC1090
         . "$BUILDROOT_VERSION_FILE"
-        VIRTUALCHIME_OS_VERSION="${VIRTUALCHIME_OS_VERSION:-$VIRTUALCHIME_OS_VERSION}"
+        OPENCHIME_OS_VERSION="${OPENCHIME_OS_VERSION:-$OPENCHIME_OS_VERSION}"
         CHIME_CONFIG_VERSION="${CHIME_CONFIG_VERSION:-$CHIME_CONFIG_VERSION}"
     fi
 }
@@ -140,7 +140,7 @@ build_chime_binary() {
         -O2 \
         ${CXXFLAGS:-} \
         "-DCHIME_APP_VERSION=\"$CHIME_APP_VERSION\"" \
-        "-DVIRTUALCHIME_OS_VERSION=\"$VIRTUALCHIME_OS_VERSION\"" \
+        "-DOPENCHIME_OS_VERSION=\"$OPENCHIME_OS_VERSION\"" \
         "-DCHIME_CONFIG_VERSION=\"$CHIME_CONFIG_VERSION\"" \
         -I"$CHIME_DIR/include" \
         -I"$PROJECT_DIR/common/include" \

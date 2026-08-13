@@ -1,7 +1,7 @@
 #include "chime/wifi_monitor.h"
 
-#include "vc/util/filesystem.h"
-#include "vc/util/platform.h"
+#include "oc/util/filesystem.h"
+#include "oc/util/platform.h"
 
 namespace chime {
 
@@ -16,7 +16,7 @@ bool WifiStateChanged(const std::optional<WifiState>& before,
 
 std::optional<WifiState> LinuxWifiMonitor::ReadState(
     const std::string& interface_name) const {
-  if (!vc::util::IsLinux()) {
+  if (!oc::util::IsLinux()) {
     return std::nullopt;
   }
 
@@ -25,15 +25,15 @@ std::optional<WifiState> LinuxWifiMonitor::ReadState(
   const std::string operstate_path = base_path + "/operstate";
   const std::string carrier_path = base_path + "/carrier";
 
-  if (!vc::util::FileExists(operstate_path)) {
+  if (!oc::util::FileExists(operstate_path)) {
     state.interface_present = false;
     return state;
   }
 
   state.interface_present = true;
-  state.operstate = vc::util::ReadTrimmedFile(operstate_path);
+  state.operstate = oc::util::ReadTrimmedFile(operstate_path);
 
-  const std::string carrier_raw = vc::util::ReadTrimmedFile(carrier_path);
+  const std::string carrier_raw = oc::util::ReadTrimmedFile(carrier_path);
   if (carrier_raw == "0") {
     state.carrier = 0;
   } else if (carrier_raw == "1") {

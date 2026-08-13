@@ -1,8 +1,8 @@
-#include "vc/util/environment.h"
+#include "oc/util/environment.h"
 
 #include <cstdlib>
 
-namespace vc::util {
+namespace oc::util {
 
 std::string GetEnv(const char* name) {
   const char* value = std::getenv(name);
@@ -12,4 +12,4 @@ std::string GetEnv(const char* name) {
   return std::string(value);
 }
 
-}  // namespace vc::util
+}  // namespace oc::util

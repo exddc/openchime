@@ -37,8 +37,8 @@
 #include "chime/webd_string_utils.h"
 #include "chime/webd_ui_assets.h"
 #include "chime/webd_wifi_scan.h"
-#include "vc/config/kv_config.h"
-#include "vc/logging/logger.h"
+#include "oc/config/kv_config.h"
+#include "oc/logging/logger.h"
 
 namespace chime::webd {
 namespace {
@@ -46,7 +46,7 @@ namespace {
 constexpr std::size_t kMaxRequestBytes = 65536;
 constexpr std::size_t kMaxBodyBytes = 2 * 1024 * 1024;
 constexpr const char *kDefaultRingSoundName = "ring-default.wav";
-constexpr const char *kReleaseInfoPath = "/etc/virtualchime-release";
+constexpr const char *kReleaseInfoPath = "/etc/openchime-release";
 constexpr const char *kAppVersionPath = "/etc/chime-app-version";
 
 bool StartsWith(const std::string &value, const std::string &prefix) {
@@ -56,7 +56,7 @@ bool StartsWith(const std::string &value, const std::string &prefix) {
 std::string MimeTypeOnly(const std::string &content_type) {
     const std::size_t semicolon = content_type.find(';');
     const std::string raw = semicolon == std::string::npos ? content_type : content_type.substr(0, semicolon);
-    return ToLower(vc::config::trim(raw));
+    return ToLower(oc::config::trim(raw));
 }
 
 bool IsSafeRelativePath(const std::filesystem::path &path) {
@@ -130,7 +130,7 @@ bool EnsureDirectoryExists(const std::string &path, std::string *error) {
 }
 
 void TrySeedDefaultRingSound(const std::string &ring_sounds_dir, const std::string &active_ring_sound_path,
-                             vc::logging::Logger &logger) {
+                             oc::logging::Logger &logger) {
     std::error_code ec;
     const std::filesystem::path source_path(active_ring_sound_path);
     const std::filesystem::path target_path = std::filesystem::path(ring_sounds_dir) / kDefaultRingSoundName;
@@ -253,7 +253,7 @@ std::vector<std::string> ReadObservedTopicsFromFile(const std::string &path, std
     std::set<std::string> seen;
     std::string line;
     while (std::getline(file, line)) {
-        const std::string topic = vc::config::trim(line);
+        const std::string topic = oc::config::trim(line);
         if (topic.empty()) {
             continue;
         }
@@ -273,7 +273,7 @@ std::string ReadTrimmedFirstLine(const std::string &path) {
     if (!std::getline(file, line)) {
         return "";
     }
-    return vc::config::trim(line);
+    return oc::config::trim(line);
 }
 
 std::map<std::string, std::string> ReadKeyValueFile(const std::string &path) {
@@ -285,7 +285,7 @@ std::map<std::string, std::string> ReadKeyValueFile(const std::string &path) {
 
     std::string line;
     while (std::getline(file, line)) {
-        const std::string trimmed = vc::config::trim(line);
+        const std::string trimmed = oc::config::trim(line);
         if (trimmed.empty() || trimmed[0] == '#') {
             continue;
         }
@@ -295,8 +295,8 @@ std::map<std::string, std::string> ReadKeyValueFile(const std::string &path) {
             continue;
         }
 
-        const std::string key = vc::config::trim(trimmed.substr(0, separator));
-        const std::string value = vc::config::trim(trimmed.substr(separator + 1));
+        const std::string key = oc::config::trim(trimmed.substr(0, separator));
+        const std::string value = oc::config::trim(trimmed.substr(separator + 1));
         if (!key.empty()) {
             values[key] = value;
         }
@@ -572,7 +572,7 @@ bool GenerateSelfSignedCertificate(const std::string &cert_path, const std::stri
 
     name = X509_get_subject_name(cert);
     X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("US"), -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("VirtualChime"), -1, -1,
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("OpenChime"), -1, -1,
                                0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("chime.local"), -1, -1,
                                0);
@@ -640,7 +640,7 @@ cleanup:
 
 } // namespace
 
-WebServer::WebServer(vc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
+WebServer::WebServer(oc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
                      ApplyManager &apply_manager, std::string bind_address, int port, std::string cert_path,
                      std::string key_path, std::string ui_dist_dir, std::string observed_topics_path,
                      std::string ring_sounds_dir, std::string active_ring_sound_path)
@@ -878,8 +878,8 @@ bool WebServer::ReadHttpRequest(void *ssl_ptr, HttpRequest *request, std::string
         if (sep == std::string::npos) {
             continue;
         }
-        const std::string key = ToLower(vc::config::trim(header_line.substr(0, sep)));
-        const std::string value = vc::config::trim(header_line.substr(sep + 1));
+        const std::string key = ToLower(oc::config::trim(header_line.substr(0, sep)));
+        const std::string value = oc::config::trim(header_line.substr(sep + 1));
         headers[key] = value;
     }
 
@@ -1254,8 +1254,8 @@ WebServer::HttpResponse WebServer::HandleGetSystemVersion() {
     }();
 
     const std::string os_version =
-        ReadValueOrDefault(release_values, "VIRTUALCHIME_OS_VERSION_FULL",
-                           ReadValueOrDefault(release_values, "VIRTUALCHIME_OS_VERSION", "unknown"));
+        ReadValueOrDefault(release_values, "OPENCHIME_OS_VERSION_FULL",
+                           ReadValueOrDefault(release_values, "OPENCHIME_OS_VERSION", "unknown"));
     const std::string config_version = ReadValueOrDefault(release_values, "CHIME_CONFIG_VERSION", "unknown");
 
     response.status = 200;
@@ -1301,7 +1301,7 @@ WebServer::HttpResponse WebServer::HandleGetRingSounds() {
         std::ifstream selected_file(selected_path);
         if (selected_file.is_open()) {
             std::getline(selected_file, selected_name);
-            selected_name = vc::config::trim(selected_name);
+            selected_name = oc::config::trim(selected_name);
         }
     }
 

@@ -8,30 +8,30 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(MOSQ QUIET libmosquitto)
 
 if(MOSQ_FOUND)
-  set(VC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client.cpp)
+  set(OC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client.cpp)
 else()
   message(WARNING "libmosquitto not found; building with MQTT stub client")
-  set(VC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client_stub.cpp)
+  set(OC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client_stub.cpp)
 endif()
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(
-  vc_common STATIC
+  oc_common STATIC
   ../common/src/logging/logger.cpp
-  ${VC_MQTT_CLIENT_SOURCE}
+  ${OC_MQTT_CLIENT_SOURCE}
   ../common/src/runtime/signal_handler.cpp
   ../common/src/util/environment.cpp
   ../common/src/util/filesystem.cpp
   ../common/src/util/platform.cpp
   ../common/src/util/strings.cpp
   ../common/src/util/time.cpp)
-target_include_directories(vc_common PUBLIC ../common/include)
-target_compile_options(vc_common PRIVATE -Wall -Wextra -Wpedantic)
+target_include_directories(oc_common PUBLIC ../common/include)
+target_compile_options(oc_common PRIVATE -Wall -Wextra -Wpedantic)
 if(MOSQ_FOUND)
-  target_include_directories(vc_common PRIVATE ${MOSQ_INCLUDE_DIRS})
-  target_compile_options(vc_common PRIVATE ${MOSQ_CFLAGS_OTHER})
-  target_link_libraries(vc_common PRIVATE ${MOSQ_LIBRARIES})
+  target_include_directories(oc_common PRIVATE ${MOSQ_INCLUDE_DIRS})
+  target_compile_options(oc_common PRIVATE ${MOSQ_CFLAGS_OTHER})
+  target_link_libraries(oc_common PRIVATE ${MOSQ_LIBRARIES})
 endif()
 
 add_library(
@@ -42,7 +42,7 @@ add_library(
   src/service/chime_service.cpp)
 target_include_directories(chime_core PUBLIC include ../common/include)
 target_compile_options(chime_core PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(chime_core PUBLIC vc_common)
+target_link_libraries(chime_core PUBLIC oc_common)
 
 add_library(
   chime_webd_core STATIC
@@ -58,17 +58,17 @@ target_include_directories(chime_webd_core PUBLIC include ../common/include)
 target_compile_options(chime_webd_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(
   chime_webd_core
-  PUBLIC vc_common OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+  PUBLIC oc_common OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
 
 add_executable(chime src/main.cpp)
 target_include_directories(chime PRIVATE include ../common/include)
 target_compile_options(chime PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(chime PRIVATE chime_core vc_common)
+target_link_libraries(chime PRIVATE chime_core oc_common)
 
 add_executable(chime-webd src/webd/main.cpp)
 target_include_directories(chime-webd PRIVATE include ../common/include)
 target_compile_options(chime-webd PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(
   chime-webd
-  PRIVATE chime_webd_core vc_common OpenSSL::SSL OpenSSL::Crypto
+  PRIVATE chime_webd_core oc_common OpenSSL::SSL OpenSSL::Crypto
           Threads::Threads)

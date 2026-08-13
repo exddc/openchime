@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-IMAGE_NAME="virtualchime-builder"
-VOLUME_NAME="virtualchime-buildroot-cache"
+IMAGE_NAME="openchime-builder"
+VOLUME_NAME="openchime-buildroot-cache"
 OUTPUT_DIR="$PROJECT_DIR/buildroot/output"
 APP_VERSION_FILE="$PROJECT_DIR/chime/VERSION"
 OS_VERSION_FILE="$PROJECT_DIR/buildroot/version.env"
@@ -72,7 +72,7 @@ Usage: $0 firmware <pi-ip-or-hostname> [--image <path>] [--version <semver>] [--
 
 Options:
   --image <path>    Rootfs image to deploy (default: $ROOTFS_IMAGE)
-  --version <v>     Override firmware version in manifest (default: VIRTUALCHIME_OS_VERSION)
+  --version <v>     Override firmware version in manifest (default: OPENCHIME_OS_VERSION)
   --no-reboot       Stage update without reboot
   --wait-online     After reboot, wait for device to come back online and show ota-status
 EOF
@@ -94,8 +94,8 @@ read_app_version() {
 read_os_version() {
     [ -f "$OS_VERSION_FILE" ] || error "OS version file not found at $OS_VERSION_FILE"
     local os_version
-    os_version="$(sed -n 's/^VIRTUALCHIME_OS_VERSION=//p' "$OS_VERSION_FILE" | head -n 1 | tr -d '[:space:]')"
-    [ -n "$os_version" ] || error "VIRTUALCHIME_OS_VERSION is empty in $OS_VERSION_FILE"
+    os_version="$(sed -n 's/^OPENCHIME_OS_VERSION=//p' "$OS_VERSION_FILE" | head -n 1 | tr -d '[:space:]')"
+    [ -n "$os_version" ] || error "OPENCHIME_OS_VERSION is empty in $OS_VERSION_FILE"
     printf '%s\n' "$os_version"
 }
 
@@ -138,7 +138,7 @@ rebuild_chime_binary() {
 
     log "Rebuilding chime package..."
     docker run --rm \
-        -v "$PROJECT_DIR:/home/builder/virtualchime:ro" \
+        -v "$PROJECT_DIR:/home/builder/openchime:ro" \
         -v "$VOLUME_NAME:/home/builder/work" \
         -v "$OUTPUT_DIR:/home/builder/output" \
         "$IMAGE_NAME" \
@@ -159,9 +159,9 @@ cd /home/builder/work/buildroot-'"$BUILDROOT_VERSION"'
 echo "[rebuild] Syncing chime source..."
 mkdir -p /home/builder/chime-src/chime /home/builder/chime-src/common /home/builder/br2-external
 sync_start="$(step_start)"
-rsync -a --delete /home/builder/virtualchime/chime/ /home/builder/chime-src/chime/
-rsync -a --delete /home/builder/virtualchime/common/ /home/builder/chime-src/common/
-rsync -a --delete /home/builder/virtualchime/buildroot/ /home/builder/br2-external/
+rsync -a --delete /home/builder/openchime/chime/ /home/builder/chime-src/chime/
+rsync -a --delete /home/builder/openchime/common/ /home/builder/chime-src/common/
+rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
 step_done "sync" "$sync_start"
 
 echo "[rebuild] Building chime package..."
@@ -577,9 +577,9 @@ cmd_version() {
     require_host "$host"
 
     ssh $SSH_OPTS "$SSH_USER@$host" '
-echo "=== /etc/virtualchime-release ==="
-if [ -f /etc/virtualchime-release ]; then
-    cat /etc/virtualchime-release
+echo "=== /etc/openchime-release ==="
+if [ -f /etc/openchime-release ]; then
+    cat /etc/openchime-release
 else
     echo "missing (flash a newer image that writes this file)"
 fi

@@ -26,7 +26,7 @@ if [ "$source_git_dirty" = "1" ]; then
 fi
 
 cat > "$META_FILE" <<EOF
-VIRTUALCHIME_BUILD_ID=${build_id}
+OPENCHIME_BUILD_ID=${build_id}
 CHIME_BUILD_ID=${build_id}
 SOURCE_GIT_SHA=${source_git_sha}
 SOURCE_GIT_SHORT=${source_git_short}

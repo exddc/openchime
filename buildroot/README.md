@@ -34,7 +34,7 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-VIRTUALCHIME_OS_VERSION=0.2.0
+OPENCHIME_OS_VERSION=0.2.0
 CHIME_CONFIG_VERSION=3
 ```
 
@@ -43,15 +43,15 @@ CHIME_CONFIG_VERSION=3
 1.0.0
 ```
 
-- `VIRTUALCHIME_OS_VERSION`: bump when you build/flash a new OS image.
+- `OPENCHIME_OS_VERSION`: bump when you build/flash a new OS image.
 - `CHIME_CONFIG_VERSION`: bump when default `chime.conf` semantics or format changes.
 - `chime/VERSION`: bump when `chime` binary behavior changes.
 
-During image builds, `post_build.sh` writes `/etc/virtualchime-release` on the target rootfs.
+During image builds, `post_build.sh` writes `/etc/openchime-release` on the target rootfs.
 Read versions on-device with:
 
 ```bash
-cat /etc/virtualchime-release
+cat /etc/openchime-release
 cat /etc/chime-app-version
 uname -r
 /usr/local/bin/chime --version
@@ -81,7 +81,7 @@ Uses Docker to avoid host dependencies. Build artifacts stored in a Docker volum
 Image layout sizing:
 
 - Boot partition: `128M` (`board/raspberrypi0w/genimage.cfg`).
-- Root filesystem A: `256M` (`configs/virtualchime_rpi0w_defconfig` output).
+- Root filesystem A: `256M` (`configs/openchime_rpi0w_defconfig` output).
 - Root filesystem B: `256M` (same image, inactive update slot).
 - Data partition: `256M` (persistent state and OTA metadata).
 
@@ -184,7 +184,7 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 ### Build configuration
 | File | Purpose |
 |------|---------|
-| `configs/virtualchime_rpi0w_defconfig` | Main Buildroot config |
+| `configs/openchime_rpi0w_defconfig` | Main Buildroot config |
 | `version.env` | OS/config version source of truth |
 | `../chime/VERSION` | Chime app SemVer source of truth |
 | `package/chime/chime.mk` | Chime package recipe |

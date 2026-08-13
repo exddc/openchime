@@ -1,8 +1,8 @@
-#include "vc/mqtt/client.h"
+#include "oc/mqtt/client.h"
 
-namespace vc::mqtt {
+namespace oc::mqtt {
 
-Client::Client(vc::logging::Logger &logger, EventHandler &handler) : logger_(logger), handler_(handler) {
+Client::Client(oc::logging::Logger &logger, EventHandler &handler) : logger_(logger), handler_(handler) {
     SetLastError("libmosquitto not available in this build");
 }
 
@@ -57,4 +57,4 @@ void Client::SetLastError(const std::string &message) {
 
 void Client::DestroyClient() {}
 
-} // namespace vc::mqtt
+} // namespace oc::mqtt

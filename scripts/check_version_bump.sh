@@ -271,16 +271,16 @@ if [ "$REQUIRES_OS_CONFIG_VERSION_BUMP" -eq 1 ]; then
         error "OS/config version bump required: update $OS_CONFIG_VERSION_FILE when changing OS-impacting files"
     fi
 
-    BASE_OS_VERSION="$(read_key_from_text "$BASE_OS_CONFIG_TEXT" "VIRTUALCHIME_OS_VERSION")"
-    TARGET_OS_VERSION="$(read_key_from_text "$TARGET_OS_CONFIG_TEXT" "VIRTUALCHIME_OS_VERSION")"
+    BASE_OS_VERSION="$(read_key_from_text "$BASE_OS_CONFIG_TEXT" "OPENCHIME_OS_VERSION")"
+    TARGET_OS_VERSION="$(read_key_from_text "$TARGET_OS_CONFIG_TEXT" "OPENCHIME_OS_VERSION")"
     BASE_CONFIG_VERSION="$(read_key_from_text "$BASE_OS_CONFIG_TEXT" "CHIME_CONFIG_VERSION")"
     TARGET_CONFIG_VERSION="$(read_key_from_text "$TARGET_OS_CONFIG_TEXT" "CHIME_CONFIG_VERSION")"
 
     if ! is_semver "$BASE_OS_VERSION" || ! is_semver "$TARGET_OS_VERSION"; then
-        error "Invalid VIRTUALCHIME_OS_VERSION format. Both base/target must be SemVer"
+        error "Invalid OPENCHIME_OS_VERSION format. Both base/target must be SemVer"
     fi
     if ! semver_gt "$TARGET_OS_VERSION" "$BASE_OS_VERSION"; then
-        error "VIRTUALCHIME_OS_VERSION must increase for OS-impacting changes: base=$BASE_OS_VERSION target=$TARGET_OS_VERSION"
+        error "OPENCHIME_OS_VERSION must increase for OS-impacting changes: base=$BASE_OS_VERSION target=$TARGET_OS_VERSION"
     fi
 
     if ! is_integer "$BASE_CONFIG_VERSION" || ! is_integer "$TARGET_CONFIG_VERSION"; then

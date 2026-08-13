@@ -16,10 +16,10 @@
 #include <cstdio>
 #include <unistd.h>
 
-#include "vc/logging/logger.h"
-#include "vc/util/filesystem.h"
-#include "vc/util/platform.h"
-#include "vc/util/strings.h"
+#include "oc/logging/logger.h"
+#include "oc/util/filesystem.h"
+#include "oc/util/platform.h"
+#include "oc/util/strings.h"
 
 namespace chime {
 namespace {
@@ -264,7 +264,7 @@ bool CreateSoftwareScaledWav(const std::string &source_path, int effective_volum
 
 MixerSetResult TrySetVolumeWithAmixer(int effective_volume) {
     for (const char *control_name : kMixerControlCandidates) {
-        const std::string set_volume_cmd = "amixer -q sset \"" + vc::util::EscapeShellDoubleQuotes(control_name) +
+        const std::string set_volume_cmd = "amixer -q sset \"" + oc::util::EscapeShellDoubleQuotes(control_name) +
                                            "\" \"" + std::to_string(effective_volume) + "%\" >/dev/null 2>&1";
         if (std::system(set_volume_cmd.c_str()) == 0) {
             return {true, control_name};
@@ -286,7 +286,7 @@ std::string MixerCandidatesForLog() {
 
 } // namespace
 
-AplayAudioPlayer::AplayAudioPlayer(vc::logging::Logger &logger) : logger_(logger) {}
+AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger) : logger_(logger) {}
 
 AplayAudioPlayer::~AplayAudioPlayer() {
     std::lock_guard<std::mutex> lock(playback_thread_mutex_);
@@ -302,13 +302,13 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
         return;
     }
 
-    if (!vc::util::IsLinux()) {
+    if (!oc::util::IsLinux()) {
         logger_.Info("audio", "(local) would play '" + path + "' volume=" + std::to_string(volume_percent) + "%");
         playing_ = false;
         return;
     }
 
-    if (!vc::util::FileExists(path)) {
+    if (!oc::util::FileExists(path)) {
         logger_.Error("audio", "sound file not found: " + path);
         playing_ = false;
         return;
@@ -354,7 +354,7 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
                 }
 
                 const std::string cmd =
-                    "aplay -q \"" + vc::util::EscapeShellDoubleQuotes(playback_path) + "\" 2>/dev/null";
+                    "aplay -q \"" + oc::util::EscapeShellDoubleQuotes(playback_path) + "\" 2>/dev/null";
                 const int rc = std::system(cmd.c_str());
 
                 const auto elapsed_ms =

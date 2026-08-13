@@ -9,13 +9,13 @@
 #include <thread>
 #include <unistd.h>
 
-#include "vc/config/kv_config.h"
-#include "vc/logging/logger.h"
-#include "vc/runtime/signal_handler.h"
-#include "vc/util/filesystem.h"
-#include "vc/util/platform.h"
-#include "vc/util/strings.h"
-#include "vc/util/time.h"
+#include "oc/config/kv_config.h"
+#include "oc/logging/logger.h"
+#include "oc/runtime/signal_handler.h"
+#include "oc/util/filesystem.h"
+#include "oc/util/platform.h"
+#include "oc/util/strings.h"
+#include "oc/util/time.h"
 
 namespace chime {
 namespace {
@@ -78,13 +78,13 @@ bool TopicMatchesFilter(std::string_view filter, std::string_view topic) {
 }
 } // namespace
 
-ChimeService::ChimeService(const ChimeConfig &config, vc::logging::Logger &logger, AudioPlayer &audio_player,
+ChimeService::ChimeService(const ChimeConfig &config, oc::logging::Logger &logger, AudioPlayer &audio_player,
                            const WifiMonitor &wifi_monitor)
     : config_(config), logger_(logger), mqtt_client_(logger, *this), audio_player_(audio_player),
       wifi_monitor_(wifi_monitor) {}
 
-int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
-    clock_was_unsynced_ = !vc::util::ClockIsSane(kMinimumSaneEpoch);
+int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
+    clock_was_unsynced_ = !oc::util::ClockIsSane(kMinimumSaneEpoch);
     if (clock_was_unsynced_) {
         logger_.Warn("time", "system clock appears unsynchronized (unix=" +
                                  std::to_string(static_cast<long long>(std::time(nullptr))) +
@@ -96,16 +96,16 @@ int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
     logger_.Info("mqtt",
                  "broker=" + config_.host + ":" + std::to_string(config_.port) + " client_id=" + config_.client_id);
     logger_.Info("mqtt", "auth username=" + (config_.mqtt_username.empty() ? "<none>" : config_.mqtt_username) +
-                             " password_set=" + vc::util::BoolToString(!config_.mqtt_password.empty()));
+                             " password_set=" + oc::util::BoolToString(!config_.mqtt_password.empty()));
     logger_.Info("mqtt",
-                 "tls enabled=" + vc::util::BoolToString(config_.mqtt_tls_enabled) +
-                     " validate_cert=" + vc::util::BoolToString(config_.mqtt_tls_validate_certificate) +
+                 "tls enabled=" + oc::util::BoolToString(config_.mqtt_tls_enabled) +
+                     " validate_cert=" + oc::util::BoolToString(config_.mqtt_tls_validate_certificate) +
                      " ca_file=" + (config_.mqtt_tls_ca_file.empty() ? "<default/system>" : config_.mqtt_tls_ca_file));
-    logger_.Info("mqtt", "subscribe topics=" + vc::util::Join(config_.topics, ",") +
+    logger_.Info("mqtt", "subscribe topics=" + oc::util::Join(config_.topics, ",") +
                              " qos=" + std::to_string(config_.mqtt_subscribe_qos));
     logger_.Info("mqtt", "heartbeat interval=" + std::to_string(config_.heartbeat_interval) +
                              "s topic=" + config_.heartbeat_topic);
-    logger_.Info("audio", "enabled=" + vc::util::BoolToString(config_.audio_enabled) +
+    logger_.Info("audio", "enabled=" + oc::util::BoolToString(config_.audio_enabled) +
                               " ring_topic=" + config_.ring_topic + " sound_path=" + config_.sound_path);
     logger_.Info("audio", "notifications success_path=" + config_.notification_success_sound_path +
                               " failure_path=" + config_.notification_failure_sound_path +
@@ -113,9 +113,9 @@ int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
     logger_.Info("wifi", "monitor interface=" + config_.wifi_interface +
                              " interval=" + std::to_string(config_.wifi_check_interval) + "s");
 
-    if (config_.audio_enabled && vc::util::IsLinux()) {
+    if (config_.audio_enabled && oc::util::IsLinux()) {
         const auto validate_audio_file = [this](const std::string &path, const std::string &label) {
-            if (!vc::util::FileExists(path)) {
+            if (!oc::util::FileExists(path)) {
                 logger_.Warn("audio", "configured " + label + " file does not exist or is not readable: " + path);
             }
         };
@@ -124,7 +124,7 @@ int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
         validate_audio_file(config_.notification_failure_sound_path, "notification failure sound");
     }
 
-    vc::mqtt::ConnectOptions options;
+    oc::mqtt::ConnectOptions options;
     options.client_id = config_.client_id;
     options.username = config_.mqtt_username;
     options.password = config_.mqtt_password;
@@ -269,7 +269,7 @@ int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
 
         const auto health_elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_health).count();
         if (health_elapsed >= kHealthLogIntervalSeconds) {
-            const bool clock_sane = vc::util::ClockIsSane(kMinimumSaneEpoch);
+            const bool clock_sane = oc::util::ClockIsSane(kMinimumSaneEpoch);
             if (clock_was_unsynced_ && clock_sane) {
                 logger_.Info("time", "system clock synchronized");
                 clock_was_unsynced_ = false;
@@ -281,7 +281,7 @@ int ChimeService::Run(vc::runtime::SignalHandler &signal_handler) {
 
     if (signal_handler.LastSignal() != 0) {
         logger_.Info("chime", "shutdown requested by signal " +
-                                  vc::runtime::SignalHandler::SignalName(signal_handler.LastSignal()));
+                                  oc::runtime::SignalHandler::SignalName(signal_handler.LastSignal()));
     } else {
         logger_.Info("chime", "shutdown requested");
     }
@@ -322,17 +322,17 @@ void ChimeService::OnDisconnect(int rc) {
     logger_.Warn("mqtt", "unexpected disconnect: code=" + std::to_string(rc) + " '" + MqttErrorString(rc) + "'");
 }
 
-void ChimeService::OnMessage(const vc::mqtt::Message &message) {
+void ChimeService::OnMessage(const oc::mqtt::Message &message) {
     messages_received_.fetch_add(1, std::memory_order_relaxed);
     RecordObservedTopic(message.topic);
 
-    std::string payload_for_log = vc::util::SanitizePayloadForLog(message.payload);
+    std::string payload_for_log = oc::util::SanitizePayloadForLog(message.payload);
     if (payload_for_log.size() > kMaxPayloadLogBytes) {
         payload_for_log = payload_for_log.substr(0, kMaxPayloadLogBytes) + "...";
     }
 
     logger_.Info("mqtt", "message topic='" + message.topic + "' qos=" + std::to_string(message.qos) +
-                             " retain=" + vc::util::BoolToString(message.retain) +
+                             " retain=" + oc::util::BoolToString(message.retain) +
                              " bytes=" + std::to_string(message.payload.size()) + " payload='" + payload_for_log + "'");
 
     if (config_.audio_enabled && RingTopicMatches(message.topic)) {
@@ -383,7 +383,7 @@ void ChimeService::LoadObservedTopics() {
 
     std::string line;
     while (std::getline(file, line)) {
-        const std::string topic = vc::config::trim(line);
+        const std::string topic = oc::config::trim(line);
         if (topic.empty()) {
             continue;
         }
@@ -476,14 +476,14 @@ void ChimeService::LogWifiState(const WifiState &state) const {
 }
 
 void ChimeService::LogHealth(bool clock_sane) {
-    logger_.Info("health", "clock_sane=" + vc::util::BoolToString(clock_sane) +
-                               " mqtt_connected=" + vc::util::BoolToString(mqtt_connected_.load()) +
+    logger_.Info("health", "clock_sane=" + oc::util::BoolToString(clock_sane) +
+                               " mqtt_connected=" + oc::util::BoolToString(mqtt_connected_.load()) +
                                " messages=" + std::to_string(messages_received_.load(std::memory_order_relaxed)) +
                                " rings=" + std::to_string(ring_messages_received_.load(std::memory_order_relaxed)) +
                                " loop_errors=" + std::to_string(loop_errors_.load(std::memory_order_relaxed)) +
                                " reconnects=" + std::to_string(reconnect_attempts_.load(std::memory_order_relaxed)) +
                                " heartbeats=" + std::to_string(heartbeats_sent_.load(std::memory_order_relaxed)) +
-                               " audio_playing=" + vc::util::BoolToString(audio_player_.IsPlaying()));
+                               " audio_playing=" + oc::util::BoolToString(audio_player_.IsPlaying()));
 }
 
 } // namespace chime

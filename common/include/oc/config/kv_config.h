@@ -1,5 +1,5 @@
-#ifndef VC_CONFIG_KV_CONFIG_H
-#define VC_CONFIG_KV_CONFIG_H
+#ifndef OC_CONFIG_KV_CONFIG_H
+#define OC_CONFIG_KV_CONFIG_H
 
 #include <cctype>
 #include <cstdlib>
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace vc::config {
+namespace oc::config {
 
 inline std::string trim(std::string_view input) {
   const auto start = input.find_first_not_of(" \t\r\n");
@@ -146,6 +146,6 @@ LoadResult<T> load(const std::string& path, T defaults,
   return result;
 }
 
-}  // namespace vc::config
+}  // namespace oc::config
 
 #endif

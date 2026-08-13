@@ -6,20 +6,20 @@
 #include "chime/chime_config.h"
 #include "chime/chime_service.h"
 #include "chime/wifi_monitor.h"
-#include "vc/logging/logger.h"
-#include "vc/runtime/signal_handler.h"
-#include "vc/util/environment.h"
+#include "oc/logging/logger.h"
+#include "oc/runtime/signal_handler.h"
+#include "oc/util/environment.h"
 
 namespace {
 constexpr const char* kDefaultConfigPath = "/etc/chime.conf";
-constexpr const char* kReleaseFilePath = "/etc/virtualchime-release";
+constexpr const char* kReleaseFilePath = "/etc/openchime-release";
 
 #ifndef CHIME_APP_VERSION
 #define CHIME_APP_VERSION "dev"
 #endif
 
-#ifndef VIRTUALCHIME_OS_VERSION
-#define VIRTUALCHIME_OS_VERSION "dev"
+#ifndef OPENCHIME_OS_VERSION
+#define OPENCHIME_OS_VERSION "dev"
 #endif
 
 #ifndef CHIME_CONFIG_VERSION
@@ -54,11 +54,11 @@ void PrintUsage(const char* program) {
 void PrintVersion() {
   std::cout << "CHIME_APP_VERSION=" << CHIME_APP_VERSION << "\n";
   std::cout << "CHIME_BUILD_ID=" << CHIME_BUILD_ID << "\n";
-  std::cout << "VIRTUALCHIME_OS_VERSION=" << VIRTUALCHIME_OS_VERSION << "\n";
+  std::cout << "OPENCHIME_OS_VERSION=" << OPENCHIME_OS_VERSION << "\n";
   std::cout << "CHIME_CONFIG_VERSION=" << CHIME_CONFIG_VERSION << "\n";
 
   const std::string runtime_os_version =
-      ReadReleaseValue("VIRTUALCHIME_OS_VERSION");
+      ReadReleaseValue("OPENCHIME_OS_VERSION");
   if (!runtime_os_version.empty()) {
     std::cout << "RUNTIME_OS_VERSION=" << runtime_os_version << "\n";
   }
@@ -101,11 +101,11 @@ int main(int argc, char* argv[]) {
   std::cout.setf(std::ios::unitbuf);
   std::cerr.setf(std::ios::unitbuf);
 
-  vc::logging::StderrLogger logger;
-  vc::runtime::SignalHandler signal_handler;
+  oc::logging::StderrLogger logger;
+  oc::runtime::SignalHandler signal_handler;
   signal_handler.Install();
 
-  const std::string config_env = vc::util::GetEnv("CHIME_CONFIG");
+  const std::string config_env = oc::util::GetEnv("CHIME_CONFIG");
   const std::string config_path =
       config_env.empty() ? kDefaultConfigPath : config_env;
 
@@ -115,21 +115,21 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  const std::string client_id_override = vc::util::GetEnv("CHIME_MQTT_CLIENT_ID");
+  const std::string client_id_override = oc::util::GetEnv("CHIME_MQTT_CLIENT_ID");
   if (!client_id_override.empty()) {
     result.config.client_id = client_id_override;
     logger.Info("mqtt", "client_id override from CHIME_MQTT_CLIENT_ID");
   }
 
   const std::string mqtt_username_override =
-      vc::util::GetEnv("CHIME_MQTT_USERNAME");
+      oc::util::GetEnv("CHIME_MQTT_USERNAME");
   if (!mqtt_username_override.empty()) {
     result.config.mqtt_username = mqtt_username_override;
     logger.Info("mqtt", "username override from CHIME_MQTT_USERNAME");
   }
 
   const std::string mqtt_password_override =
-      vc::util::GetEnv("CHIME_MQTT_PASSWORD");
+      oc::util::GetEnv("CHIME_MQTT_PASSWORD");
   if (!mqtt_password_override.empty()) {
     result.config.mqtt_password = mqtt_password_override;
     logger.Info("mqtt", "password override from CHIME_MQTT_PASSWORD");
