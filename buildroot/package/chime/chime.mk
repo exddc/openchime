@@ -1,17 +1,17 @@
 ################################################################################
 #
-# chime - Virtual Chime doorbell application
+# chime - Open Chime doorbell application
 #
 ################################################################################
 
-CHIME_SITE = $(BR2_EXTERNAL_VIRTUALCHIME_PATH)/../chime-src
+CHIME_SITE = $(BR2_EXTERNAL_OPENCHIME_PATH)/../chime-src
 CHIME_SITE_METHOD = local
 CHIME_VERSION_FILE = $(CHIME_SITE)/chime/VERSION
-VIRTUALCHIME_VERSION_FILE = $(BR2_EXTERNAL_VIRTUALCHIME_PATH)/version.env
-CHIME_BUILD_META_FILE = $(BR2_EXTERNAL_VIRTUALCHIME_PATH)/build_meta.env
+OPENCHIME_VERSION_FILE = $(BR2_EXTERNAL_OPENCHIME_PATH)/version.env
+CHIME_BUILD_META_FILE = $(BR2_EXTERNAL_OPENCHIME_PATH)/build_meta.env
 CHIME_VERSION = $(strip $(shell head -n 1 $(CHIME_VERSION_FILE) 2>/dev/null))
-CHIME_OS_VERSION = $(strip $(shell sed -n 's/^VIRTUALCHIME_OS_VERSION=//p' $(VIRTUALCHIME_VERSION_FILE)))
-CHIME_CONFIG_VERSION = $(strip $(shell sed -n 's/^CHIME_CONFIG_VERSION=//p' $(VIRTUALCHIME_VERSION_FILE)))
+CHIME_OS_VERSION = $(strip $(shell sed -n 's/^OPENCHIME_OS_VERSION=//p' $(OPENCHIME_VERSION_FILE)))
+CHIME_CONFIG_VERSION = $(strip $(shell sed -n 's/^CHIME_CONFIG_VERSION=//p' $(OPENCHIME_VERSION_FILE)))
 CHIME_BUILD_ID = $(strip $(shell sed -n 's/^CHIME_BUILD_ID=//p' $(CHIME_BUILD_META_FILE) 2>/dev/null))
 CHIME_LICENSE = MIT
 CHIME_LICENSE_FILES = chime/README.md
@@ -22,11 +22,11 @@ $(error Missing chime app version in $(CHIME_VERSION_FILE))
 endif
 
 ifeq ($(CHIME_OS_VERSION),)
-$(error Missing VIRTUALCHIME_OS_VERSION in $(VIRTUALCHIME_VERSION_FILE))
+$(error Missing OPENCHIME_OS_VERSION in $(OPENCHIME_VERSION_FILE))
 endif
 
 ifeq ($(CHIME_CONFIG_VERSION),)
-$(error Missing CHIME_CONFIG_VERSION in $(VIRTUALCHIME_VERSION_FILE))
+$(error Missing CHIME_CONFIG_VERSION in $(OPENCHIME_VERSION_FILE))
 endif
 
 ifeq ($(CHIME_BUILD_ID),)
@@ -64,7 +64,7 @@ CHIME_WEBD_SOURCES = \
 define CHIME_BUILD_CMDS
 	$(TARGET_CXX) $(TARGET_CXXFLAGS) -std=c++20 -Wall -Wextra \
 		-DCHIME_APP_VERSION=\"$(CHIME_VERSION)\" \
-		-DVIRTUALCHIME_OS_VERSION=\"$(CHIME_OS_VERSION)\" \
+		-DOPENCHIME_OS_VERSION=\"$(CHIME_OS_VERSION)\" \
 		-DCHIME_CONFIG_VERSION=\"$(CHIME_CONFIG_VERSION)\" \
 		-DCHIME_BUILD_ID=\"$(CHIME_BUILD_ID)\" \
 		-I$(@D)/chime/include -I$(@D)/common/include \

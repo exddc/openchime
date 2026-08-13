@@ -5,7 +5,7 @@
 #include <string>
 #include <thread>
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -13,7 +13,7 @@ namespace chime::webd {
 
 class MdnsResponder {
  public:
-  MdnsResponder(vc::logging::Logger& logger, std::string host_label,
+  MdnsResponder(oc::logging::Logger& logger, std::string host_label,
                 std::string interface_name);
   ~MdnsResponder();
 
@@ -26,7 +26,7 @@ class MdnsResponder {
  private:
   void Run();
 
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   std::string host_label_;
   std::string interface_name_;
 

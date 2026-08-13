@@ -1,6 +1,6 @@
-#include "vc/runtime/signal_handler.h"
+#include "oc/runtime/signal_handler.h"
 
-namespace vc::runtime {
+namespace oc::runtime {
 namespace {
 volatile std::sig_atomic_t g_should_stop = 0;
 volatile std::sig_atomic_t g_last_signal = 0;
@@ -31,4 +31,4 @@ void SignalHandler::Handle(int signal) {
   g_should_stop = 1;
 }
 
-}  // namespace vc::runtime
+}  // namespace oc::runtime

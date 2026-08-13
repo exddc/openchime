@@ -1,9 +1,9 @@
-#include "vc/util/strings.h"
+#include "oc/util/strings.h"
 
 #include <cctype>
 #include <sstream>
 
-namespace vc::util {
+namespace oc::util {
 
 std::string BoolToString(bool value) { return value ? "true" : "false"; }
 
@@ -50,4 +50,4 @@ std::string SanitizePayloadForLog(std::string_view payload) {
   return clean;
 }
 
-}  // namespace vc::util
+}  // namespace oc::util

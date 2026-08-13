@@ -10,7 +10,7 @@
 
 #include <sys/wait.h>
 
-#include "vc/logging/logger.h"
+#include "oc/logging/logger.h"
 
 namespace chime::webd {
 namespace {
@@ -33,7 +33,7 @@ std::string NowIso8601Utc() {
 
 }  // namespace
 
-ApplyManager::ApplyManager(vc::logging::Logger& logger,
+ApplyManager::ApplyManager(oc::logging::Logger& logger,
                            std::string network_restart_command,
                            std::string chime_restart_command)
     : logger_(logger),

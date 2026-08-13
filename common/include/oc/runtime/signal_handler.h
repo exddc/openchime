@@ -1,10 +1,10 @@
-#ifndef VC_RUNTIME_SIGNAL_HANDLER_H
-#define VC_RUNTIME_SIGNAL_HANDLER_H
+#ifndef OC_RUNTIME_SIGNAL_HANDLER_H
+#define OC_RUNTIME_SIGNAL_HANDLER_H
 
 #include <csignal>
 #include <string>
 
-namespace vc::runtime {
+namespace oc::runtime {
 
 class SignalHandler {
  public:
@@ -17,6 +17,6 @@ class SignalHandler {
   static void Handle(int signal);
 };
 
-}  // namespace vc::runtime
+}  // namespace oc::runtime
 
 #endif

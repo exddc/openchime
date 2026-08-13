@@ -2,39 +2,39 @@
 
 namespace chime {
 namespace {
-constexpr vc::config::Field<ChimeConfig> kConfigFields[] = {
-    {"mqtt_host", vc::config::parse_string<ChimeConfig, &ChimeConfig::host>, true},
-    {"mqtt_port", vc::config::parse_int<ChimeConfig, &ChimeConfig::port>, true},
-    {"mqtt_client_id", vc::config::parse_string<ChimeConfig, &ChimeConfig::client_id>, false},
-    {"mqtt_username", vc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_username>, false},
-    {"mqtt_password", vc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_password>, false},
-    {"mqtt_tls_enabled", vc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_enabled>, false},
-    {"mqtt_tls_validate_certificate", vc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_validate_certificate>,
+constexpr oc::config::Field<ChimeConfig> kConfigFields[] = {
+    {"mqtt_host", oc::config::parse_string<ChimeConfig, &ChimeConfig::host>, true},
+    {"mqtt_port", oc::config::parse_int<ChimeConfig, &ChimeConfig::port>, true},
+    {"mqtt_client_id", oc::config::parse_string<ChimeConfig, &ChimeConfig::client_id>, false},
+    {"mqtt_username", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_username>, false},
+    {"mqtt_password", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_password>, false},
+    {"mqtt_tls_enabled", oc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_enabled>, false},
+    {"mqtt_tls_validate_certificate", oc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_validate_certificate>,
      false},
-    {"mqtt_tls_ca_file", vc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_ca_file>, false},
-    {"mqtt_tls_cert_file", vc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_cert_file>, false},
-    {"mqtt_tls_key_file", vc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_key_file>, false},
-    {"mqtt_topics", vc::config::parse_csv<ChimeConfig, &ChimeConfig::topics>, true},
-    {"mqtt_subscribe_qos", vc::config::parse_int<ChimeConfig, &ChimeConfig::mqtt_subscribe_qos, 0, 2>, false},
-    {"heartbeat_interval", vc::config::parse_int<ChimeConfig, &ChimeConfig::heartbeat_interval, 0, 3600>, false},
-    {"heartbeat_topic", vc::config::parse_string<ChimeConfig, &ChimeConfig::heartbeat_topic>, false},
-    {"ring_topic", vc::config::parse_string<ChimeConfig, &ChimeConfig::ring_topic>, false},
-    {"sound_path", vc::config::parse_string<ChimeConfig, &ChimeConfig::sound_path>, false},
+    {"mqtt_tls_ca_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_ca_file>, false},
+    {"mqtt_tls_cert_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_cert_file>, false},
+    {"mqtt_tls_key_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_key_file>, false},
+    {"mqtt_topics", oc::config::parse_csv<ChimeConfig, &ChimeConfig::topics>, true},
+    {"mqtt_subscribe_qos", oc::config::parse_int<ChimeConfig, &ChimeConfig::mqtt_subscribe_qos, 0, 2>, false},
+    {"heartbeat_interval", oc::config::parse_int<ChimeConfig, &ChimeConfig::heartbeat_interval, 0, 3600>, false},
+    {"heartbeat_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::heartbeat_topic>, false},
+    {"ring_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::ring_topic>, false},
+    {"sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::sound_path>, false},
     {"notification_success_sound_path",
-     vc::config::parse_string<ChimeConfig, &ChimeConfig::notification_success_sound_path>, false},
+     oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_success_sound_path>, false},
     {"notification_failure_sound_path",
-     vc::config::parse_string<ChimeConfig, &ChimeConfig::notification_failure_sound_path>, false},
-    {"volume_bell", vc::config::parse_int<ChimeConfig, &ChimeConfig::volume_bell, 0, 100>, false},
-    {"volume_notifications", vc::config::parse_int<ChimeConfig, &ChimeConfig::volume_notifications, 0, 100>, false},
-    {"volume_other", vc::config::parse_int<ChimeConfig, &ChimeConfig::volume_other, 0, 100>, false},
-    {"audio_enabled", vc::config::parse_bool<ChimeConfig, &ChimeConfig::audio_enabled>, false},
-    {"wifi_interface", vc::config::parse_string<ChimeConfig, &ChimeConfig::wifi_interface>, false},
-    {"wifi_check_interval", vc::config::parse_int<ChimeConfig, &ChimeConfig::wifi_check_interval, 0, 3600>, false},
+     oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_failure_sound_path>, false},
+    {"volume_bell", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_bell, 0, 100>, false},
+    {"volume_notifications", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_notifications, 0, 100>, false},
+    {"volume_other", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_other, 0, 100>, false},
+    {"audio_enabled", oc::config::parse_bool<ChimeConfig, &ChimeConfig::audio_enabled>, false},
+    {"wifi_interface", oc::config::parse_string<ChimeConfig, &ChimeConfig::wifi_interface>, false},
+    {"wifi_check_interval", oc::config::parse_int<ChimeConfig, &ChimeConfig::wifi_check_interval, 0, 3600>, false},
 };
 } // namespace
 
-vc::config::LoadResult<ChimeConfig> LoadConfig(const std::string &path) {
-    return vc::config::load(path, ChimeConfig{}, kConfigFields);
+oc::config::LoadResult<ChimeConfig> LoadConfig(const std::string &path) {
+    return oc::config::load(path, ChimeConfig{}, kConfigFields);
 }
 
 } // namespace chime

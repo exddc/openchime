@@ -8,7 +8,7 @@
 
 #include "chime/webd_types.h"
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -20,7 +20,7 @@ class WifiScanner;
 
 class WebServer {
   public:
-    WebServer(vc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
+    WebServer(oc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
               ApplyManager &apply_manager, std::string bind_address, int port, std::string cert_path,
               std::string key_path, std::string ui_dist_dir, std::string observed_topics_path,
               std::string ring_sounds_dir, std::string active_ring_sound_path);
@@ -66,7 +66,7 @@ class WebServer {
 
     bool EnsureTlsMaterial(std::string *error) const;
 
-    vc::logging::Logger &logger_;
+    oc::logging::Logger &logger_;
     ConfigStore &config_store_;
     WifiScanner &wifi_scanner_;
     ApplyManager &apply_manager_;

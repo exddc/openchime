@@ -1,4 +1,4 @@
-# Buildroot build environment for Virtual Chime
+# Buildroot build environment for Open Chime
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive

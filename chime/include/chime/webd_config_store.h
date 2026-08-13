@@ -6,7 +6,7 @@
 
 #include "chime/webd_types.h"
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -14,7 +14,7 @@ namespace chime::webd {
 
 class ConfigStore {
  public:
-  ConfigStore(vc::logging::Logger& logger, std::string chime_config_path,
+  ConfigStore(oc::logging::Logger& logger, std::string chime_config_path,
               std::string wpa_supplicant_path);
 
   SaveResult LoadCoreConfig() const;
@@ -32,7 +32,7 @@ class ConfigStore {
                          const CoreConfigSnapshot& existing,
                          std::string* error) const;
 
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   std::string chime_config_path_;
   std::string wpa_supplicant_path_;
 };

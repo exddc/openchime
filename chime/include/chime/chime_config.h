@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "vc/config/kv_config.h"
+#include "oc/config/kv_config.h"
 
 namespace chime {
 
@@ -37,7 +37,7 @@ struct ChimeConfig {
   int wifi_check_interval = 5;
 };
 
-vc::config::LoadResult<ChimeConfig> LoadConfig(const std::string& path);
+oc::config::LoadResult<ChimeConfig> LoadConfig(const std::string& path);
 
 }  // namespace chime
 

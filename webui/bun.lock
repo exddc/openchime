@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "virtualchime-webui",
+      "name": "openchime-webui",
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@sveltejs/vite-plugin-svelte": "^4.0.0",

@@ -13,10 +13,10 @@
 #include "chime/webd_mdns.h"
 #include "chime/webd_web_server.h"
 #include "chime/webd_wifi_scan.h"
-#include "vc/config/kv_config.h"
-#include "vc/logging/logger.h"
-#include "vc/runtime/signal_handler.h"
-#include "vc/util/environment.h"
+#include "oc/config/kv_config.h"
+#include "oc/logging/logger.h"
+#include "oc/runtime/signal_handler.h"
+#include "oc/util/environment.h"
 
 namespace {
 
@@ -35,7 +35,7 @@ constexpr const char *kRingSoundsDir = "/var/lib/chime/ring_sounds";
 constexpr const char *kActiveRingSoundPath = "/usr/local/share/chime/ring.wav";
 
 std::string EnvOrDefault(const char *key, const char *fallback) {
-    const std::string value = vc::util::GetEnv(key);
+    const std::string value = oc::util::GetEnv(key);
     if (!value.empty()) {
         return value;
     }
@@ -43,7 +43,7 @@ std::string EnvOrDefault(const char *key, const char *fallback) {
 }
 
 int EnvIntOrDefault(const char *key, int fallback) {
-    const std::string value = vc::util::GetEnv(key);
+    const std::string value = oc::util::GetEnv(key);
     if (value.empty()) {
         return fallback;
     }
@@ -57,7 +57,7 @@ int EnvIntOrDefault(const char *key, int fallback) {
 }
 
 bool EnvBoolOrDefault(const char *key, bool fallback) {
-    const std::string value = vc::config::trim(vc::util::GetEnv(key));
+    const std::string value = oc::config::trim(oc::util::GetEnv(key));
     if (value.empty()) {
         return fallback;
     }
@@ -83,12 +83,12 @@ std::string ReadWifiInterfaceOrDefault(const std::string &path) {
 
     std::string line;
     while (std::getline(file, line)) {
-        const std::string trimmed = vc::config::trim(line);
+        const std::string trimmed = oc::config::trim(line);
         if (trimmed.empty() || trimmed[0] == '#') {
             continue;
         }
         if (trimmed.rfind("wifi_interface=", 0) == 0) {
-            const std::string value = vc::config::trim(trimmed.substr(15));
+            const std::string value = oc::config::trim(trimmed.substr(15));
             if (!value.empty()) {
                 return value;
             }
@@ -134,8 +134,8 @@ int main(int argc, char *argv[]) {
     std::cout.setf(std::ios::unitbuf);
     std::cerr.setf(std::ios::unitbuf);
 
-    vc::logging::StderrLogger logger;
-    vc::runtime::SignalHandler signal_handler;
+    oc::logging::StderrLogger logger;
+    oc::runtime::SignalHandler signal_handler;
     signal_handler.Install();
 #if !defined(_WIN32)
     std::signal(SIGPIPE, SIG_IGN);
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
     const std::string bind_address = EnvOrDefault("CHIME_WEBD_BIND_ADDRESS", kBindAddress);
     const int listen_port = EnvIntOrDefault("CHIME_WEBD_PORT", kListenPort);
     const std::string host_label = EnvOrDefault("CHIME_WEBD_HOST_LABEL", kHostLabel);
-    const std::string wifi_interface_override = vc::util::GetEnv("CHIME_WEBD_WIFI_INTERFACE");
+    const std::string wifi_interface_override = oc::util::GetEnv("CHIME_WEBD_WIFI_INTERFACE");
     const std::string wifi_interface =
         wifi_interface_override.empty() ? ReadWifiInterfaceOrDefault(chime_config_path) : wifi_interface_override;
     const std::string network_restart_command = EnvOrDefault("CHIME_WEBD_NETWORK_RESTART_CMD", kNetworkRestartCommand);

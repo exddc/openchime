@@ -1,1 +1,1 @@
-include $(sort $(wildcard $(BR2_EXTERNAL_VIRTUALCHIME_PATH)/package/*/*.mk))
+include $(sort $(wildcard $(BR2_EXTERNAL_OPENCHIME_PATH)/package/*/*.mk))

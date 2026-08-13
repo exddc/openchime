@@ -21,8 +21,8 @@
 #include <unistd.h>
 
 #include "chime/webd_string_utils.h"
-#include "vc/config/kv_config.h"
-#include "vc/logging/logger.h"
+#include "oc/config/kv_config.h"
+#include "oc/logging/logger.h"
 
 namespace chime::webd {
 namespace {
@@ -211,7 +211,7 @@ std::string OneLineOutput(std::string output, std::size_t max_chars) {
             ch = ' ';
         }
     }
-    output = vc::config::trim(output);
+    output = oc::config::trim(output);
     if (output.size() <= max_chars) {
         return output;
     }
@@ -339,7 +339,7 @@ WifiScanResult ScanWithAirport() {
 
     std::vector<WifiNetwork> networks;
     for (const auto &raw_line : SplitLines(scan_output.output)) {
-        const std::string line = vc::config::trim(raw_line);
+        const std::string line = oc::config::trim(raw_line);
         if (line.empty() || line.rfind("SSID", 0) == 0) {
             continue;
         }
@@ -349,12 +349,12 @@ WifiScanResult ScanWithAirport() {
             continue;
         }
 
-        const std::string ssid = vc::config::trim(line.substr(0, match.position()));
+        const std::string ssid = oc::config::trim(line.substr(0, match.position()));
         if (ssid.empty()) {
             continue;
         }
 
-        const std::string remainder = vc::config::trim(line.substr(match.position() + match.length()));
+        const std::string remainder = oc::config::trim(line.substr(match.position() + match.length()));
         std::istringstream remainder_stream(remainder);
         std::vector<std::string> fields;
         std::string token;
@@ -389,7 +389,7 @@ WifiScanResult ScanWithAirport() {
 
 } // namespace
 
-WifiScanner::WifiScanner(vc::logging::Logger &logger, std::string interface_name)
+WifiScanner::WifiScanner(oc::logging::Logger &logger, std::string interface_name)
     : logger_(logger), interface_name_(std::move(interface_name)) {}
 
 WifiScanResult WifiScanner::Scan() const {
@@ -492,7 +492,7 @@ WifiScanResult WifiScanner::ScanWithIw() const {
     };
 
     for (const auto &line : SplitLines(iw_output.output)) {
-        const std::string trimmed = vc::config::trim(line);
+        const std::string trimmed = oc::config::trim(line);
         if (trimmed.rfind("BSS ", 0) == 0) {
             push_current();
             in_block = true;
@@ -504,12 +504,12 @@ WifiScanResult WifiScanner::ScanWithIw() const {
         }
 
         if (trimmed.rfind("SSID:", 0) == 0) {
-            current.ssid = vc::config::trim(trimmed.substr(5));
+            current.ssid = oc::config::trim(trimmed.substr(5));
             continue;
         }
 
         if (trimmed.rfind("signal:", 0) == 0) {
-            std::string value = vc::config::trim(trimmed.substr(7));
+            std::string value = oc::config::trim(trimmed.substr(7));
             const auto space = value.find(' ');
             if (space != std::string::npos) {
                 value = value.substr(0, space);

@@ -7,7 +7,7 @@
 
 #include "chime/webd_types.h"
 
-namespace vc::logging {
+namespace oc::logging {
 class Logger;
 }
 
@@ -15,7 +15,7 @@ namespace chime::webd {
 
 class ApplyManager {
  public:
-  ApplyManager(vc::logging::Logger& logger, std::string network_restart_command,
+  ApplyManager(oc::logging::Logger& logger, std::string network_restart_command,
                std::string chime_restart_command);
 
   ApplyStatus StartApply();
@@ -25,7 +25,7 @@ class ApplyManager {
   void RunApplyJob(unsigned long long job_id);
   bool RunCommand(const std::string& command, std::string* error) const;
 
-  vc::logging::Logger& logger_;
+  oc::logging::Logger& logger_;
   std::string network_restart_command_;
   std::string chime_restart_command_;
   mutable std::mutex mutex_;

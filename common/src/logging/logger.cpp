@@ -1,4 +1,4 @@
-#include "vc/logging/logger.h"
+#include "oc/logging/logger.h"
 
 #include <chrono>
 #include <ctime>
@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace vc::logging {
+namespace oc::logging {
 namespace {
 const char* LevelName(Level level) {
   switch (level) {
@@ -47,4 +47,4 @@ void StderrLogger::Log(Level level, std::string_view component,
             << "] " << message << "\n";
 }
 
-}  // namespace vc::logging
+}  // namespace oc::logging

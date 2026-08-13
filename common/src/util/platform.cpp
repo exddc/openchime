@@ -1,6 +1,6 @@
-#include "vc/util/platform.h"
+#include "oc/util/platform.h"
 
-namespace vc::util {
+namespace oc::util {
 
 bool IsLinux() {
 #ifdef __linux__
@@ -10,4 +10,4 @@ bool IsLinux() {
 #endif
 }
 
-}  // namespace vc::util
+}  // namespace oc::util
