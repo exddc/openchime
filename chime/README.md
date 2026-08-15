@@ -13,9 +13,21 @@ Run the same checks as GitHub chime CI from the repo root:
 ./scripts/chime_ci.sh
 ```
 
+This configures the native CMake build with `-DOC_BUILD_TESTS=ON`, builds, and runs `ctest --output-on-failure`. A plain `cmake -S chime` leaves tests off, so production and offline configures do not download doctest.
+
 Useful options:
 - `./scripts/chime_ci.sh --fix-format` to apply `clang-format` to the checked files.
+- `./scripts/chime_ci.sh --skip-build` to run CTest against an existing build directory.
+- `./scripts/chime_ci.sh --skip-tests` to skip CTest.
 - `CHIME_CI_SCOPE=changed CHIME_CI_BASE_REF=origin/main ./scripts/chime_ci.sh` to lint/format only files changed from a base ref.
+
+Native C++ tests can also be run directly:
+
+```bash
+cmake -S chime -B chime/build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DOC_BUILD_TESTS=ON
+cmake --build chime/build-ci
+ctest --test-dir chime/build-ci --output-on-failure --no-tests=error
+```
 
 For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 

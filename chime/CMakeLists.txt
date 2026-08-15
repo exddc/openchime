@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(MOSQ QUIET libmosquitto)
+pkg_check_modules(MOSQ QUIET IMPORTED_TARGET libmosquitto)
 
-if(MOSQ_FOUND)
+if(TARGET PkgConfig::MOSQ)
   set(OC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client.cpp)
 else()
   message(WARNING "libmosquitto not found; building with MQTT stub client")
@@ -28,10 +28,8 @@ add_library(
   ../common/src/util/time.cpp)
 target_include_directories(oc_common PUBLIC ../common/include)
 target_compile_options(oc_common PRIVATE -Wall -Wextra -Wpedantic)
-if(MOSQ_FOUND)
-  target_include_directories(oc_common PRIVATE ${MOSQ_INCLUDE_DIRS})
-  target_compile_options(oc_common PRIVATE ${MOSQ_CFLAGS_OTHER})
-  target_link_libraries(oc_common PRIVATE ${MOSQ_LIBRARIES})
+if(TARGET PkgConfig::MOSQ)
+  target_link_libraries(oc_common PUBLIC PkgConfig::MOSQ)
 endif()
 
 add_library(
@@ -72,3 +70,9 @@ target_link_libraries(
   chime-webd
   PRIVATE chime_webd_core oc_common OpenSSL::SSL OpenSSL::Crypto
           Threads::Threads)
+
+option(OC_BUILD_TESTS "Build native C++ tests (CTest)" OFF)
+if(OC_BUILD_TESTS)
+  include(CTest)
+  add_subdirectory(tests)
+endif()

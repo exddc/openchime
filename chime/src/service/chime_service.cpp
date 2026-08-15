@@ -1,16 +1,16 @@
 #include "chime/chime_service.h"
 
-#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
-#include <string_view>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 #include "oc/config/kv_config.h"
 #include "oc/logging/logger.h"
+#include "oc/mqtt/topic.h"
 #include "oc/runtime/signal_handler.h"
 #include "oc/util/filesystem.h"
 #include "oc/util/platform.h"
@@ -27,7 +27,6 @@ constexpr int kStartupUnknownWifiTimeoutSeconds = 30;
 constexpr std::time_t kMinimumSaneEpoch = 1704067200;
 constexpr std::size_t kMaxPayloadLogBytes = 256;
 constexpr std::size_t kMaxObservedTopics = 256;
-constexpr const char *kObservedTopicsPath = "/var/lib/chime/observed_topics.txt";
 
 const char *MqttConnackString(int rc) {
     return rc == 0 ? "Connection Accepted" : "Connection Refused";
@@ -37,51 +36,12 @@ const char *MqttErrorString(int rc) {
     return rc == 0 ? "No error" : "MQTT error";
 }
 
-std::vector<std::string> SplitTopic(std::string_view topic) {
-    std::vector<std::string> levels;
-    std::size_t start = 0;
-    while (start <= topic.size()) {
-        const std::size_t slash = topic.find('/', start);
-        if (slash == std::string_view::npos) {
-            levels.emplace_back(topic.substr(start));
-            break;
-        }
-        levels.emplace_back(topic.substr(start, slash - start));
-        start = slash + 1;
-        if (start == topic.size()) {
-            levels.emplace_back("");
-            break;
-        }
-    }
-    return levels;
-}
-
-bool TopicMatchesFilter(std::string_view filter, std::string_view topic) {
-    const auto filter_levels = SplitTopic(filter);
-    const auto topic_levels = SplitTopic(topic);
-
-    std::size_t topic_index = 0;
-    for (std::size_t filter_index = 0; filter_index < filter_levels.size(); ++filter_index) {
-        const std::string &filter_level = filter_levels[filter_index];
-        if (filter_level == "#") {
-            return filter_index + 1 == filter_levels.size();
-        }
-        if (topic_index >= topic_levels.size()) {
-            return false;
-        }
-        if (filter_level != "+" && filter_level != topic_levels[topic_index]) {
-            return false;
-        }
-        ++topic_index;
-    }
-    return topic_index == topic_levels.size();
-}
 } // namespace
 
 ChimeService::ChimeService(const ChimeConfig &config, oc::logging::Logger &logger, AudioPlayer &audio_player,
-                           const WifiMonitor &wifi_monitor)
+                           const WifiMonitor &wifi_monitor, std::string observed_topics_path)
     : config_(config), logger_(logger), mqtt_client_(logger, *this), audio_player_(audio_player),
-      wifi_monitor_(wifi_monitor) {}
+      wifi_monitor_(wifi_monitor), observed_topics_path_(std::move(observed_topics_path)) {}
 
 int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
     clock_was_unsynced_ = !oc::util::ClockIsSane(kMinimumSaneEpoch);
@@ -250,8 +210,8 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
                             std::chrono::duration_cast<std::chrono::seconds>(now - *startup_unknown_wifi_begin).count();
                         if (unknown_wifi_elapsed >= kStartupUnknownWifiTimeoutSeconds) {
                             logger_.Warn("audio", "startup wifi state remained unknown for " +
-                                                     std::to_string(kStartupUnknownWifiTimeoutSeconds) +
-                                                     "s after startup timeout, playing failure notification");
+                                                      std::to_string(kStartupUnknownWifiTimeoutSeconds) +
+                                                      "s after startup timeout, playing failure notification");
                             PlayNotification(NotificationSoundType::kFailure);
                             startup_notification_played = true;
                         }
@@ -259,8 +219,8 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
                 } else {
                     startup_unknown_wifi_begin = std::nullopt;
                     logger_.Warn("audio", "startup checks incomplete within " +
-                                             std::to_string(kStartupNotificationTimeoutSeconds) +
-                                             "s, playing failure notification");
+                                              std::to_string(kStartupNotificationTimeoutSeconds) +
+                                              "s, playing failure notification");
                     PlayNotification(NotificationSoundType::kFailure);
                     startup_notification_played = true;
                 }
@@ -343,7 +303,7 @@ void ChimeService::OnMessage(const oc::mqtt::Message &message) {
 }
 
 bool ChimeService::RingTopicMatches(const std::string &message_topic) const {
-    return TopicMatchesFilter(config_.ring_topic, message_topic);
+    return oc::mqtt::TopicMatchesFilter(config_.ring_topic, message_topic);
 }
 
 void ChimeService::RecordObservedTopic(const std::string &topic) {
@@ -376,7 +336,7 @@ void ChimeService::LoadObservedTopics() {
     observed_topics_.clear();
     observed_topics_set_.clear();
 
-    std::ifstream file(kObservedTopicsPath);
+    std::ifstream file(observed_topics_path_);
     if (!file.is_open()) {
         return;
     }
@@ -402,7 +362,7 @@ bool ChimeService::PersistObservedTopics(std::string *error) const {
         return false;
     }
 
-    const std::filesystem::path topics_path(kObservedTopicsPath);
+    const std::filesystem::path topics_path(observed_topics_path_);
     const std::filesystem::path parent = topics_path.parent_path();
     std::error_code ec;
     std::filesystem::create_directories(parent, ec);

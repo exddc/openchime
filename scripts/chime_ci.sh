@@ -12,6 +12,7 @@ FIX_FORMAT=0
 SKIP_FORMAT=0
 SKIP_TIDY=0
 SKIP_BUILD=0
+SKIP_TESTS=0
 
 log() {
   echo "[chime-ci] $*"
@@ -36,7 +37,8 @@ Options:
   --fix-format              Apply clang-format in place instead of check-only
   --skip-format             Skip clang-format
   --skip-tidy               Skip clang-tidy
-  --skip-build              Skip build step
+  --skip-build              Skip compile (CTest still runs unless --skip-tests)
+  --skip-tests              Skip CTest
   -h, --help                Show this help text
 
 Examples:
@@ -83,6 +85,10 @@ parse_args() {
         ;;
       --skip-build)
         SKIP_BUILD=1
+        shift
+        ;;
+      --skip-tests)
+        SKIP_TESTS=1
         shift
         ;;
       -h|--help)
@@ -210,11 +216,17 @@ configure_cmake() {
   require_tool cmake
   require_tool ninja
 
+  local enable_tests=ON
+  if [ "$SKIP_TESTS" = "1" ]; then
+    enable_tests=OFF
+  fi
+
   cmake --version
   cmake -S "$PROJECT_DIR/chime" -B "$BUILD_DIR" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DOC_BUILD_TESTS="$enable_tests"
 }
 
 run_clang_tidy() {
@@ -258,6 +270,18 @@ run_build() {
   log "Build passed"
 }
 
+run_tests() {
+  [ "$SKIP_TESTS" = "1" ] && {
+    log "Skipping tests"
+    return
+  }
+
+  require_tool ctest
+  [ -d "$BUILD_DIR" ] || error "Build directory not found: $BUILD_DIR (build once before --skip-build)"
+  ctest --test-dir "$BUILD_DIR" --output-on-failure --no-tests=error
+  log "Tests passed"
+}
+
 main() {
   parse_args "$@"
 
@@ -273,6 +297,7 @@ main() {
   fi
   run_clang_tidy
   run_build
+  run_tests
 
   log "All requested checks passed"
 }
