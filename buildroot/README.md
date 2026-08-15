@@ -187,7 +187,7 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | `configs/openchime_rpi0w_defconfig` | Main Buildroot config |
 | `version.env` | OS/config version source of truth |
 | `../chime/VERSION` | Chime app SemVer source of truth |
-| `package/chime/chime.mk` | Chime package recipe |
+| `package/chime/chime.mk` | Chime CMake package recipe (source list lives in CMake) |
 | `board/raspberrypi0w/genimage.cfg` | SD card image layout |
 | `board/raspberrypi0w/post_build.sh` | Creates firmware symlinks, runs depmod |
 | `board/raspberrypi0w/post_image.sh` | Copies boot files, generates sdcard.img |

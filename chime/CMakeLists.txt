@@ -1,36 +1,14 @@
-cmake_minimum_required(VERSION 3.28)
-project(chime LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.27)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(MOSQ QUIET IMPORTED_TARGET libmosquitto)
-
-if(TARGET PkgConfig::MOSQ)
-  set(OC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client.cpp)
-else()
-  message(WARNING "libmosquitto not found; building with MQTT stub client")
-  set(OC_MQTT_CLIENT_SOURCE ../common/src/mqtt/client_stub.cpp)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  message(FATAL_ERROR
+    "Configure Open Chime from the repository root, for example:\n"
+    "  cmake -S <repo> -B <build-dir>")
 endif()
+
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
-
-add_library(
-  oc_common STATIC
-  ../common/src/logging/logger.cpp
-  ${OC_MQTT_CLIENT_SOURCE}
-  ../common/src/runtime/signal_handler.cpp
-  ../common/src/util/environment.cpp
-  ../common/src/util/filesystem.cpp
-  ../common/src/util/platform.cpp
-  ../common/src/util/strings.cpp
-  ../common/src/util/time.cpp)
-target_include_directories(oc_common PUBLIC ../common/include)
-target_compile_options(oc_common PRIVATE -Wall -Wextra -Wpedantic)
-if(TARGET PkgConfig::MOSQ)
-  target_link_libraries(oc_common PUBLIC PkgConfig::MOSQ)
-endif()
+include(GNUInstallDirs)
 
 add_library(
   chime_core STATIC
@@ -38,9 +16,9 @@ add_library(
   src/config/chime_config.cpp
   src/network/linux_wifi_monitor.cpp
   src/service/chime_service.cpp)
-target_include_directories(chime_core PUBLIC include ../common/include)
+target_include_directories(chime_core PUBLIC include)
 target_compile_options(chime_core PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(chime_core PUBLIC oc_common)
+target_link_libraries(chime_core PUBLIC oc_common oc_build_version)
 
 add_library(
   chime_webd_core STATIC
@@ -52,27 +30,28 @@ add_library(
   src/webd/ui_assets.cpp
   src/webd/web_server.cpp
   src/webd/wifi_scan.cpp)
-target_include_directories(chime_webd_core PUBLIC include ../common/include)
+target_include_directories(chime_webd_core PUBLIC include)
 target_compile_options(chime_webd_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(
   chime_webd_core
-  PUBLIC oc_common OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+  PUBLIC oc_common oc_build_version OpenSSL::SSL OpenSSL::Crypto
+         Threads::Threads)
 
 add_executable(chime src/main.cpp)
-target_include_directories(chime PRIVATE include ../common/include)
+target_include_directories(chime PRIVATE include)
 target_compile_options(chime PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(chime PRIVATE chime_core oc_common)
+target_link_libraries(chime PRIVATE chime_core oc_common oc_build_version)
 
 add_executable(chime-webd src/webd/main.cpp)
-target_include_directories(chime-webd PRIVATE include ../common/include)
+target_include_directories(chime-webd PRIVATE include)
 target_compile_options(chime-webd PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(
   chime-webd
-  PRIVATE chime_webd_core oc_common OpenSSL::SSL OpenSSL::Crypto
-          Threads::Threads)
+  PRIVATE chime_webd_core oc_common oc_build_version OpenSSL::SSL
+          OpenSSL::Crypto Threads::Threads)
 
-option(OC_BUILD_TESTS "Build native C++ tests (CTest)" OFF)
+install(TARGETS chime chime-webd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 if(OC_BUILD_TESTS)
-  include(CTest)
   add_subdirectory(tests)
 endif()

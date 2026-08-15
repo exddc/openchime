@@ -212,6 +212,37 @@ run_clang_format() {
   fi
 }
 
+discover_cmake_host_args() {
+  CMAKE_HOST_ARGS=()
+  if ! command -v brew >/dev/null 2>&1; then
+    return
+  fi
+
+  local openssl_prefix mosq_prefix prefixes=""
+  openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || true)"
+  mosq_prefix="$(brew --prefix mosquitto 2>/dev/null || true)"
+  if [ -n "$openssl_prefix" ] && [ -d "$openssl_prefix" ]; then
+    CMAKE_HOST_ARGS+=("-DOPENSSL_ROOT_DIR=$openssl_prefix")
+    prefixes="$openssl_prefix"
+    if [ -d "$openssl_prefix/lib/pkgconfig" ]; then
+      export PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    fi
+  fi
+  if [ -n "$mosq_prefix" ] && [ -d "$mosq_prefix" ]; then
+    if [ -n "$prefixes" ]; then
+      prefixes="$prefixes;$mosq_prefix"
+    else
+      prefixes="$mosq_prefix"
+    fi
+    if [ -d "$mosq_prefix/lib/pkgconfig" ]; then
+      export PKG_CONFIG_PATH="$mosq_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+    fi
+  fi
+  if [ -n "$prefixes" ]; then
+    CMAKE_HOST_ARGS+=("-DCMAKE_PREFIX_PATH=$prefixes")
+  fi
+}
+
 configure_cmake() {
   require_tool cmake
   require_tool ninja
@@ -221,12 +252,51 @@ configure_cmake() {
     enable_tests=OFF
   fi
 
+  discover_cmake_host_args
   cmake --version
-  cmake -S "$PROJECT_DIR/chime" -B "$BUILD_DIR" \
+  cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-    -DOC_BUILD_TESTS="$enable_tests"
+    -DOC_BUILD_TESTS="$enable_tests" \
+    ${CMAKE_HOST_ARGS[@]+"${CMAKE_HOST_ARGS[@]}"}
+}
+
+fail_sync_test() {
+  rm -rf "$1"
+  error "$2"
+}
+
+verify_sync_chime_src() {
+  local tmp src dest
+  tmp="$(mktemp -d)"
+  src="$tmp/repo"
+  dest="$tmp/chime-src"
+
+  mkdir -p "$src/chime" "$src/common" "$src/cmake" "$dest/cmake" "$dest/stale-root"
+  printf 'cmake_minimum_required(VERSION 3.27)\nproject(sync_test)\n' > "$src/CMakeLists.txt"
+  printf 'keep\n' > "$src/cmake/keep.cmake"
+  printf 'gone\n' > "$dest/cmake/deleted.cmake"
+  printf 'keep\n' > "$dest/cmake/keep.cmake"
+  printf 'stale\n' > "$dest/stale-root/leftover"
+
+  bash "$SCRIPT_DIR/sync_chime_src.sh" "$src" "$dest" || \
+    fail_sync_test "$tmp" "sync_chime_src.sh failed"
+  [ -f "$dest/cmake/keep.cmake" ] || \
+    fail_sync_test "$tmp" "sync_chime_src.sh dropped cmake/keep.cmake"
+  [ ! -e "$dest/cmake/deleted.cmake" ] || \
+    fail_sync_test "$tmp" "sync_chime_src.sh retained deleted cmake/deleted.cmake"
+  [ ! -e "$dest/stale-root" ] || \
+    fail_sync_test "$tmp" "sync_chime_src.sh retained obsolete root entry stale-root"
+
+  rm -rf "$src/cmake"
+  bash "$SCRIPT_DIR/sync_chime_src.sh" "$src" "$dest" || \
+    fail_sync_test "$tmp" "sync_chime_src.sh failed after removing cmake/"
+  [ ! -e "$dest/cmake" ] || \
+    fail_sync_test "$tmp" "sync_chime_src.sh retained cmake/ after it was removed from the source tree"
+
+  rm -rf "$tmp"
+  log "sync_chime_src.sh removes obsolete root-level build inputs"
 }
 
 run_clang_tidy() {
@@ -289,6 +359,7 @@ main() {
     error "Must run inside the repository"
   cd "$PROJECT_DIR"
 
+  verify_sync_chime_src
   run_clang_format
   if [ "$SKIP_TIDY" = "1" ] && [ "$SKIP_BUILD" = "1" ]; then
     log "Skipping CMake configure (no tidy/build requested)"

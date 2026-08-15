@@ -14,6 +14,8 @@ yocto/**/downloads/
 # CMake
 **/build/
 **/build-arm/
+chime/build-local/
+chime/build-ci/
 
 # General
 *.log
@@ -27,11 +29,6 @@ buildroot/board/raspberrypi0w/rootfs_overlay/root/.ssh/authorized_keys
 # Buildroot build output
 buildroot/output/
 buildroot/build_meta.env
-
-# Local chime dev artifacts
-chime/build-local/bin/
-chime/build-local/runtime/
-chime/build-local/chime-webd
 
 # Local web UI artifacts
 webui/node_modules/

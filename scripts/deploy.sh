@@ -157,11 +157,11 @@ step_done() {
 cd /home/builder/work/buildroot-'"$BUILDROOT_VERSION"'
 
 echo "[rebuild] Syncing chime source..."
-mkdir -p /home/builder/chime-src/chime /home/builder/chime-src/common /home/builder/br2-external
+mkdir -p /home/builder/chime-src /home/builder/br2-external
 sync_start="$(step_start)"
-rsync -a --delete /home/builder/openchime/chime/ /home/builder/chime-src/chime/
-rsync -a --delete /home/builder/openchime/common/ /home/builder/chime-src/common/
 rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
+bash /home/builder/openchime/scripts/sync_chime_src.sh \
+    /home/builder/openchime /home/builder/chime-src
 step_done "sync" "$sync_start"
 
 echo "[rebuild] Building chime package..."
@@ -169,21 +169,27 @@ build_start="$(step_start)"
 make BR2_EXTERNAL=/home/builder/br2-external chime-rebuild
 step_done "chime-rebuild" "$build_start"
 
-echo "[rebuild] Copying binary to output..."
+echo "[rebuild] Copying binaries to output..."
 export_start="$(step_start)"
-CHIME_BINARY_PATH="$(find output/build -type f \( -path "*/chime-*/chime/chime" -o -path "*/chime-*/chime" \) | sort | tail -n 1)"
+CHIME_BINARY_PATH="output/target/usr/local/bin/chime"
+WEBD_BINARY_PATH="output/target/usr/local/bin/chime-webd"
+if [ ! -f "$CHIME_BINARY_PATH" ]; then
+    CHIME_BINARY_PATH="$(find output/build -type f \( -path "*/bin/chime" -o -path "*/chime-*/chime/chime" \) | sort | tail -n 1)"
+fi
 if [ -z "$CHIME_BINARY_PATH" ] || [ ! -f "$CHIME_BINARY_PATH" ]; then
-    echo "[rebuild] ERROR: Could not find built chime binary under output/build/chime-*"
-    find output/build -type f | sed "s#^#[rebuild] found: #"
+    echo "[rebuild] ERROR: Could not find built chime binary"
+    find output/build output/target -type f -name chime | sed "s#^#[rebuild] found: #"
     exit 1
 fi
 echo "[rebuild] Using binary: $CHIME_BINARY_PATH"
 cp "$CHIME_BINARY_PATH" /home/builder/output/chime
 
-WEBD_BINARY_PATH="$(find output/build -type f -path "*/chime-*/chime/chime-webd" | sort | tail -n 1)"
+if [ ! -f "$WEBD_BINARY_PATH" ]; then
+    WEBD_BINARY_PATH="$(find output/build -type f \( -path "*/bin/chime-webd" -o -path "*/chime-*/chime/chime-webd" \) | sort | tail -n 1)"
+fi
 if [ -z "$WEBD_BINARY_PATH" ] || [ ! -f "$WEBD_BINARY_PATH" ]; then
-    echo "[rebuild] ERROR: Could not find built chime-webd binary under output/build/chime-*"
-    find output/build -type f | sed "s#^#[rebuild] found: #"
+    echo "[rebuild] ERROR: Could not find built chime-webd binary"
+    find output/build output/target -type f -name chime-webd | sed "s#^#[rebuild] found: #"
     exit 1
 fi
 echo "[rebuild] Using web binary: $WEBD_BINARY_PATH"
