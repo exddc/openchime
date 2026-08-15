@@ -34,6 +34,7 @@
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_config_store.h"
 #include "chime/webd_json.h"
+#include "chime/webd_sound_name.h"
 #include "chime/webd_string_utils.h"
 #include "chime/webd_ui_assets.h"
 #include "chime/webd_wifi_scan.h"
@@ -62,28 +63,6 @@ std::string MimeTypeOnly(const std::string &content_type) {
 bool IsSafeRelativePath(const std::filesystem::path &path) {
     for (const auto &part : path) {
         if (part == "..") {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool IsSafeSoundName(const std::string &file_name) {
-    if (file_name.empty() || file_name.size() > 128) {
-        return false;
-    }
-    if (file_name.find('/') != std::string::npos || file_name.find('\\') != std::string::npos) {
-        return false;
-    }
-    if (file_name.find("..") != std::string::npos) {
-        return false;
-    }
-    const std::string lowered = ToLower(file_name);
-    if (!StartsWith(lowered, "ring-") || lowered.rfind(".wav") != lowered.size() - 4) {
-        return false;
-    }
-    for (const char c : file_name) {
-        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '-' || c == '_')) {
             return false;
         }
     }
@@ -1057,10 +1036,12 @@ WebServer::HttpResponse WebServer::HandleGetCoreConfig() {
     response.body += "\"mqtt_tls_key_file\":" + JsonString(loaded.snapshot.config.mqtt_tls_key_file) + ",";
     response.body += "\"mqtt_topics\":" + SerializeTopics(loaded.snapshot.config.mqtt_topics) + ",";
     response.body += "\"ring_topic\":" + JsonString(loaded.snapshot.config.ring_topic) + ",";
-    response.body += "\"notification_success_sound_path\":" +
-                     JsonString(loaded.snapshot.config.notification_success_sound_path) + ",";
-    response.body += "\"notification_failure_sound_path\":" +
-                     JsonString(loaded.snapshot.config.notification_failure_sound_path) + ",";
+    response.body +=
+        "\"notification_success_sound_path\":" + JsonString(loaded.snapshot.config.notification_success_sound_path) +
+        ",";
+    response.body +=
+        "\"notification_failure_sound_path\":" + JsonString(loaded.snapshot.config.notification_failure_sound_path) +
+        ",";
     response.body += "\"volume_bell\":" + JsonNumber(loaded.snapshot.config.volume_bell) + ",";
     response.body += "\"volume_notifications\":" + JsonNumber(loaded.snapshot.config.volume_notifications) + ",";
     response.body += "\"volume_other\":" + JsonNumber(loaded.snapshot.config.volume_other) + ",";
@@ -1122,8 +1103,7 @@ WebServer::HttpResponse WebServer::HandlePostCoreConfig(const HttpRequest &reque
     }
 
     std::optional<CoreConfigSnapshot> existing_snapshot;
-    if (!notification_success_sound_path.has_value() ||
-        !notification_failure_sound_path.has_value()) {
+    if (!notification_success_sound_path.has_value() || !notification_failure_sound_path.has_value()) {
         const SaveResult loaded = config_store_.LoadCoreConfig();
         if (!loaded.success) {
             response.status = 500;
@@ -1148,14 +1128,12 @@ WebServer::HttpResponse WebServer::HandlePostCoreConfig(const HttpRequest &reque
     if (notification_success_sound_path.has_value()) {
         save_request.config.notification_success_sound_path = *notification_success_sound_path;
     } else if (existing_snapshot.has_value()) {
-        save_request.config.notification_success_sound_path =
-            existing_snapshot->config.notification_success_sound_path;
+        save_request.config.notification_success_sound_path = existing_snapshot->config.notification_success_sound_path;
     }
     if (notification_failure_sound_path.has_value()) {
         save_request.config.notification_failure_sound_path = *notification_failure_sound_path;
     } else if (existing_snapshot.has_value()) {
-        save_request.config.notification_failure_sound_path =
-            existing_snapshot->config.notification_failure_sound_path;
+        save_request.config.notification_failure_sound_path = existing_snapshot->config.notification_failure_sound_path;
     }
     save_request.config.volume_bell = *volume_bell;
     save_request.config.volume_notifications = *volume_notifications;
@@ -1198,10 +1176,12 @@ WebServer::HttpResponse WebServer::HandlePostCoreConfig(const HttpRequest &reque
     response.body += "\"mqtt_tls_key_file\":" + JsonString(saved.snapshot.config.mqtt_tls_key_file) + ",";
     response.body += "\"mqtt_topics\":" + SerializeTopics(saved.snapshot.config.mqtt_topics) + ",";
     response.body += "\"ring_topic\":" + JsonString(saved.snapshot.config.ring_topic) + ",";
-    response.body += "\"notification_success_sound_path\":" +
-                     JsonString(saved.snapshot.config.notification_success_sound_path) + ",";
-    response.body += "\"notification_failure_sound_path\":" +
-                     JsonString(saved.snapshot.config.notification_failure_sound_path) + ",";
+    response.body +=
+        "\"notification_success_sound_path\":" + JsonString(saved.snapshot.config.notification_success_sound_path) +
+        ",";
+    response.body +=
+        "\"notification_failure_sound_path\":" + JsonString(saved.snapshot.config.notification_failure_sound_path) +
+        ",";
     response.body += "\"volume_bell\":" + JsonNumber(saved.snapshot.config.volume_bell) + ",";
     response.body += "\"volume_notifications\":" + JsonNumber(saved.snapshot.config.volume_notifications) + ",";
     response.body += "\"volume_other\":" + JsonNumber(saved.snapshot.config.volume_other) + ",";
