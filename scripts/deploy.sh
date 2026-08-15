@@ -166,8 +166,8 @@ step_done "sync" "$sync_start"
 
 echo "[rebuild] Building chime package..."
 build_start="$(step_start)"
-make BR2_EXTERNAL=/home/builder/br2-external chime-rebuild
-step_done "chime-rebuild" "$build_start"
+make BR2_EXTERNAL=/home/builder/br2-external chime-reconfigure
+step_done "chime-reconfigure" "$build_start"
 
 echo "[rebuild] Copying binaries to output..."
 export_start="$(step_start)"

@@ -138,8 +138,8 @@ run_container() {
 
     local toolchain_file="output/host/share/buildroot/toolchainfile.cmake"
     if [ -f "$toolchain_file" ]; then
-        log "Rebuilding chime with existing Buildroot toolchain"
-        make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime-rebuild
+        log "Reconfiguring chime with existing Buildroot toolchain"
+        make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime-reconfigure
     else
         log "Building Buildroot toolchain, chime dependencies, and chime package"
         make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime
@@ -159,6 +159,17 @@ run_container() {
     require_file "$target_dir/etc/chime-build-id"
     [ -s "$target_dir/etc/chime-app-version" ] || error "empty $target_dir/etc/chime-app-version"
     [ -s "$target_dir/etc/chime-build-id" ] || error "empty $target_dir/etc/chime-build-id"
+
+    local expected_build_id installed_build_id
+    expected_build_id="$(sed -n 's/^CHIME_BUILD_ID=//p' /home/builder/br2-external/build_meta.env | head -n 1 | tr -d '[:space:]')"
+    [ -n "$expected_build_id" ] || error "missing CHIME_BUILD_ID in build_meta.env"
+    installed_build_id="$(tr -d '[:space:]' < "$target_dir/etc/chime-build-id")"
+    [ "$installed_build_id" = "$expected_build_id" ] || \
+        error "installed CHIME_BUILD_ID '$installed_build_id' != '$expected_build_id'"
+    grep -aF "$expected_build_id" "$chime_bin" >/dev/null || \
+        error "$chime_bin does not contain compile-time CHIME_BUILD_ID=$expected_build_id"
+    grep -aF "$expected_build_id" "$webd_bin" >/dev/null || \
+        error "$webd_bin does not contain compile-time CHIME_BUILD_ID=$expected_build_id"
 
     local chime_file webd_file
     chime_file="$(file -b "$chime_bin")"
