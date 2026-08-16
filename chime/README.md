@@ -13,7 +13,9 @@ Run the same checks as GitHub chime CI from the repo root:
 ./scripts/chime_ci.sh
 ```
 
-This configures the native CMake build with `-DOC_BUILD_TESTS=ON`, builds, and runs `ctest --output-on-failure`. A plain `cmake -S chime` leaves tests off, so production and offline configures do not download doctest.
+This configures the native CMake build with `-DOC_BUILD_TESTS=ON`, builds, and runs `ctest --output-on-failure`. A plain `cmake -S .` leaves tests off, so production and offline configures do not download doctest.
+
+CMake is the single build graph for `oc_common`, `chime_core`, `chime_webd_core`, `chime`, and `chime-webd`. Native CI, `scripts/local_chime.sh`, and the Buildroot `chime` package all consume that graph—add a source to a CMake target and it is included everywhere.
 
 Useful options:
 - `./scripts/chime_ci.sh --fix-format` to apply `clang-format` to the checked files.
@@ -24,7 +26,7 @@ Useful options:
 Native C++ tests can also be run directly:
 
 ```bash
-cmake -S chime -B chime/build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DOC_BUILD_TESTS=ON
+cmake -S . -B chime/build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DOC_BUILD_TESTS=ON
 cmake --build chime/build-ci
 ctest --test-dir chime/build-ci --output-on-failure --no-tests=error
 ```

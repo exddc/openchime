@@ -16,6 +16,7 @@ CHIME_BUILD_ID = $(strip $(shell sed -n 's/^CHIME_BUILD_ID=//p' $(CHIME_BUILD_ME
 CHIME_LICENSE = MIT
 CHIME_LICENSE_FILES = chime/README.md
 CHIME_DEPENDENCIES = mosquitto openssl
+CHIME_SUPPORTS_IN_SOURCE_BUILD = NO
 
 ifeq ($(CHIME_VERSION),)
 $(error Missing chime app version in $(CHIME_VERSION_FILE))
@@ -30,62 +31,29 @@ $(error Missing CHIME_CONFIG_VERSION in $(OPENCHIME_VERSION_FILE))
 endif
 
 ifeq ($(CHIME_BUILD_ID),)
-CHIME_BUILD_ID = unknown
+$(error Missing CHIME_BUILD_ID in $(CHIME_BUILD_META_FILE))
 endif
 
-CHIME_COMMON_SOURCES = \
-	common/src/logging/logger.cpp \
-	common/src/runtime/signal_handler.cpp \
-	common/src/util/environment.cpp \
-	common/src/util/filesystem.cpp \
-	common/src/util/platform.cpp \
-	common/src/util/strings.cpp \
-	common/src/util/time.cpp
+CHIME_CONF_ENV = \
+	PKG_CONFIG="$(HOST_DIR)/bin/pkg-config" \
+	PKG_CONFIG_SYSROOT_DIR="$(STAGING_DIR)" \
+	PKG_CONFIG_LIBDIR="$(STAGING_DIR)/usr/lib/pkgconfig:$(STAGING_DIR)/usr/share/pkgconfig"
 
-CHIME_DAEMON_SOURCES = \
-	chime/src/main.cpp \
-	chime/src/audio/aplay_audio_player.cpp \
-	chime/src/config/chime_config.cpp \
-	chime/src/network/linux_wifi_monitor.cpp \
-	chime/src/service/chime_service.cpp \
-	common/src/mqtt/client.cpp
+CHIME_CONF_OPTS = \
+	-DOC_PRODUCTION_BUILD=ON \
+	-DOC_BUILD_TESTS=OFF \
+	-DCMAKE_INSTALL_PREFIX=/usr/local \
+	-DCHIME_APP_VERSION=$(CHIME_VERSION) \
+	-DOPENCHIME_OS_VERSION=$(CHIME_OS_VERSION) \
+	-DCHIME_CONFIG_VERSION=$(CHIME_CONFIG_VERSION) \
+	-DCHIME_BUILD_ID=$(CHIME_BUILD_ID)
 
-CHIME_WEBD_SOURCES = \
-	chime/src/webd/main.cpp \
-	chime/src/webd/apply_manager.cpp \
-	chime/src/webd/config_store.cpp \
-	chime/src/webd/json.cpp \
-	chime/src/webd/mdns.cpp \
-	chime/src/webd/string_utils.cpp \
-	chime/src/webd/ui_assets.cpp \
-	chime/src/webd/web_server.cpp \
-	chime/src/webd/wifi_scan.cpp
-
-define CHIME_BUILD_CMDS
-	$(TARGET_CXX) $(TARGET_CXXFLAGS) -std=c++20 -Wall -Wextra \
-		-DCHIME_APP_VERSION=\"$(CHIME_VERSION)\" \
-		-DOPENCHIME_OS_VERSION=\"$(CHIME_OS_VERSION)\" \
-		-DCHIME_CONFIG_VERSION=\"$(CHIME_CONFIG_VERSION)\" \
-		-DCHIME_BUILD_ID=\"$(CHIME_BUILD_ID)\" \
-		-I$(@D)/chime/include -I$(@D)/common/include \
-		-o $(@D)/chime/chime \
-		$(addprefix $(@D)/,$(CHIME_COMMON_SOURCES) $(CHIME_DAEMON_SOURCES)) \
-		$(TARGET_LDFLAGS) -lmosquitto
-	$(TARGET_CXX) $(TARGET_CXXFLAGS) -std=c++20 -Wall -Wextra \
-		-I$(@D)/chime/include -I$(@D)/common/include \
-		-o $(@D)/chime/chime-webd \
-		$(addprefix $(@D)/,$(CHIME_COMMON_SOURCES) $(CHIME_WEBD_SOURCES)) \
-		$(TARGET_LDFLAGS) -lssl -lcrypto -lpthread
-endef
-
-# Install to /usr/local/bin
-define CHIME_INSTALL_TARGET_CMDS
-	$(INSTALL) -D -m 0755 $(@D)/chime/chime $(TARGET_DIR)/usr/local/bin/chime
-	$(INSTALL) -D -m 0755 $(@D)/chime/chime-webd $(TARGET_DIR)/usr/local/bin/chime-webd
+define CHIME_INSTALL_VERSION_FILES
 	mkdir -p $(TARGET_DIR)/etc/chime-web/tls
 	mkdir -p $(TARGET_DIR)/etc
 	printf '%s\n' "$(CHIME_VERSION)" > $(TARGET_DIR)/etc/chime-app-version
 	printf '%s\n' "$(CHIME_BUILD_ID)" > $(TARGET_DIR)/etc/chime-build-id
 endef
+CHIME_POST_INSTALL_TARGET_HOOKS += CHIME_INSTALL_VERSION_FILES
 
-$(eval $(generic-package))
+$(eval $(cmake-package))

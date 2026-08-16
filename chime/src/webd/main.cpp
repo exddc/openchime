@@ -8,6 +8,7 @@
 #include <thread>
 #include <utility>
 
+#include "chime/build_version.h"
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_config_store.h"
 #include "chime/webd_mdns.h"
@@ -98,7 +99,7 @@ std::string ReadWifiInterfaceOrDefault(const std::string &path) {
 }
 
 void PrintUsage(const char *program) {
-    std::cout << "Usage: " << program << " [--help]\n";
+    std::cout << "Usage: " << program << " [--version] [--help]\n";
     std::cout << "Environment overrides:\n";
     std::cout << "  CHIME_WEBD_CHIME_CONFIG\n";
     std::cout << "  CHIME_WEBD_WPA_SUPPLICANT\n";
@@ -122,6 +123,10 @@ void PrintUsage(const char *program) {
 int main(int argc, char *argv[]) {
     if (argc > 1) {
         const std::string arg = argv[1];
+        if (arg == "--version" || arg == "-v") {
+            PrintCompileTimeVersions();
+            return 0;
+        }
         if (arg == "--help" || arg == "-h") {
             PrintUsage(argv[0]);
             return 0;

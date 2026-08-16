@@ -32,62 +32,115 @@ require_bun() {
     fi
 }
 
-get_mosquitto_flags() {
-    if [ -n "${MOSQUITTO_CFLAGS:-}" ] || [ -n "${MOSQUITTO_LIBS:-}" ]; then
-        echo "${MOSQUITTO_CFLAGS:-}|${MOSQUITTO_LIBS:-}"
+get_brew_prefix() {
+    local formula="$1"
+    if ! command -v brew &>/dev/null; then
+        return 1
+    fi
+    local prefix
+    prefix="$(brew --prefix "$formula" 2>/dev/null || true)"
+    if [ -n "$prefix" ] && [ -d "$prefix" ]; then
+        printf '%s\n' "$prefix"
         return 0
     fi
-
-    if command -v pkg-config &>/dev/null; then
-        if pkg-config --exists libmosquitto; then
-            echo "$(pkg-config --cflags libmosquitto)|$(pkg-config --libs libmosquitto)"
-            return 0
-        fi
-        if pkg-config --exists mosquitto; then
-            echo "$(pkg-config --cflags mosquitto)|$(pkg-config --libs mosquitto)"
-            return 0
-        fi
-    fi
-
-    if command -v brew &>/dev/null; then
-        local prefix
-        prefix="$(brew --prefix mosquitto 2>/dev/null || true)"
-        if [ -n "$prefix" ] && [ -d "$prefix/include" ] && [ -d "$prefix/lib" ]; then
-            echo "-I$prefix/include|-L$prefix/lib -lmosquitto"
-            return 0
-        fi
-    fi
-
     return 1
 }
 
-get_openssl_flags() {
-    if [ -n "${OPENSSL_CFLAGS:-}" ] || [ -n "${OPENSSL_LIBS:-}" ]; then
-        echo "${OPENSSL_CFLAGS:-}|${OPENSSL_LIBS:-}"
-        return 0
-    fi
-
-    if command -v pkg-config &>/dev/null && pkg-config --exists openssl; then
-        echo "$(pkg-config --cflags openssl)|$(pkg-config --libs openssl)"
-        return 0
-    fi
-
-    if command -v brew &>/dev/null; then
-        local prefix
-        prefix="$(brew --prefix openssl@3 2>/dev/null || true)"
-        if [ -n "$prefix" ] && [ -d "$prefix/include" ] && [ -d "$prefix/lib" ]; then
-            echo "-I$prefix/include|-L$prefix/lib -lssl -lcrypto"
+path_list_contains() {
+    local haystack="$1"
+    local needle="$2"
+    local sep="$3"
+    local old_ifs="$IFS"
+    local item
+    IFS="$sep"
+    for item in $haystack; do
+        if [ "$item" = "$needle" ]; then
+            IFS="$old_ifs"
             return 0
+        fi
+    done
+    IFS="$old_ifs"
+    return 1
+}
+
+append_path_list() {
+    local current="$1"
+    local value="$2"
+    local sep="$3"
+    if [ -z "$value" ]; then
+        printf '%s' "$current"
+        return
+    fi
+    if [ -z "$current" ]; then
+        printf '%s' "$value"
+        return
+    fi
+    if path_list_contains "$current" "$value" "$sep"; then
+        printf '%s' "$current"
+        return
+    fi
+    printf '%s%s%s' "$current" "$sep" "$value"
+}
+
+discover_cmake_prefixes() {
+    local prefixes=""
+    local pkg_paths=""
+    local prefix
+
+    if [ -n "${CMAKE_PREFIX_PATH:-}" ]; then
+        local old_ifs="$IFS"
+        local cmake_prefix
+        IFS=':'
+        for cmake_prefix in $CMAKE_PREFIX_PATH; do
+            prefixes="$(append_path_list "$prefixes" "$cmake_prefix" ';')"
+        done
+        IFS="$old_ifs"
+    fi
+
+    local formula
+    for formula in mosquitto openssl@3 openssl; do
+        if prefix="$(get_brew_prefix "$formula")"; then
+            prefixes="$(append_path_list "$prefixes" "$prefix" ';')"
+            if [ -d "$prefix/lib/pkgconfig" ]; then
+                pkg_paths="$(append_path_list "$pkg_paths" "$prefix/lib/pkgconfig" ':')"
+            fi
+        fi
+    done
+
+    if [ -z "${OPENSSL_ROOT_DIR:-}" ]; then
+        if prefix="$(get_brew_prefix openssl@3)" || prefix="$(get_brew_prefix openssl)"; then
+            OPENSSL_ROOT_DIR="$prefix"
         fi
     fi
 
-    return 1
+    CMAKE_PREFIX_ARGS=()
+    if [ -n "$prefixes" ]; then
+        CMAKE_PREFIX_ARGS+=("-DCMAKE_PREFIX_PATH=$prefixes")
+    fi
+    if [ -n "${OPENSSL_ROOT_DIR:-}" ]; then
+        CMAKE_PREFIX_ARGS+=("-DOPENSSL_ROOT_DIR=$OPENSSL_ROOT_DIR")
+    fi
+
+    if [ -n "$pkg_paths" ]; then
+        if [ -n "${PKG_CONFIG_PATH:-}" ]; then
+            export PKG_CONFIG_PATH="$pkg_paths:$PKG_CONFIG_PATH"
+        else
+            export PKG_CONFIG_PATH="$pkg_paths"
+        fi
+    fi
+}
+
+cmake_generator_args() {
+    if command -v ninja &>/dev/null; then
+        printf '%s\n' "-GNinja"
+    fi
 }
 
 load_versions() {
     CHIME_APP_VERSION="dev"
     OPENCHIME_OS_VERSION="dev"
     CHIME_CONFIG_VERSION="dev"
+    CHIME_BUILD_ID="${CHIME_BUILD_ID:-unknown}"
 
     if [ -f "$APP_VERSION_FILE" ]; then
         CHIME_APP_VERSION="$(head -n 1 "$APP_VERSION_FILE" | tr -d '[:space:]')"
@@ -99,110 +152,55 @@ load_versions() {
     if [ -f "$BUILDROOT_VERSION_FILE" ]; then
         # shellcheck disable=SC1090
         . "$BUILDROOT_VERSION_FILE"
-        OPENCHIME_OS_VERSION="${OPENCHIME_OS_VERSION:-$OPENCHIME_OS_VERSION}"
-        CHIME_CONFIG_VERSION="${CHIME_CONFIG_VERSION:-$CHIME_CONFIG_VERSION}"
+        OPENCHIME_OS_VERSION="${OPENCHIME_OS_VERSION:-dev}"
+        CHIME_CONFIG_VERSION="${CHIME_CONFIG_VERSION:-dev}"
     fi
 }
 
-build_chime_binary() {
-    local flags
-    if ! flags="$(get_mosquitto_flags)"; then
-        error "libmosquitto not found. Install with:
-  brew install mosquitto pkg-config"
-    fi
+configure_cmake() {
+    command -v cmake &>/dev/null || error "cmake is required. Install with:
+  brew install cmake ninja pkg-config openssl@3"
 
-    local cflags="${flags%%|*}"
-    local libs="${flags#*|}"
-    read -r -a MOSQ_CFLAGS <<< "$cflags"
-    read -r -a MOSQ_LIBS <<< "$libs"
+    discover_cmake_prefixes
 
-    local sources=()
-    while IFS= read -r source; do
-        sources+=("$source")
-    done < <(
-        find \
-            "$CHIME_DIR/src" \
-            "$PROJECT_DIR/common/src" \
-            -type f -name '*.cpp' \
-            ! -path "$CHIME_DIR/src/webd/*" \
-            ! -path "$PROJECT_DIR/common/src/mqtt/client_stub.cpp" \
-            | sort
-    )
+    # Old handwritten builds left binaries named `chime` in the build dir.
+    # CMake needs that path as the `chime/` subdirectory output folder.
+    local collide
+    for collide in chime common cmake; do
+        if [ -e "$BUILD_DIR/$collide" ] && [ ! -d "$BUILD_DIR/$collide" ]; then
+            log "Removing leftover file that conflicts with CMake: $BUILD_DIR/$collide"
+            rm -f "$BUILD_DIR/$collide"
+        fi
+    done
 
-    if [ "${#sources[@]}" -eq 0 ]; then
-        error "No chime sources found."
-    fi
+    local generator_arg
+    generator_arg="$(cmake_generator_args || true)"
 
-    log "Compiling chime..."
-    "${CXX:-c++}" \
-        -std=c++20 \
-        -Wall -Wextra -Wpedantic \
-        -O2 \
-        ${CXXFLAGS:-} \
-        "-DCHIME_APP_VERSION=\"$CHIME_APP_VERSION\"" \
-        "-DOPENCHIME_OS_VERSION=\"$OPENCHIME_OS_VERSION\"" \
-        "-DCHIME_CONFIG_VERSION=\"$CHIME_CONFIG_VERSION\"" \
-        -I"$CHIME_DIR/include" \
-        -I"$PROJECT_DIR/common/include" \
-        "${MOSQ_CFLAGS[@]}" \
-        "${sources[@]}" \
-        -o "$CHIME_BIN" \
-        ${LDFLAGS:-} \
-        "${MOSQ_LIBS[@]}"
-
-    log "Built: $CHIME_BIN"
-}
-
-build_webd_binary() {
-    local flags
-    if ! flags="$(get_openssl_flags)"; then
-        error "OpenSSL not found. Install with:
-  brew install openssl@3 pkg-config"
-    fi
-
-    local cflags="${flags%%|*}"
-    local libs="${flags#*|}"
-    read -r -a SSL_CFLAGS <<< "$cflags"
-    read -r -a SSL_LIBS <<< "$libs"
-
-    local sources=(
-        "$CHIME_DIR/src/webd/main.cpp"
-        "$CHIME_DIR/src/webd/apply_manager.cpp"
-        "$CHIME_DIR/src/webd/config_store.cpp"
-        "$CHIME_DIR/src/webd/json.cpp"
-        "$CHIME_DIR/src/webd/mdns.cpp"
-        "$CHIME_DIR/src/webd/string_utils.cpp"
-        "$CHIME_DIR/src/webd/ui_assets.cpp"
-        "$CHIME_DIR/src/webd/web_server.cpp"
-        "$CHIME_DIR/src/webd/wifi_scan.cpp"
-        "$PROJECT_DIR/common/src/logging/logger.cpp"
-        "$PROJECT_DIR/common/src/runtime/signal_handler.cpp"
-        "$PROJECT_DIR/common/src/util/environment.cpp"
-    )
-
-    log "Compiling chime-webd..."
-    "${CXX:-c++}" \
-        -std=c++20 \
-        -Wall -Wextra -Wpedantic \
-        -O2 \
-        ${CXXFLAGS:-} \
-        -I"$CHIME_DIR/include" \
-        -I"$PROJECT_DIR/common/include" \
-        "${SSL_CFLAGS[@]}" \
-        "${sources[@]}" \
-        -o "$WEBD_BIN" \
-        ${LDFLAGS:-} \
-        "${SSL_LIBS[@]}" \
-        -lpthread
-
-    log "Built: $WEBD_BIN"
+    local build_type="${CMAKE_BUILD_TYPE:-Release}"
+    log "Configuring CMake in $BUILD_DIR"
+    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
+        ${generator_arg:+"$generator_arg"} \
+        -DCMAKE_BUILD_TYPE="$build_type" \
+        -DOC_BUILD_TESTS=OFF \
+        -DCHIME_APP_VERSION="$CHIME_APP_VERSION" \
+        -DOPENCHIME_OS_VERSION="$OPENCHIME_OS_VERSION" \
+        -DCHIME_CONFIG_VERSION="$CHIME_CONFIG_VERSION" \
+        -DCHIME_BUILD_ID="$CHIME_BUILD_ID" \
+        ${CMAKE_PREFIX_ARGS[@]+"${CMAKE_PREFIX_ARGS[@]}"}
 }
 
 build() {
     mkdir -p "$BUILD_DIR" "$BIN_DIR"
     load_versions
-    build_chime_binary
-    build_webd_binary
+    configure_cmake
+
+    log "Building chime and chime-webd..."
+    cmake --build "$BUILD_DIR" --parallel --target chime --target chime-webd
+
+    [ -x "$CHIME_BIN" ] || error "CMake build did not produce $CHIME_BIN"
+    [ -x "$WEBD_BIN" ] || error "CMake build did not produce $WEBD_BIN"
+    log "Built: $CHIME_BIN"
+    log "Built: $WEBD_BIN"
 
     if [ "${LOCAL_CHIME_BUILD_WEBUI:-0}" = "1" ]; then
         build_webui
@@ -454,6 +452,10 @@ Environment overrides:
   CHIME_WEBD_UI_DIST_DIR          static UI dist directory (defaults to webui/dist)
   CHIME_WEBD_NETWORK_RESTART_CMD  apply command override (default: true locally)
   CHIME_WEBD_CHIME_RESTART_CMD    apply command override (default: true locally)
+  CMAKE_PREFIX_PATH               extra CMake prefix dirs (colon-separated)
+  OPENSSL_ROOT_DIR                OpenSSL prefix for CMake discovery
+  CMAKE_BUILD_TYPE                CMake build type (default: Release)
+  CHIME_BUILD_ID                  compile-time build id (default: unknown)
   LOCAL_CHIME_BUILD_WEBUI=1       build webui/dist during build/run
   WEBUI_DEV_HOST                  Vite dev host (default: 127.0.0.1)
   WEBUI_DEV_PORT                  Vite dev port (default: 5173)

@@ -205,11 +205,11 @@ fi
 echo "[build] Using make jobs: $JOBS"
 
 echo "[build] Setting up external tree and chime source..."
-mkdir -p /home/builder/br2-external /home/builder/chime-src/chime /home/builder/chime-src/common
+mkdir -p /home/builder/br2-external /home/builder/chime-src
 sync_start="$(step_start)"
 rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
-rsync -a --delete /home/builder/openchime/chime/ /home/builder/chime-src/chime/
-rsync -a --delete /home/builder/openchime/common/ /home/builder/chime-src/common/
+bash /home/builder/openchime/scripts/sync_chime_src.sh \
+    /home/builder/openchime /home/builder/chime-src
 step_done "sync" "$sync_start"
 
 cd "buildroot-$BUILDROOT_VERSION"

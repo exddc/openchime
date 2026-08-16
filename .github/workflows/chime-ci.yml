@@ -3,11 +3,20 @@ name: chime CI
 on:
   push:
     paths:
+      - "CMakeLists.txt"
       - "chime/**"
       - "common/**"
       - "webui/**"
       - "scripts/chime_ci.sh"
+      - "scripts/local_chime.sh"
+      - "scripts/sync_chime_src.sh"
       - "scripts/lint_format_ci.sh"
+      - "scripts/docker_build.sh"
+      - "scripts/deploy.sh"
+      - "scripts/buildroot_chime.sh"
+      - "buildroot/package/chime/**"
+      - "buildroot/Dockerfile"
+      - "buildroot/configs/**"
       - ".github/workflows/chime-ci.yml"
       - ".clang-format"
       - ".clang-tidy"
@@ -16,11 +25,20 @@ on:
       - "webui/bun.lock"
   pull_request:
     paths:
+      - "CMakeLists.txt"
       - "chime/**"
       - "common/**"
       - "webui/**"
       - "scripts/chime_ci.sh"
+      - "scripts/local_chime.sh"
+      - "scripts/sync_chime_src.sh"
       - "scripts/lint_format_ci.sh"
+      - "scripts/docker_build.sh"
+      - "scripts/deploy.sh"
+      - "scripts/buildroot_chime.sh"
+      - "buildroot/package/chime/**"
+      - "buildroot/Dockerfile"
+      - "buildroot/configs/**"
       - ".github/workflows/chime-ci.yml"
       - ".clang-format"
       - ".clang-tidy"
@@ -103,3 +121,24 @@ jobs:
           BUILD_TYPE: ${{ matrix.build_type }}
         run: |
           bash ./scripts/chime_ci.sh
+
+  buildroot-chime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Buildroot toolchain and downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/openchime-buildroot
+          key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/Dockerfile', 'buildroot/configs/openchime_rpi0w_defconfig') }}
+          restore-keys: |
+            buildroot-chime-${{ runner.os }}-2024.02.1-
+
+      - name: Build Buildroot chime package
+        env:
+          BUILDROOT_WORK_DIR: ${{ runner.temp }}/openchime-buildroot
+        run: |
+          bash ./scripts/buildroot_chime.sh
