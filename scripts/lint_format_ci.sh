@@ -9,6 +9,7 @@ BASE_REF="${CHIME_CI_BASE_REF:-}"
 FIX_FORMAT=0
 SKIP_CXX=0
 SKIP_WEBUI=0
+SKIP_SHELL=0
 
 log() {
   echo "[lint-format-ci] $*"
@@ -31,6 +32,7 @@ Options:
   --fix-format              Apply formatters in place instead of check-only
   --skip-cxx                Skip C/C++ clang-format checks
   --skip-webui              Skip webui biome checks
+  --skip-shell              Skip ShellCheck
   -h, --help                Show this help text
 USAGE
 }
@@ -58,6 +60,10 @@ parse_args() {
         ;;
       --skip-webui)
         SKIP_WEBUI=1
+        shift
+        ;;
+      --skip-shell)
+        SKIP_SHELL=1
         shift
         ;;
       -h|--help)
@@ -115,9 +121,26 @@ is_webui_file() {
   esac
 }
 
+is_shell_file() {
+  local path="$1"
+  local first_line
+
+  case "$path" in
+    scripts/*.sh) return 0 ;;
+    buildroot/board/*) ;;
+    *) return 1 ;;
+  esac
+
+  IFS= read -r first_line < "$PROJECT_DIR/$path" || true
+  case "$first_line" in
+    '#!'*sh*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime common webui
+    git ls-files -z -- chime common webui scripts buildroot/board
     return 0
   fi
 
@@ -129,7 +152,7 @@ collect_candidates() {
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
   log "Using merge-base $merge_base (base ref: $BASE_REF)"
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui scripts buildroot/board
   return 0
 }
 
@@ -146,6 +169,9 @@ collect_files() {
         ;;
       webui)
         is_webui_file "$file" && printf '%s\0' "$file"
+        ;;
+      shell)
+        is_shell_file "$file" && printf '%s\0' "$file"
         ;;
       *)
         error "Unknown collect mode: $mode"
@@ -228,6 +254,28 @@ run_biome() {
   popd >/dev/null
 }
 
+run_shellcheck() {
+  [ "$SKIP_SHELL" = "1" ] && {
+    log "Skipping ShellCheck"
+    return
+  }
+
+  require_tool shellcheck
+
+  local files=()
+  load_file_array shell files
+
+  if [ "${#files[@]}" -eq 0 ]; then
+    log "No shell scripts selected for ShellCheck"
+    return
+  fi
+
+  shellcheck --version
+  log "ShellCheck files: ${#files[@]}"
+  shellcheck --severity=warning "${files[@]}"
+  log "ShellCheck passed"
+}
+
 main() {
   parse_args "$@"
 
@@ -237,6 +285,7 @@ main() {
 
   run_clang_format
   run_biome
+  run_shellcheck
 
   log "All requested checks passed"
 }

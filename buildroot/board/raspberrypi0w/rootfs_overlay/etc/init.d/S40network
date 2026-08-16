@@ -34,7 +34,7 @@ stop() {
     
     # Kill DHCP client
     if [ -f /var/run/udhcpc.wlan0.pid ]; then
-        kill $(cat /var/run/udhcpc.wlan0.pid) 2>/dev/null || true
+        kill "$(cat /var/run/udhcpc.wlan0.pid)" 2>/dev/null || true
         rm -f /var/run/udhcpc.wlan0.pid
     fi
     

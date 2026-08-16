@@ -13,30 +13,25 @@ class Logger;
 namespace chime::webd {
 
 class ConfigStore {
- public:
-  ConfigStore(oc::logging::Logger& logger, std::string chime_config_path,
-              std::string wpa_supplicant_path);
+  public:
+    ConfigStore(oc::logging::Logger &logger, std::string chime_config_path, std::string wpa_supplicant_path);
 
-  SaveResult LoadCoreConfig() const;
-  SaveResult SaveCoreConfig(const SaveRequest& request);
+    SaveResult LoadCoreConfig() const;
+    SaveResult SaveCoreConfig(const SaveRequest &request);
 
- private:
-  std::vector<ValidationError> ValidateRequest(const SaveRequest& request) const;
+  private:
+    std::vector<ValidationError> ValidateRequest(const SaveRequest &request) const;
 
-  SaveResult LoadCoreConfigInternal() const;
+    SaveResult LoadCoreConfigInternal() const;
 
-  bool SaveChimeConfig(const SaveRequest& request,
-                       const CoreConfigSnapshot& existing,
-                       std::string* error) const;
-  bool SaveWpaSupplicant(const SaveRequest& request,
-                         const CoreConfigSnapshot& existing,
-                         std::string* error) const;
+    bool SaveChimeConfig(const SaveRequest &request, const CoreConfigSnapshot &existing, std::string *error) const;
+    bool SaveWpaSupplicant(const SaveRequest &request, const CoreConfigSnapshot &existing, std::string *error) const;
 
-  oc::logging::Logger& logger_;
-  std::string chime_config_path_;
-  std::string wpa_supplicant_path_;
+    oc::logging::Logger &logger_;
+    std::string chime_config_path_;
+    std::string wpa_supplicant_path_;
 };
 
-}  // namespace chime::webd
+} // namespace chime::webd
 
 #endif

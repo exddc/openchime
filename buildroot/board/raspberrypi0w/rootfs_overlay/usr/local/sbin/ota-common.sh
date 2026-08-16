@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC3043
 set -eu
 
 OTA_STATE_DIR="${OTA_STATE_DIR:-/data/ota}"

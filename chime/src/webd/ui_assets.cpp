@@ -2,8 +2,8 @@
 
 namespace chime::webd {
 
-const std::string& MainPageHtml() {
-  static const std::string html = R"HTML(<!doctype html>
+const std::string &MainPageHtml() {
+    static const std::string html = R"HTML(<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -43,7 +43,7 @@ const std::string& MainPageHtml() {
 </html>
 )HTML";
 
-  return html;
+    return html;
 }
 
-}  // namespace chime::webd
+} // namespace chime::webd

@@ -2,7 +2,6 @@
 
 DAEMON="chime"
 DAEMON_PATH="/usr/local/bin/chime"
-PIDFILE="/var/run/chime.pid"
 LOGFILE="/var/log/chime.log"
 CONFIG_FILE="/etc/chime.conf"
 
@@ -141,7 +140,7 @@ stop() {
     
     # Kill supervisor
     if [ -f "$SUPERVISOR_PIDFILE" ]; then
-        kill $(cat "$SUPERVISOR_PIDFILE") 2>/dev/null || true
+        kill "$(cat "$SUPERVISOR_PIDFILE")" 2>/dev/null || true
         rm -f "$SUPERVISOR_PIDFILE"
     fi
     
@@ -167,8 +166,8 @@ status() {
         ps | grep '[c]hime' >/dev/null 2>&1 || is_chime_running=0
     fi
 
-    if [ -f "$SUPERVISOR_PIDFILE" ] && kill -0 $(cat "$SUPERVISOR_PIDFILE") 2>/dev/null; then
-        echo "$DAEMON supervisor is running (PID $(cat $SUPERVISOR_PIDFILE))"
+    if [ -f "$SUPERVISOR_PIDFILE" ] && kill -0 "$(cat "$SUPERVISOR_PIDFILE")" 2>/dev/null; then
+        echo "$DAEMON supervisor is running (PID $(cat "$SUPERVISOR_PIDFILE"))"
         if [ "$is_chime_running" -eq 1 ]; then
             echo "$DAEMON process is running"
         else

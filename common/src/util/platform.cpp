@@ -4,10 +4,10 @@ namespace oc::util {
 
 bool IsLinux() {
 #ifdef __linux__
-  return true;
+    return true;
 #else
-  return false;
+    return false;
 #endif
 }
 
-}  // namespace oc::util
+} // namespace oc::util

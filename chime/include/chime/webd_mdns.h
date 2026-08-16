@@ -12,29 +12,28 @@ class Logger;
 namespace chime::webd {
 
 class MdnsResponder {
- public:
-  MdnsResponder(oc::logging::Logger& logger, std::string host_label,
-                std::string interface_name);
-  ~MdnsResponder();
+  public:
+    MdnsResponder(oc::logging::Logger &logger, std::string host_label, std::string interface_name);
+    ~MdnsResponder();
 
-  MdnsResponder(const MdnsResponder&) = delete;
-  MdnsResponder& operator=(const MdnsResponder&) = delete;
+    MdnsResponder(const MdnsResponder &) = delete;
+    MdnsResponder &operator=(const MdnsResponder &) = delete;
 
-  bool Start();
-  void Stop();
+    bool Start();
+    void Stop();
 
- private:
-  void Run();
+  private:
+    void Run();
 
-  oc::logging::Logger& logger_;
-  std::string host_label_;
-  std::string interface_name_;
+    oc::logging::Logger &logger_;
+    std::string host_label_;
+    std::string interface_name_;
 
-  std::atomic<bool> running_{false};
-  int socket_fd_ = -1;
-  std::thread thread_;
+    std::atomic<bool> running_{false};
+    int socket_fd_ = -1;
+    std::thread thread_;
 };
 
-}  // namespace chime::webd
+} // namespace chime::webd
 
 #endif

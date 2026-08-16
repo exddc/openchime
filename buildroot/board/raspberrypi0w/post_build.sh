@@ -52,7 +52,7 @@ if [ -d "$FIRMWARE_DIR" ]; then
 fi
 
 # Generate modules.dep
-KERNEL_VERSION=$(ls "${TARGET_DIR}/lib/modules/" 2>/dev/null | head -1)
+KERNEL_VERSION=$(find "${TARGET_DIR}/lib/modules/" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -1)
 if [ -n "$KERNEL_VERSION" ] && [ -d "${TARGET_DIR}/lib/modules/${KERNEL_VERSION}" ]; then
     if command -v depmod &>/dev/null; then
         depmod -a -b "${TARGET_DIR}" "${KERNEL_VERSION}" 2>/dev/null || true

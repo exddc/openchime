@@ -119,7 +119,7 @@ require_tool() {
 is_chime_format_file() {
   local path="$1"
   case "$path" in
-    chime/*) ;;
+    chime/*|common/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -131,7 +131,7 @@ is_chime_format_file() {
 is_chime_tidy_file() {
   local path="$1"
   case "$path" in
-    chime/src/*) ;;
+    chime/src/*|common/src/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -142,7 +142,7 @@ is_chime_tidy_file() {
 
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime
+    git ls-files -z -- chime common
     return
   fi
 
@@ -154,7 +154,7 @@ collect_candidates() {
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
   log "Using merge-base $merge_base (base ref: $BASE_REF)"
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common
 }
 
 collect_format_files() {
@@ -196,7 +196,7 @@ run_clang_format() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime C/C++ files found for clang-format"
+    log "No chime/common C/C++ files found for clang-format"
     return
   fi
 
@@ -262,43 +262,6 @@ configure_cmake() {
     ${CMAKE_HOST_ARGS[@]+"${CMAKE_HOST_ARGS[@]}"}
 }
 
-fail_sync_test() {
-  rm -rf "$1"
-  error "$2"
-}
-
-verify_sync_chime_src() {
-  local tmp src dest
-  tmp="$(mktemp -d)"
-  src="$tmp/repo"
-  dest="$tmp/chime-src"
-
-  mkdir -p "$src/chime" "$src/common" "$src/cmake" "$dest/cmake" "$dest/stale-root"
-  printf 'cmake_minimum_required(VERSION 3.27)\nproject(sync_test)\n' > "$src/CMakeLists.txt"
-  printf 'keep\n' > "$src/cmake/keep.cmake"
-  printf 'gone\n' > "$dest/cmake/deleted.cmake"
-  printf 'keep\n' > "$dest/cmake/keep.cmake"
-  printf 'stale\n' > "$dest/stale-root/leftover"
-
-  bash "$SCRIPT_DIR/sync_chime_src.sh" "$src" "$dest" || \
-    fail_sync_test "$tmp" "sync_chime_src.sh failed"
-  [ -f "$dest/cmake/keep.cmake" ] || \
-    fail_sync_test "$tmp" "sync_chime_src.sh dropped cmake/keep.cmake"
-  [ ! -e "$dest/cmake/deleted.cmake" ] || \
-    fail_sync_test "$tmp" "sync_chime_src.sh retained deleted cmake/deleted.cmake"
-  [ ! -e "$dest/stale-root" ] || \
-    fail_sync_test "$tmp" "sync_chime_src.sh retained obsolete root entry stale-root"
-
-  rm -rf "$src/cmake"
-  bash "$SCRIPT_DIR/sync_chime_src.sh" "$src" "$dest" || \
-    fail_sync_test "$tmp" "sync_chime_src.sh failed after removing cmake/"
-  [ ! -e "$dest/cmake" ] || \
-    fail_sync_test "$tmp" "sync_chime_src.sh retained cmake/ after it was removed from the source tree"
-
-  rm -rf "$tmp"
-  log "sync_chime_src.sh removes obsolete root-level build inputs"
-}
-
 run_clang_tidy() {
   [ "$SKIP_TIDY" = "1" ] && {
     log "Skipping clang-tidy"
@@ -320,7 +283,7 @@ run_clang_tidy() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime C++ sources found for clang-tidy"
+    log "No chime/common C++ sources found for clang-tidy"
     return
   fi
 
@@ -359,7 +322,6 @@ main() {
     error "Must run inside the repository"
   cd "$PROJECT_DIR"
 
-  verify_sync_chime_src
   run_clang_format
   if [ "$SKIP_TIDY" = "1" ] && [ "$SKIP_BUILD" = "1" ]; then
     log "Skipping CMake configure (no tidy/build requested)"

@@ -7,16 +7,16 @@
 namespace oc::runtime {
 
 class SignalHandler {
- public:
-  void Install();
-  bool ShouldStop() const;
-  int LastSignal() const;
-  static std::string SignalName(int signal);
+  public:
+    void Install();
+    bool ShouldStop() const;
+    int LastSignal() const;
+    static std::string SignalName(int signal);
 
- private:
-  static void Handle(int signal);
+  private:
+    static void Handle(int signal);
 };
 
-}  // namespace oc::runtime
+} // namespace oc::runtime
 
 #endif
