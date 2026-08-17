@@ -155,9 +155,9 @@ collect_candidates() {
   merge_base="$(git merge-base "$BASE_REF" HEAD)"
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
-  log "Using merge-base $merge_base (base ref: $BASE_REF)"
+  log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
   if ! git diff --quiet "$merge_base" HEAD -- .clang-format .clang-tidy; then
-    log "Clang configuration changed; checking all C/C++ files"
+    log "Clang configuration changed; checking all C/C++ files" >&2
     git ls-files -z -- chime common
     return
   fi

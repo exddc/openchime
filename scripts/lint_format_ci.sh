@@ -152,17 +152,25 @@ collect_candidates() {
   merge_base="$(git merge-base "$BASE_REF" HEAD)"
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
-  log "Using merge-base $merge_base (base ref: $BASE_REF)"
-  if ! git diff --quiet "$merge_base" HEAD -- .clang-format; then
-    log ".clang-format changed; checking all C/C++ files"
-    git ls-files -z -- chime common
-    return 0
-  fi
+  log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
   git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui scripts buildroot/board
   return 0
 }
 
-collect_files() {
+cxx_format_configuration_changed() {
+  [ "$SCOPE" = "changed" ] || return 1
+
+  git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1 || \
+    error "Base ref does not resolve to a commit: $BASE_REF"
+
+  local merge_base
+  merge_base="$(git merge-base "$BASE_REF" HEAD)"
+  [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
+
+  ! git diff --quiet "$merge_base" HEAD -- .clang-format
+}
+
+emit_files() {
   local mode="$1"
   local file
 
@@ -183,7 +191,19 @@ collect_files() {
         error "Unknown collect mode: $mode"
         ;;
     esac
-  done < <(collect_candidates)
+  done
+}
+
+collect_files() {
+  local mode="$1"
+
+  if [ "$mode" = "cxx" ] && cxx_format_configuration_changed; then
+    log ".clang-format changed; checking all C/C++ files" >&2
+    emit_files "$mode" < <(git ls-files -z -- chime common)
+    return 0
+  fi
+
+  emit_files "$mode" < <(collect_candidates)
 
   return 0
 }
