@@ -10,6 +10,7 @@ FIX_FORMAT=0
 SKIP_CXX=0
 SKIP_WEBUI=0
 SKIP_SHELL=0
+CLANG_FORMAT_TOOL="${CLANG_FORMAT_TOOL:-clang-format-18}"
 
 log() {
   echo "[lint-format-ci] $*"
@@ -152,6 +153,11 @@ collect_candidates() {
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
   log "Using merge-base $merge_base (base ref: $BASE_REF)"
+  if ! git diff --quiet "$merge_base" HEAD -- .clang-format; then
+    log ".clang-format changed; checking all C/C++ files"
+    git ls-files -z -- chime common
+    return 0
+  fi
   git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui scripts buildroot/board
   return 0
 }
@@ -203,7 +209,7 @@ run_clang_format() {
     return
   }
 
-  require_tool clang-format
+  require_tool "$CLANG_FORMAT_TOOL"
 
   local files=()
   load_file_array cxx files
@@ -213,14 +219,14 @@ run_clang_format() {
     return
   fi
 
-  clang-format --version
+  "$CLANG_FORMAT_TOOL" --version
   log "clang-format files: ${#files[@]}"
 
   if [ "$FIX_FORMAT" = "1" ]; then
-    clang-format -i "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -i "${files[@]}"
     log "Applied clang-format"
   else
-    clang-format -n -Werror "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -n -Werror "${files[@]}"
     log "clang-format check passed"
   fi
 }

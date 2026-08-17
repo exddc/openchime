@@ -64,7 +64,7 @@ std::string Join(const std::vector<std::string> &items, const std::string &sep) 
 }
 
 std::string DescribeHostLookup(const std::string &host, int port) {
-    struct addrinfo hints{};
+    struct addrinfo hints {};
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 

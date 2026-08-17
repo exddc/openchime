@@ -64,7 +64,7 @@ jobs:
             ninja-build pkg-config \
             libmosquitto-dev \
             libssl-dev \
-            clang-format clang-tidy shellcheck rsync
+            clang-format-18 clang-tidy-18 shellcheck rsync
 
       - name: Install webui deps
         working-directory: webui
@@ -109,6 +109,8 @@ jobs:
       - name: Run chime CI checks
         env:
           BUILD_TYPE: ${{ matrix.build_type }}
+          CLANG_FORMAT_TOOL: clang-format-18
+          CLANG_TIDY_TOOL: clang-tidy-18
         run: |
           bash ./scripts/chime_ci.sh
 

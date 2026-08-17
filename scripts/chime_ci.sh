@@ -13,6 +13,8 @@ SKIP_FORMAT=0
 SKIP_TIDY=0
 SKIP_BUILD=0
 SKIP_TESTS=0
+CLANG_FORMAT_TOOL="${CLANG_FORMAT_TOOL:-clang-format-18}"
+CLANG_TIDY_TOOL="${CLANG_TIDY_TOOL:-clang-tidy-18}"
 
 log() {
   echo "[chime-ci] $*"
@@ -154,6 +156,11 @@ collect_candidates() {
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
   log "Using merge-base $merge_base (base ref: $BASE_REF)"
+  if ! git diff --quiet "$merge_base" HEAD -- .clang-format .clang-tidy; then
+    log "Clang configuration changed; checking all C/C++ files"
+    git ls-files -z -- chime common
+    return
+  fi
   git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common
 }
 
@@ -181,7 +188,7 @@ run_clang_format() {
     return
   }
 
-  require_tool clang-format
+  require_tool "$CLANG_FORMAT_TOOL"
 
   local files=()
   local file_list
@@ -200,14 +207,14 @@ run_clang_format() {
     return
   fi
 
-  clang-format --version
+  "$CLANG_FORMAT_TOOL" --version
   log "clang-format files: ${#files[@]}"
 
   if [ "$FIX_FORMAT" = "1" ]; then
-    clang-format -i "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -i "${files[@]}"
     log "Applied clang-format to ${#files[@]} files"
   else
-    clang-format -n -Werror "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -n -Werror "${files[@]}"
     log "clang-format check passed"
   fi
 }
@@ -268,7 +275,7 @@ run_clang_tidy() {
     return
   }
 
-  require_tool clang-tidy
+  require_tool "$CLANG_TIDY_TOOL"
 
   local files=()
   local file_list
@@ -287,9 +294,9 @@ run_clang_tidy() {
     return
   fi
 
-  clang-tidy --version
+  "$CLANG_TIDY_TOOL" --version
   log "clang-tidy files: ${#files[@]}"
-  clang-tidy -p "$BUILD_DIR" "${files[@]}"
+  "$CLANG_TIDY_TOOL" -p "$BUILD_DIR" "${files[@]}"
   log "clang-tidy passed"
 }
 

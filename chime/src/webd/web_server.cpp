@@ -677,7 +677,7 @@ bool WebServer::Start() {
     const int reuse = 1;
     setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    struct sockaddr_in address{};
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port_));
     if (inet_pton(AF_INET, bind_address_.c_str(), &address.sin_addr) != 1) {
@@ -737,7 +737,7 @@ void WebServer::Stop() {
 
 void WebServer::AcceptLoop() {
     while (running_.load()) {
-        struct sockaddr_in client_addr{};
+        struct sockaddr_in client_addr {};
         socklen_t client_len = sizeof(client_addr);
         const int client_fd = accept(listen_fd_, reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
 
