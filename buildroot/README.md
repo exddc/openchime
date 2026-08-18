@@ -2,6 +2,8 @@
 
 Lightweight Linux image for Pi Zero W with WiFi, SSH, and the chime application.
 
+On-device operations (service logs, MQTT, webd/TLS, persistent data, OTA, recovery) are in [docs/reliability-runbook.md](../docs/reliability-runbook.md).
+
 ## Quick Start
 
 ```bash
@@ -34,8 +36,8 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.0
-CHIME_CONFIG_VERSION=3
+OPENCHIME_OS_VERSION=0.2.5
+CHIME_CONFIG_VERSION=4
 ```
 
 `chime/VERSION`
@@ -270,21 +272,9 @@ arp -a | grep b8:27:eb
 ssh root@<ip>
 ```
 
-### Chime reliability logs
-```bash
-# Follow daemon logs
-tail -f /var/log/chime.log
+### Service logs, MQTT, OTA, and recovery
 
-# Or from host
-ssh root@<pi-ip> 'tail -f /var/log/chime.log'
-
-# Rotated files
-ls -lh /var/log/chime.log*
-```
-
-Log stream includes service start/stop, MQTT connect/disconnect/reconnect,
-message receipt details, heartbeat publish status, WiFi link-state transitions,
-and periodic health counters.
+See [docs/reliability-runbook.md](../docs/reliability-runbook.md).
 
 ### Incorrect clock / 1970 timestamps
 ```bash

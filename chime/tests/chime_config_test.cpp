@@ -76,6 +76,23 @@ wifi_check_interval=0
         CHECK_FALSE(chime::LoadConfig(tmp.WriteFile("no-topics.conf", "mqtt_host=h\nmqtt_port=1883\n").string()));
     }
 
+    TEST_CASE("accepts empty mqtt_host as not configured") {
+        const ScopedTempDir tmp;
+        const auto path = tmp.WriteFile("empty-host.conf", "mqtt_host=\nmqtt_port=1883\nmqtt_topics=doorbell/ring\n");
+        const auto result = chime::LoadConfig(path.string());
+        REQUIRE(result);
+        CHECK(result.config.host.empty());
+        CHECK_FALSE(chime::MqttBrokerConfigured(result.config));
+        CHECK(result.config.port == 1883);
+    }
+
+    TEST_CASE("treats a non-empty mqtt_host as configured") {
+        chime::ChimeConfig configured;
+        configured.host = "broker.local";
+        CHECK(chime::MqttBrokerConfigured(configured));
+        CHECK_FALSE(chime::MqttBrokerConfigured(chime::ChimeConfig{}));
+    }
+
     TEST_CASE("ignores invalid optional values and keeps defaults") {
         const ScopedTempDir tmp;
         const auto path = tmp.WriteFile(
