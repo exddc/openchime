@@ -192,6 +192,8 @@ emit_files() {
         ;;
     esac
   done
+
+  return 0
 }
 
 collect_files() {
