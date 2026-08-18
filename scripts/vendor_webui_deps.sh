@@ -31,8 +31,8 @@ cp "$WEBUI_DIR/package.json" "$WEBUI_DIR/bun.lock" "$tmp/"
 
 (
     cd "$tmp"
-    bun install --frozen-lockfile --os linux --cpu x64
-    bun install --frozen-lockfile --os linux --cpu arm64
+    bun install --frozen-lockfile --os=linux --cpu=x64
+    bun install --frozen-lockfile --os=linux --cpu=arm64
     rm -f "$ARCHIVE"
     COPYFILE_DISABLE=1 tar -czf "$ARCHIVE" node_modules
 )

@@ -26,15 +26,19 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY bun-version /tmp/bun-version
+COPY bun-version bun-linux-x64.sha256 bun-linux-aarch64.sha256 /tmp/
 RUN set -eux; \
     BUN_VERSION="$(tr -d '[:space:]' < /tmp/bun-version)"; \
     arch="$(uname -m)"; \
     case "$arch" in \
-      x86_64) bun_arch=x64; bun_sha=951ee2aee855f08595aeec6225226a298d3fea83a3dcd6465c09cbccdf7e848f ;; \
-      aarch64) bun_arch=aarch64; bun_sha=a27ffb63a8310375836e0d6f668ae17fa8d8d18b88c37c821c65331973a19a3b ;; \
+      x86_64) bun_arch=x64 ;; \
+      aarch64) bun_arch=aarch64 ;; \
       *) echo "unsupported arch: $arch" >&2; exit 1 ;; \
     esac; \
+    bun_sha_file="/tmp/bun-linux-${bun_arch}.sha256"; \
+    [ -s "$bun_sha_file" ] || { echo "missing checksum file: $bun_sha_file" >&2; exit 1; }; \
+    bun_sha="$(tr -d '[:space:]' < "$bun_sha_file")"; \
+    [ "${#bun_sha}" -eq 64 ] || { echo "invalid checksum in $bun_sha_file" >&2; exit 1; }; \
     curl -fsSL -o /tmp/bun.zip \
       "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_arch}.zip"; \
     echo "${bun_sha}  /tmp/bun.zip" | sha256sum -c; \

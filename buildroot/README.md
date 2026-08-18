@@ -36,7 +36,7 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.5
+OPENCHIME_OS_VERSION=0.2.6
 CHIME_CONFIG_VERSION=4
 ```
 
@@ -200,6 +200,7 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | `package/chime/chime.mk` | Chime CMake package recipe (source list lives in CMake) |
 | `package/chime-web-ui/chime-web-ui.mk` | Builds the Svelte UI from vendored deps and installs it into the rootfs |
 | `bun-version` | Pinned Bun version for the builder image and CI |
+| `bun-linux-x64.sha256` / `bun-linux-aarch64.sha256` | SHA-256 of the matching GitHub Bun zip |
 | `board/raspberrypi0w/assert_chime_web_ui_dist.sh` | Fails the image build if `index.html` or referenced assets are missing |
 | `board/raspberrypi0w/genimage.cfg` | SD card image layout |
 | `board/raspberrypi0w/post_build.sh` | Creates firmware symlinks, runs depmod, asserts baked web UI |

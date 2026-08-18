@@ -17,7 +17,7 @@ CHIME_WEB_UI_VENDOR_ARCHIVE = vendor/node_modules.tar.gz
 CHIME_WEB_UI_VENDOR_CHECKSUM = vendor/node_modules.tar.gz.sha256
 
 ifeq ($(CHIME_WEB_UI_VERSION),)
-CHIME_WEB_UI_VERSION = 0
+$(error Missing webui source id in $(CHIME_WEB_UI_SITE)/.source-id)
 endif
 
 define CHIME_WEB_UI_BUILD_CMDS
