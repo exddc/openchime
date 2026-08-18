@@ -216,6 +216,14 @@ if [ -e /home/builder/webui-src/dist ] || [ -e /home/builder/webui-src/node_modu
     echo "[build] ERROR: staged webui-src must not contain dist/ or node_modules/" >&2
     exit 1
 fi
+if [ ! -s /home/builder/webui-src/.source-id ]; then
+    echo "[build] ERROR: missing staged webui source id" >&2
+    exit 1
+fi
+if [ ! -f /home/builder/webui-src/vendor/node_modules.tar.gz ]; then
+    echo "[build] ERROR: missing vendored webui dependencies" >&2
+    exit 1
+fi
 step_done "sync" "$sync_start"
 
 cd "buildroot-$BUILDROOT_VERSION"
@@ -227,12 +235,8 @@ step_done "defconfig" "$defconfig_start"
 
 echo "[build] Building (this takes 30-90 min)..."
 build_start="$(step_start)"
-make BR2_EXTERNAL=/home/builder/br2-external chime-web-ui-dirclean || true
 make BR2_EXTERNAL=/home/builder/br2-external -j"$JOBS"
 step_done "make" "$build_start"
-
-bash /home/builder/openchime/buildroot/board/raspberrypi0w/assert_chime_web_ui_dist.sh \
-    output/target/usr/local/share/chime-web-ui/dist
 
 if [ -f "output/images/sdcard.img" ]; then
     cp output/images/sdcard.img /home/builder/work/

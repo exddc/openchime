@@ -156,14 +156,12 @@ step_done() {
 
 cd /home/builder/work/buildroot-'"$BUILDROOT_VERSION"'
 
-echo "[rebuild] Syncing chime and webui source..."
-mkdir -p /home/builder/chime-src /home/builder/webui-src /home/builder/br2-external
+echo "[rebuild] Syncing chime source..."
+mkdir -p /home/builder/chime-src /home/builder/br2-external
 sync_start="$(step_start)"
 rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
 bash /home/builder/openchime/scripts/sync_chime_src.sh \
     /home/builder/openchime /home/builder/chime-src
-bash /home/builder/openchime/scripts/sync_webui_src.sh \
-    /home/builder/openchime /home/builder/webui-src
 step_done "sync" "$sync_start"
 
 echo "[rebuild] Building chime package..."

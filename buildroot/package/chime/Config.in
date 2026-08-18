@@ -3,6 +3,7 @@ config BR2_PACKAGE_CHIME
 	depends on BR2_INSTALL_LIBSTDCPP
 	select BR2_PACKAGE_MOSQUITTO
 	select BR2_PACKAGE_OPENSSL
+	select BR2_PACKAGE_CHIME_WEB_UI
 	help
 	  Chime doorbell application.
 

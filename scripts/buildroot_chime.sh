@@ -136,6 +136,9 @@ run_container() {
     require_file /home/builder/chime-src/CMakeLists.txt
     require_file /home/builder/webui-src/package.json
     require_file /home/builder/webui-src/bun.lock
+    require_file /home/builder/webui-src/.source-id
+    require_file /home/builder/webui-src/vendor/node_modules.tar.gz
+    require_file /home/builder/webui-src/vendor/node_modules.tar.gz.sha256
     if [ -e /home/builder/webui-src/dist ] || [ -e /home/builder/webui-src/node_modules ]; then
         error "staged webui-src must not contain dist/ or node_modules/"
     fi
@@ -189,13 +192,9 @@ run_container() {
         error "chime-webd was not cross-compiled for ARM: $webd_file"
 
     log "Building chime-web-ui from staged webui sources"
-    make BR2_EXTERNAL=/home/builder/br2-external chime-web-ui-dirclean || true
     make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime-web-ui
-
-    local ui_dist="$target_dir/usr/local/share/chime-web-ui/dist"
-    bash /home/builder/openchime/buildroot/board/raspberrypi0w/assert_chime_web_ui_dist.sh \
-        "$ui_dist"
-    log "Buildroot chime-web-ui installed $ui_dist"
+    require_file "$target_dir/usr/local/share/chime-web-ui/dist/index.html"
+    log "Buildroot chime-web-ui installed /usr/local/share/chime-web-ui/dist"
 
     log "Buildroot chime package installed /usr/local/bin/chime and /usr/local/bin/chime-webd"
 }

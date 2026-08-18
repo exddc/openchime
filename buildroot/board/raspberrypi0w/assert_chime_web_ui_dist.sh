@@ -27,10 +27,6 @@ error() {
 [ -f "$DIST/index.html" ] || error "missing $DIST/index.html (Svelte production bundle was not installed)"
 [ -s "$DIST/index.html" ] || error "$DIST/index.html is empty"
 
-if [ -z "$(find "$DIST" -type f -print -quit)" ]; then
-    error "web UI dist directory is empty: $DIST"
-fi
-
 if grep -Fq '/src/main.ts' "$DIST/index.html"; then
     error "$DIST/index.html looks like the Vite source entry, not a production bundle"
 fi

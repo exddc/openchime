@@ -19,6 +19,20 @@ is_within() {
     [ "$path" = "$parent" ] || [[ "$path" == "$parent/"* ]]
 }
 
+hash_tree() {
+    local dir="$1"
+    (
+        cd "$dir"
+        find . -type f ! -name '.openchime-webui-sync-root' ! -name '.source-id' -print0 \
+            | LC_ALL=C sort -z \
+            | if command -v sha256sum >/dev/null 2>&1; then
+                xargs -0 sha256sum | sha256sum
+            else
+                xargs -0 shasum -a 256 | shasum -a 256
+            fi
+    ) | awk '{print $1}'
+}
+
 REPO_ROOT="$(cd "$1" && pwd -P)"
 if [ -e "$2" ]; then
     [ -d "$2" ] || {
@@ -31,7 +45,10 @@ else
     DEST="$DEST_PARENT/$(basename "$2")"
 fi
 MARKER_FILE="$DEST/.openchime-webui-sync-root"
+SOURCE_ID_FILE="$DEST/.source-id"
 WEBUI_DIR="$REPO_ROOT/webui"
+VENDOR_ARCHIVE="$WEBUI_DIR/vendor/node_modules.tar.gz"
+VENDOR_CHECKSUM="$WEBUI_DIR/vendor/node_modules.tar.gz.sha256"
 
 [ -d "$WEBUI_DIR" ] || {
     echo "ERROR: missing $WEBUI_DIR" >&2
@@ -51,6 +68,14 @@ WEBUI_DIR="$REPO_ROOT/webui"
 }
 [ -d "$WEBUI_DIR/src" ] || {
     echo "ERROR: missing $WEBUI_DIR/src" >&2
+    exit 1
+}
+[ -f "$VENDOR_ARCHIVE" ] || {
+    echo "ERROR: missing $VENDOR_ARCHIVE (run scripts/vendor_webui_deps.sh)" >&2
+    exit 1
+}
+[ -f "$VENDOR_CHECKSUM" ] || {
+    echo "ERROR: missing $VENDOR_CHECKSUM (run scripts/vendor_webui_deps.sh)" >&2
     exit 1
 }
 
@@ -85,3 +110,13 @@ if [ -e "$DEST/dist" ] || [ -e "$DEST/node_modules" ]; then
     echo "ERROR: staged webui still contains dist/ or node_modules/: $DEST" >&2
     exit 1
 fi
+[ -f "$DEST/vendor/node_modules.tar.gz" ] || {
+    echo "ERROR: staged webui is missing vendor/node_modules.tar.gz" >&2
+    exit 1
+}
+
+hash_tree "$DEST" > "$SOURCE_ID_FILE"
+[ -s "$SOURCE_ID_FILE" ] || {
+    echo "ERROR: failed to write $SOURCE_ID_FILE" >&2
+    exit 1
+}

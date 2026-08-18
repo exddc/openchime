@@ -56,6 +56,8 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: buildroot/bun-version
 
       - name: Install deps
         run: |
@@ -68,7 +70,13 @@ jobs:
 
       - name: Install webui deps
         working-directory: webui
-        run: bun install --frozen-lockfile
+        run: |
+          bun --version
+          expected="$(tr -d '[:space:]' < ../buildroot/bun-version)"
+          test "$(bun --version)" = "$expected"
+          (cd vendor && sha256sum -c node_modules.tar.gz.sha256)
+          tar -xzf vendor/node_modules.tar.gz
+          bun install --frozen-lockfile --offline
 
       - name: Determine CI file scope
         run: |
@@ -135,7 +143,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/openchime-buildroot
-          key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/Dockerfile', 'buildroot/Config.in', 'buildroot/external.desc', 'buildroot/external.mk', 'buildroot/configs/**', 'buildroot/package/**') }}
+          key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/Dockerfile', 'buildroot/bun-version', 'buildroot/Config.in', 'buildroot/external.desc', 'buildroot/external.mk', 'buildroot/configs/**', 'buildroot/package/**', 'webui/vendor/node_modules.tar.gz.sha256') }}
 
       - name: Build Buildroot chime package
         env:

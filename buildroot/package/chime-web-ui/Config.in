@@ -2,4 +2,5 @@ config BR2_PACKAGE_CHIME_WEB_UI
 	bool "chime-web-ui"
 	help
 	  Production Svelte UI for chime-webd, installed to
-	  /usr/local/share/chime-web-ui/dist.
+	  /usr/local/share/chime-web-ui/dist. Selected by the chime
+	  package; first-boot images cannot omit it.

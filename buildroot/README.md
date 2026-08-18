@@ -196,7 +196,8 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | `version.env` | OS/config version source of truth |
 | `../chime/VERSION` | Chime app SemVer source of truth |
 | `package/chime/chime.mk` | Chime CMake package recipe (source list lives in CMake) |
-| `package/chime-web-ui/chime-web-ui.mk` | Builds the Svelte UI with Bun and installs it into the rootfs |
+| `package/chime-web-ui/chime-web-ui.mk` | Builds the Svelte UI from vendored deps and installs it into the rootfs |
+| `bun-version` | Pinned Bun version for the builder image and CI |
 | `board/raspberrypi0w/assert_chime_web_ui_dist.sh` | Fails the image build if `index.html` or referenced assets are missing |
 | `board/raspberrypi0w/genimage.cfg` | SD card image layout |
 | `board/raspberrypi0w/post_build.sh` | Creates firmware symlinks, runs depmod, asserts baked web UI |
@@ -232,29 +233,31 @@ Created by `post_build.sh`.
 
 ### Baked web UI
 
-`chime-webd` serves static files from `/usr/local/share/chime-web-ui/dist` and
+`chime-webd` serves static files from `/usr/local/share/chime-web-ui/dist` at
 `GET /` on port 8443. A clean image build must contain that tree; first boot
 must not depend on `scripts/deploy.sh`.
 
-How the bundle gets into the image:
+`scripts/docker_build.sh` stages `webui/` (no host `dist/` or `node_modules/`)
+into `/home/builder/webui-src` and writes `.source-id` from that tree. The
+Buildroot package `chime-web-ui` uses `.source-id` as its package version, so a
+source or vendor change rebuilds without `dirclean`. It verifies
+`webui/vendor/node_modules.tar.gz`, extracts it, runs `bun run build` offline,
+and installs the bundle. `post_build.sh` fails the image if `index.html` or a
+referenced asset is missing.
 
-1. `scripts/docker_build.sh` bind-mounts the repository (including `webui/`) into
-   the builder container.
-2. `scripts/sync_webui_src.sh` stages a copy at `/home/builder/webui-src` and
-   **excludes** host `webui/dist` and `webui/node_modules`.
-3. The Buildroot package `chime-web-ui` runs `bun install --frozen-lockfile` and
-   `bun run build`, then installs the generated files to
-   `/usr/local/share/chime-web-ui/dist` in the target rootfs.
-4. `board/raspberrypi0w/post_build.sh` (and the package install step) fail the
-   build if `index.html` is missing, the dist directory is empty, or a referenced
-   asset is missing.
+Regenerate vendored JS deps after `webui/bun.lock` changes:
+
+```bash
+./scripts/vendor_webui_deps.sh
+```
 
 The HTML fallback in `chime/src/webd/ui_assets.cpp` is a diagnostic for a missing
 or broken dist directory on a running device. It is not an acceptable default for
 a freshly flashed image.
 
 `scripts/deploy.sh chime <pi-ip> --with-webd` can still replace the on-device
-assets later without rebuilding the OS image.
+assets later without rebuilding the OS image. Chime-only binary rebuilds do not
+stage or build the UI.
 
 On-device paths:
 
