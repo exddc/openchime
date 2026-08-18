@@ -11,31 +11,31 @@ class Logger;
 namespace chime::webd {
 
 struct WifiNetwork {
-  std::string ssid;
-  int signal_dbm = -1000;
-  std::string security;
+    std::string ssid;
+    int signal_dbm = -1000;
+    std::string security;
 };
 
 struct WifiScanResult {
-  bool success = false;
-  std::string error;
-  std::vector<WifiNetwork> networks;
+    bool success = false;
+    std::string error;
+    std::vector<WifiNetwork> networks;
 };
 
 class WifiScanner {
- public:
-  WifiScanner(oc::logging::Logger& logger, std::string interface_name);
+  public:
+    WifiScanner(oc::logging::Logger &logger, std::string interface_name);
 
-  WifiScanResult Scan() const;
+    WifiScanResult Scan() const;
 
- private:
-  WifiScanResult ScanWithWpaCli() const;
-  WifiScanResult ScanWithIw() const;
+  private:
+    WifiScanResult ScanWithWpaCli() const;
+    WifiScanResult ScanWithIw() const;
 
-  oc::logging::Logger& logger_;
-  std::string interface_name_;
+    oc::logging::Logger &logger_;
+    std::string interface_name_;
 };
 
-}  // namespace chime::webd
+} // namespace chime::webd
 
 #endif

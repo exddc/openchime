@@ -5,8 +5,8 @@
 
 namespace chime::webd {
 
-const std::string& MainPageHtml();
+const std::string &MainPageHtml();
 
-}  // namespace chime::webd
+} // namespace chime::webd
 
 #endif

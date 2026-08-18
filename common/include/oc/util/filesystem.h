@@ -5,9 +5,9 @@
 
 namespace oc::util {
 
-bool FileExists(const std::string& path);
-std::string ReadTrimmedFile(const std::string& path);
+bool FileExists(const std::string &path);
+std::string ReadTrimmedFile(const std::string &path);
 
-}  // namespace oc::util
+} // namespace oc::util
 
 #endif

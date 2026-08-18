@@ -44,7 +44,7 @@ case "$1" in
         modprobe snd-soc-simple-card 2>/dev/null
         
         # Wait for wlan0
-        for i in 1 2 3 4 5; do
+        for _ in 1 2 3 4 5; do
             [ -d /sys/class/net/wlan0 ] && break
             sleep 1
         done

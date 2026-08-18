@@ -46,7 +46,7 @@ bool GetInterfaceIPv4(const std::string &interface_name, struct in_addr *address
     }
 
     bool found = false;
-    struct in_addr fallback{};
+    struct in_addr fallback {};
     bool fallback_set = false;
 
     for (struct ifaddrs *it = addrs; it != nullptr; it = it->ifa_next) {
@@ -280,7 +280,7 @@ bool MdnsResponder::Start() {
     const int reuse = 1;
     setsockopt(socket_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    struct sockaddr_in bind_addr{};
+    struct sockaddr_in bind_addr {};
     bind_addr.sin_family = AF_INET;
     bind_addr.sin_port = htons(kMdnsPort);
     bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -292,7 +292,7 @@ bool MdnsResponder::Start() {
         return false;
     }
 
-    struct ip_mreq mreq{};
+    struct ip_mreq mreq {};
     mreq.imr_multiaddr.s_addr = inet_addr(kMdnsGroup);
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(socket_fd_, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
@@ -330,7 +330,7 @@ void MdnsResponder::Run() {
     auto last_announce = std::chrono::steady_clock::now() - std::chrono::seconds(120);
 
     while (running_.load()) {
-        struct in_addr ip_addr{};
+        struct in_addr ip_addr {};
         std::string ip_error;
         const bool has_ip = GetInterfaceIPv4(interface_name_, &ip_addr, &ip_error);
 
@@ -349,7 +349,7 @@ void MdnsResponder::Run() {
 
         const auto now = std::chrono::steady_clock::now();
         if (now - last_announce >= std::chrono::seconds(120)) {
-            struct sockaddr_in multicast_addr{};
+            struct sockaddr_in multicast_addr {};
             multicast_addr.sin_family = AF_INET;
             multicast_addr.sin_port = htons(kMdnsPort);
             multicast_addr.sin_addr.s_addr = inet_addr(kMdnsGroup);
@@ -363,7 +363,7 @@ void MdnsResponder::Run() {
         FD_ZERO(&read_fds);
         FD_SET(socket_fd_, &read_fds);
 
-        struct timeval timeout{};
+        struct timeval timeout {};
         timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
@@ -373,7 +373,7 @@ void MdnsResponder::Run() {
         }
 
         std::array<uint8_t, 1500> request_buffer{};
-        struct sockaddr_in source_addr{};
+        struct sockaddr_in source_addr {};
         socklen_t source_len = sizeof(source_addr);
         const ssize_t bytes = recvfrom(socket_fd_, request_buffer.data(), request_buffer.size(), 0,
                                        reinterpret_cast<struct sockaddr *>(&source_addr), &source_len);

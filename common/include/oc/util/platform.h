@@ -5,6 +5,6 @@ namespace oc::util {
 
 bool IsLinux();
 
-}  // namespace oc::util
+} // namespace oc::util
 
 #endif

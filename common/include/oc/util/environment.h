@@ -5,8 +5,8 @@
 
 namespace oc::util {
 
-std::string GetEnv(const char* name);
+std::string GetEnv(const char *name);
 
-}  // namespace oc::util
+} // namespace oc::util
 
 #endif

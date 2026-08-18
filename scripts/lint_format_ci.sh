@@ -9,6 +9,8 @@ BASE_REF="${CHIME_CI_BASE_REF:-}"
 FIX_FORMAT=0
 SKIP_CXX=0
 SKIP_WEBUI=0
+SKIP_SHELL=0
+CLANG_FORMAT_TOOL="${CLANG_FORMAT_TOOL:-clang-format-18}"
 
 log() {
   echo "[lint-format-ci] $*"
@@ -31,6 +33,7 @@ Options:
   --fix-format              Apply formatters in place instead of check-only
   --skip-cxx                Skip C/C++ clang-format checks
   --skip-webui              Skip webui biome checks
+  --skip-shell              Skip ShellCheck
   -h, --help                Show this help text
 USAGE
 }
@@ -58,6 +61,10 @@ parse_args() {
         ;;
       --skip-webui)
         SKIP_WEBUI=1
+        shift
+        ;;
+      --skip-shell)
+        SKIP_SHELL=1
         shift
         ;;
       -h|--help)
@@ -115,9 +122,26 @@ is_webui_file() {
   esac
 }
 
+is_shell_file() {
+  local path="$1"
+  local first_line
+
+  case "$path" in
+    scripts/*.sh) return 0 ;;
+    buildroot/board/*) ;;
+    *) return 1 ;;
+  esac
+
+  IFS= read -r first_line < "$PROJECT_DIR/$path" || true
+  case "$first_line" in
+    '#!'*sh*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime common webui
+    git ls-files -z -- chime common webui scripts buildroot/board
     return 0
   fi
 
@@ -128,12 +152,25 @@ collect_candidates() {
   merge_base="$(git merge-base "$BASE_REF" HEAD)"
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
-  log "Using merge-base $merge_base (base ref: $BASE_REF)"
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui
+  log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui scripts buildroot/board
   return 0
 }
 
-collect_files() {
+cxx_format_configuration_changed() {
+  [ "$SCOPE" = "changed" ] || return 1
+
+  git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1 || \
+    error "Base ref does not resolve to a commit: $BASE_REF"
+
+  local merge_base
+  merge_base="$(git merge-base "$BASE_REF" HEAD)"
+  [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
+
+  ! git diff --quiet "$merge_base" HEAD -- .clang-format
+}
+
+emit_files() {
   local mode="$1"
   local file
 
@@ -147,11 +184,28 @@ collect_files() {
       webui)
         is_webui_file "$file" && printf '%s\0' "$file"
         ;;
+      shell)
+        is_shell_file "$file" && printf '%s\0' "$file"
+        ;;
       *)
         error "Unknown collect mode: $mode"
         ;;
     esac
-  done < <(collect_candidates)
+  done
+
+  return 0
+}
+
+collect_files() {
+  local mode="$1"
+
+  if [ "$mode" = "cxx" ] && cxx_format_configuration_changed; then
+    log ".clang-format changed; checking all C/C++ files" >&2
+    emit_files "$mode" < <(git ls-files -z -- chime common)
+    return 0
+  fi
+
+  emit_files "$mode" < <(collect_candidates)
 
   return 0
 }
@@ -177,7 +231,7 @@ run_clang_format() {
     return
   }
 
-  require_tool clang-format
+  require_tool "$CLANG_FORMAT_TOOL"
 
   local files=()
   load_file_array cxx files
@@ -187,14 +241,14 @@ run_clang_format() {
     return
   fi
 
-  clang-format --version
+  "$CLANG_FORMAT_TOOL" --version
   log "clang-format files: ${#files[@]}"
 
   if [ "$FIX_FORMAT" = "1" ]; then
-    clang-format -i "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -i "${files[@]}"
     log "Applied clang-format"
   else
-    clang-format -n -Werror "${files[@]}"
+    "$CLANG_FORMAT_TOOL" -n -Werror "${files[@]}"
     log "clang-format check passed"
   fi
 }
@@ -228,6 +282,28 @@ run_biome() {
   popd >/dev/null
 }
 
+run_shellcheck() {
+  [ "$SKIP_SHELL" = "1" ] && {
+    log "Skipping ShellCheck"
+    return
+  }
+
+  require_tool shellcheck
+
+  local files=()
+  load_file_array shell files
+
+  if [ "${#files[@]}" -eq 0 ]; then
+    log "No shell scripts selected for ShellCheck"
+    return
+  fi
+
+  shellcheck --version
+  log "ShellCheck files: ${#files[@]}"
+  shellcheck --severity=warning "${files[@]}"
+  log "ShellCheck passed"
+}
+
 main() {
   parse_args "$@"
 
@@ -237,6 +313,7 @@ main() {
 
   run_clang_format
   run_biome
+  run_shellcheck
 
   log "All requested checks passed"
 }

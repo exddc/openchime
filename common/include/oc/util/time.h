@@ -7,6 +7,6 @@ namespace oc::util {
 
 bool ClockIsSane(std::time_t minimum_epoch);
 
-}  // namespace oc::util
+} // namespace oc::util
 
 #endif
