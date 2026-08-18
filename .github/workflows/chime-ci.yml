@@ -154,11 +154,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/openchime-buildroot
-          # Key on the toolchain/defconfig, not package sources. Package edits
-          # must reuse gcc rather than spend ~35 minutes bootstrapping it.
+          # Exact defconfig key only. A restore-keys prefix can reuse gcc from
+          # a different defconfig, and Buildroot will not rebuild it.
           key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/configs/**') }}
-          restore-keys: |
-            buildroot-chime-${{ runner.os }}-2024.02.1-
 
       - name: Build Buildroot chime package
         env:

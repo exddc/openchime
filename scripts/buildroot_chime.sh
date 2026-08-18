@@ -191,7 +191,8 @@ run_container() {
     printf '%s\n' "$webd_file" | grep -qi 'ARM' || \
         error "chime-webd was not cross-compiled for ARM: $webd_file"
 
-    log "Building chime-web-ui from staged webui sources"
+    log "Rebuilding chime-web-ui from staged webui sources"
+    make BR2_EXTERNAL=/home/builder/br2-external chime-web-ui-dirclean
     make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime-web-ui
     require_file "$target_dir/usr/local/share/chime-web-ui/dist/index.html"
     log "Buildroot chime-web-ui installed /usr/local/share/chime-web-ui/dist"
