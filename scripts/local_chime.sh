@@ -443,6 +443,10 @@ run-webd:   Build if needed and run only chime-webd
 By default, runtime state is stored under:
   $RUNTIME_DIR
 
+The image overlay copies `mqtt_host=` (not configured). Local ring playback
+needs a broker host in the runtime `chime.conf` (or a custom config path).
+Do not point a clean image at a developer LAN by default.
+
 Environment overrides:
   CHIME_MQTT_CLIENT_ID            MQTT client id for local chime run
   CHIME_MQTT_USERNAME             MQTT username override for local chime run

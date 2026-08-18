@@ -53,6 +53,30 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
 
     logger_.Info("chime", "service starting (pid=" + std::to_string(getpid()) + ")");
 
+    if (!MqttBrokerConfigured(config_)) {
+        logger_.Error("mqtt", "mqtt_host is not configured; ring service waiting for setup via chime-webd. "
+                              "no broker connection will be attempted");
+        auto last_reminder = std::chrono::steady_clock::now();
+        while (!signal_handler.ShouldStop()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            const auto now = std::chrono::steady_clock::now();
+            const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_reminder).count();
+            if (elapsed >= kHealthLogIntervalSeconds) {
+                logger_.Warn("mqtt", "mqtt_host is still not configured; waiting for setup via chime-webd");
+                last_reminder = now;
+            }
+        }
+
+        if (signal_handler.LastSignal() != 0) {
+            logger_.Info("chime", "shutdown requested by signal " +
+                                      oc::runtime::SignalHandler::SignalName(signal_handler.LastSignal()));
+        } else {
+            logger_.Info("chime", "shutdown requested");
+        }
+        logger_.Info("chime", "service stopped");
+        return 0;
+    }
+
     logger_.Info("mqtt",
                  "broker=" + config_.host + ":" + std::to_string(config_.port) + " client_id=" + config_.client_id);
     logger_.Info("mqtt", "auth username=" + (config_.mqtt_username.empty() ? "<none>" : config_.mqtt_username) +

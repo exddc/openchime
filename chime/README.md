@@ -3,7 +3,7 @@
 `chime` is a minimal MQTT-to-audio daemon for the Raspberry Pi Zero W.
 `chime-webd` is a lightweight HTTPS control-plane daemon for web configuration APIs/UI.
 
-Operational runbook: `RELIABILITY_RUNBOOK.md`.
+Operational runbook: [docs/reliability-runbook.md](../docs/reliability-runbook.md).
 
 ## Local CI Checks
 
@@ -40,10 +40,11 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 ## Runtime Behavior
 
 1. Loads config from `/etc/chime.conf` (or `$CHIME_CONFIG`).
-2. Connects to MQTT broker and subscribes to configured topics.
-3. When a message arrives on `ring_topic`, plays `sound_path` using `aplay`.
-4. Publishes `heartbeat_topic` every `heartbeat_interval` seconds.
-5. Automatically reconnects to MQTT after disconnect or loop errors.
+2. If `mqtt_host` is empty, waits without connecting and logs that MQTT is not configured. `chime-webd` remains available for setup.
+3. Otherwise connects to the MQTT broker and subscribes to configured topics.
+4. When a message arrives on `ring_topic`, plays `sound_path` using `aplay`.
+5. Publishes `heartbeat_topic` every `heartbeat_interval` seconds.
+6. Automatically reconnects to MQTT after disconnect or loop errors.
 
 ## Web Platform (`chime-webd`)
 
@@ -65,10 +66,11 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 
 ## Reliability Logging
 
-All logs go to `/var/log/chime.log` through the init supervisor (`S99chime`).
+All ring-service logs go to `/var/log/chime.log` through the init supervisor (`S99chime`). `chime-webd` logs to `/var/log/chime-web.log`. Command examples are in the [reliability runbook](../docs/reliability-runbook.md).
 
-The daemon now logs:
+The daemon logs:
 - Service lifecycle (`service starting`, config loaded, shutdown reason, `service stopped`)
+- Unconfigured MQTT (`mqtt_host` empty: wait, no broker connection)
 - MQTT lifecycle (connect attempts, successful connection, subscribe results, disconnects, loop errors, reconnect attempts, heartbeat publish success/fail)
 - Message traffic (topic, qos, retain, payload length and sanitized payload)
 - Ring handling (`ring received`, audio playback start, playback completion/failure, dedup when already playing)
@@ -77,7 +79,7 @@ The daemon now logs:
 
 ## Config Keys
 
-See `/etc/chime.conf` for defaults.
+See `/etc/chime.conf` for image defaults. Empty `mqtt_host` means the broker is not configured.
 
 Daemon keys:
 - `mqtt_host`, `mqtt_port`, `mqtt_client_id`
