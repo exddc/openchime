@@ -32,27 +32,35 @@ The first rewritten product - a purpose-built IoT speaker that plays doorbell so
 
 See [Chime README](chime/README.md) for detailed technical specifications.
 
-### Bell (Doorbell) - In Progress
+### Bell (Doorbell)
 
-The actual doorbell unit with camera, button, and MQTT integration. Currently in planning stages, will follow the same architecture as the chime.
+The doorbell unit. Next product after Chime.
+
+### Base
+
+A future product.
 
 ## Repository Structure
 
 ```
-├── buildroot/          # Buildroot configuration for custom Linux images
-├── chime/              # C++ source for chime audio/MQTT service
-├── chime-webd/         # C++ source for HTTPS configuration daemon
-├── webui/              # Svelte-based web configuration interface
-├── scripts/            # Build and deployment automation
-├── hardware/           # 3D models and hardware designs
-└── docs/               # Documentation and blog drafts
+├── common/             # Shared C++ library (config, MQTT, logging, runtime)
+├── chime/              # Chime ring service and HTTPS setup daemon (`src/webd/`)
+├── webui/              # Svelte configuration UI served by chime-webd
+├── buildroot/          # Raspberry Pi Zero W image, overlays, and OTA tooling
+├── hardware/           # CAD exports and hardware variant notes
+├── scripts/            # Build, CI, flash, deploy, and local-run helpers
+├── docs/               # Operational documentation
+├── mosquitto/          # Local Mosquitto config for docker-compose
+├── bell/               # Doorbell (next product)
+└── base/               # Future product
 ```
 
 ## Documentation
 
-- [Chime README](chime/README.md) - Technical overview of the chime product
-- [Buildroot README](buildroot/README.md) - Image build, flash, and OTA workflow details
-- [Hardware README](hardware/chime/README.md) - Detailed write-up of the hardware designs
+- [Chime README](chime/README.md) — Chime runtime, webd, and config keys
+- [Buildroot README](buildroot/README.md) — Image build, flash, and deploy
+- [Reliability runbook](docs/reliability-runbook.md) — On-device logs, MQTT, webd/TLS, persistent data, OTA, recovery
+- [Hardware README](hardware/chime/README.md) — CAD and variant notes
 
 ## License
 

@@ -39,6 +39,10 @@ struct ChimeConfig {
 
 oc::config::LoadResult<ChimeConfig> LoadConfig(const std::string &path);
 
+inline bool MqttBrokerConfigured(const ChimeConfig &config) {
+    return !config.host.empty();
+}
+
 } // namespace chime
 
 #endif
