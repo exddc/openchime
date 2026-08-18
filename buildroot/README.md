@@ -245,7 +245,9 @@ source or vendor change rebuilds without `dirclean`. It verifies
 and installs the bundle. `post_build.sh` fails the image if `index.html` or a
 referenced asset is missing.
 
-Regenerate vendored JS deps after `webui/bun.lock` changes:
+The vendor archive is a Linux `node_modules` tree for both builder arches
+(x64 and arm64), not the maintainer host install. Regenerating it after
+`webui/bun.lock` changes:
 
 ```bash
 ./scripts/vendor_webui_deps.sh

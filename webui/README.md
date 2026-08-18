@@ -13,7 +13,8 @@ cd webui
 bun install
 ```
 
-After changing `bun.lock`, regenerate the image-build vendor archive:
+After changing `bun.lock`, regenerate the Linux x64/arm64 vendor archive
+used by image builds (this does not pack your host `node_modules`):
 
 ```bash
 ./scripts/vendor_webui_deps.sh
