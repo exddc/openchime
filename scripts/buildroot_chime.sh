@@ -18,8 +18,8 @@ usage() {
     cat <<EOF
 Usage: $0 [--in-container] [--buildroot-version <version>]
 
-Builds the Buildroot chime package with cmake-package, the generated
-cross-toolchain, and chime.mk, then checks the target install layout.
+Builds the Buildroot chime and chime-web-ui packages, then checks the
+target install layout.
 
 Host options:
   --buildroot-version <v>  Buildroot release (default: $DEFAULT_BUILDROOT_VERSION)
@@ -126,12 +126,22 @@ run_container() {
     fi
     log "Using make jobs: $jobs"
 
-    mkdir -p /home/builder/br2-external /home/builder/chime-src
+    mkdir -p /home/builder/br2-external /home/builder/chime-src /home/builder/webui-src
     rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
     bash /home/builder/openchime/scripts/sync_chime_src.sh \
         /home/builder/openchime /home/builder/chime-src
+    bash /home/builder/openchime/scripts/sync_webui_src.sh \
+        /home/builder/openchime /home/builder/webui-src
     require_file /home/builder/br2-external/build_meta.env
     require_file /home/builder/chime-src/CMakeLists.txt
+    require_file /home/builder/webui-src/package.json
+    require_file /home/builder/webui-src/bun.lock
+    require_file /home/builder/webui-src/.source-id
+    require_file /home/builder/webui-src/vendor/node_modules.tar.gz
+    require_file /home/builder/webui-src/vendor/node_modules.tar.gz.sha256
+    if [ -e /home/builder/webui-src/dist ] || [ -e /home/builder/webui-src/node_modules ]; then
+        error "staged webui-src must not contain dist/ or node_modules/"
+    fi
 
     cd "buildroot-$BUILDROOT_VERSION"
     make BR2_EXTERNAL=/home/builder/br2-external openchime_rpi0w_defconfig
@@ -180,6 +190,12 @@ run_container() {
         error "chime was not cross-compiled for ARM: $chime_file"
     printf '%s\n' "$webd_file" | grep -qi 'ARM' || \
         error "chime-webd was not cross-compiled for ARM: $webd_file"
+
+    log "Rebuilding chime-web-ui from staged webui sources"
+    make BR2_EXTERNAL=/home/builder/br2-external chime-web-ui-dirclean
+    make BR2_EXTERNAL=/home/builder/br2-external -j"$jobs" chime-web-ui
+    require_file "$target_dir/usr/local/share/chime-web-ui/dist/index.html"
+    log "Buildroot chime-web-ui installed /usr/local/share/chime-web-ui/dist"
 
     log "Buildroot chime package installed /usr/local/bin/chime and /usr/local/bin/chime-webd"
 }

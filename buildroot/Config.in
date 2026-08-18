@@ -1,2 +1,3 @@
 # Chime external packages
+source "$BR2_EXTERNAL_OPENCHIME_PATH/package/chime-web-ui/Config.in"
 source "$BR2_EXTERNAL_OPENCHIME_PATH/package/chime/Config.in"
