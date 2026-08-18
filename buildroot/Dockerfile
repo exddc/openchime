@@ -22,7 +22,13 @@ RUN apt-get update && apt-get install -y \
     file \
     locales \
     sudo \
+    curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+ARG BUN_VERSION=1.3.14
+RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash -s "bun-v${BUN_VERSION}" \
+    && /usr/local/bin/bun --version
 
 RUN locale-gen en_US.UTF-8
 ENV LANG=en_US.UTF-8

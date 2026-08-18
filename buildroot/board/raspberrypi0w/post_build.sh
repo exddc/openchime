@@ -6,6 +6,8 @@ BOARD_DIR="$(dirname "$0")"
 TARGET_DIR="$1"
 VERSION_FILE="${BOARD_DIR}/../../version.env"
 BUILD_META_FILE="${BOARD_DIR}/../../build_meta.env"
+UI_DIST_DIR="${TARGET_DIR}/usr/local/share/chime-web-ui/dist"
+bash "${BOARD_DIR}/assert_chime_web_ui_dist.sh" "$UI_DIST_DIR"
 
 # Set permissions for binary
 if [ -f "${TARGET_DIR}/usr/local/bin/chime" ]; then
@@ -52,7 +54,11 @@ if [ -d "$FIRMWARE_DIR" ]; then
 fi
 
 # Generate modules.dep
-KERNEL_VERSION=$(find "${TARGET_DIR}/lib/modules/" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -1)
+KERNEL_VERSION=""
+if [ -d "${TARGET_DIR}/lib/modules" ]; then
+    KERNEL_VERSION="$(find "${TARGET_DIR}/lib/modules" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n 1 || true)"
+    KERNEL_VERSION="${KERNEL_VERSION##*/}"
+fi
 if [ -n "$KERNEL_VERSION" ] && [ -d "${TARGET_DIR}/lib/modules/${KERNEL_VERSION}" ]; then
     if command -v depmod &>/dev/null; then
         depmod -a -b "${TARGET_DIR}" "${KERNEL_VERSION}" 2>/dev/null || true

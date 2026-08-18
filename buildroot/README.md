@@ -115,6 +115,14 @@ For app-only changes (`chime/` or `common/`), use:
 ./scripts/deploy.sh chime <pi-ip>
 ```
 
+For web UI-only updates on an already-flashed device (replaces
+`/usr/local/share/chime-web-ui/dist` without rebuilding the OS image):
+
+```bash
+./scripts/local_chime.sh webui-build
+./scripts/deploy.sh chime <pi-ip> --with-webd
+```
+
 For OTA firmware slot updates (inactive rootfs write + reboot), use:
 
 ```bash
@@ -188,8 +196,10 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | `version.env` | OS/config version source of truth |
 | `../chime/VERSION` | Chime app SemVer source of truth |
 | `package/chime/chime.mk` | Chime CMake package recipe (source list lives in CMake) |
+| `package/chime-web-ui/chime-web-ui.mk` | Builds the Svelte UI with Bun and installs it into the rootfs |
+| `board/raspberrypi0w/assert_chime_web_ui_dist.sh` | Fails the image build if `index.html` or referenced assets are missing |
 | `board/raspberrypi0w/genimage.cfg` | SD card image layout |
-| `board/raspberrypi0w/post_build.sh` | Creates firmware symlinks, runs depmod |
+| `board/raspberrypi0w/post_build.sh` | Creates firmware symlinks, runs depmod, asserts baked web UI |
 | `board/raspberrypi0w/post_image.sh` | Copies boot files, generates sdcard.img |
 
 ## Critical Details
@@ -219,6 +229,41 @@ The brcmfmac driver requires device-specific firmware path:
 /lib/firmware/brcm/brcmfmac43430-sdio.raspberrypi,model-zero-w.bin -> brcmfmac43430-sdio.bin
 ```
 Created by `post_build.sh`.
+
+### Baked web UI
+
+`chime-webd` serves static files from `/usr/local/share/chime-web-ui/dist` and
+`GET /` on port 8443. A clean image build must contain that tree; first boot
+must not depend on `scripts/deploy.sh`.
+
+How the bundle gets into the image:
+
+1. `scripts/docker_build.sh` bind-mounts the repository (including `webui/`) into
+   the builder container.
+2. `scripts/sync_webui_src.sh` stages a copy at `/home/builder/webui-src` and
+   **excludes** host `webui/dist` and `webui/node_modules`.
+3. The Buildroot package `chime-web-ui` runs `bun install --frozen-lockfile` and
+   `bun run build`, then installs the generated files to
+   `/usr/local/share/chime-web-ui/dist` in the target rootfs.
+4. `board/raspberrypi0w/post_build.sh` (and the package install step) fail the
+   build if `index.html` is missing, the dist directory is empty, or a referenced
+   asset is missing.
+
+The HTML fallback in `chime/src/webd/ui_assets.cpp` is a diagnostic for a missing
+or broken dist directory on a running device. It is not an acceptable default for
+a freshly flashed image.
+
+`scripts/deploy.sh chime <pi-ip> --with-webd` can still replace the on-device
+assets later without rebuilding the OS image.
+
+On-device paths:
+
+| Path | Role |
+|------|------|
+| `/usr/local/share/chime-web-ui/dist` | Production Svelte bundle (`index.html` + hashed assets) |
+| `/usr/local/bin/chime-webd` | HTTPS daemon that serves that dist at port 8443 |
+| `/etc/chime-web/tls/cert.pem` | Self-signed TLS certificate |
+| `/etc/chime-web/tls/key.pem` | TLS private key |
 
 ### wpa_supplicant.conf format
 ```
@@ -310,3 +355,5 @@ If `date` is still near 1970:
 - ntp/ntpd (clock synchronization)
 - iw (WiFi debug)
 - brcmfmac firmware (Pi Zero W WiFi)
+- chime and chime-webd
+- chime-web-ui (Svelte production bundle at `/usr/local/share/chime-web-ui/dist`)

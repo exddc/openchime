@@ -204,12 +204,18 @@ if ! [[ "$JOBS" =~ ^[0-9]+$ ]] || [ "$JOBS" -le 0 ]; then
 fi
 echo "[build] Using make jobs: $JOBS"
 
-echo "[build] Setting up external tree and chime source..."
-mkdir -p /home/builder/br2-external /home/builder/chime-src
+echo "[build] Setting up external tree, chime source, and webui source..."
+mkdir -p /home/builder/br2-external /home/builder/chime-src /home/builder/webui-src
 sync_start="$(step_start)"
 rsync -a --delete /home/builder/openchime/buildroot/ /home/builder/br2-external/
 bash /home/builder/openchime/scripts/sync_chime_src.sh \
     /home/builder/openchime /home/builder/chime-src
+bash /home/builder/openchime/scripts/sync_webui_src.sh \
+    /home/builder/openchime /home/builder/webui-src
+if [ -e /home/builder/webui-src/dist ] || [ -e /home/builder/webui-src/node_modules ]; then
+    echo "[build] ERROR: staged webui-src must not contain dist/ or node_modules/" >&2
+    exit 1
+fi
 step_done "sync" "$sync_start"
 
 cd "buildroot-$BUILDROOT_VERSION"
@@ -221,8 +227,12 @@ step_done "defconfig" "$defconfig_start"
 
 echo "[build] Building (this takes 30-90 min)..."
 build_start="$(step_start)"
+make BR2_EXTERNAL=/home/builder/br2-external chime-web-ui-dirclean || true
 make BR2_EXTERNAL=/home/builder/br2-external -j"$JOBS"
 step_done "make" "$build_start"
+
+bash /home/builder/openchime/buildroot/board/raspberrypi0w/assert_chime_web_ui_dist.sh \
+    output/target/usr/local/share/chime-web-ui/dist
 
 if [ -f "output/images/sdcard.img" ]; then
     cp output/images/sdcard.img /home/builder/work/
