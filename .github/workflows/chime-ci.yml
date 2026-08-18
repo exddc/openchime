@@ -2,6 +2,7 @@ name: chime CI
 
 on:
   push:
+    branches: [main]
     paths:
       - "**/CMakeLists.txt"
       - "cmake/**"
@@ -32,6 +33,10 @@ on:
       - "webui/package.json"
       - "webui/bun.lock"
   workflow_dispatch:
+
+concurrency:
+  group: chime-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -136,18 +141,24 @@ jobs:
         run: |
           test -z "$(git status --porcelain)"
 
+  # Cross-compile the chime packages only. This is not docker_build.sh and does
+  # not produce sdcard.img (kernel, overlay, genimage).
   buildroot-chime:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache Buildroot output
+      - name: Cache Buildroot toolchain
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/openchime-buildroot
-          key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/Dockerfile', 'buildroot/bun-version', 'buildroot/bun-linux-x64.sha256', 'buildroot/bun-linux-aarch64.sha256', 'buildroot/Config.in', 'buildroot/external.desc', 'buildroot/external.mk', 'buildroot/configs/**', 'buildroot/package/**', 'webui/vendor/node_modules.tar.gz.sha256') }}
+          # Key on the toolchain/defconfig, not package sources. Package edits
+          # must reuse gcc rather than spend ~35 minutes bootstrapping it.
+          key: buildroot-chime-${{ runner.os }}-2024.02.1-${{ hashFiles('buildroot/configs/**') }}
+          restore-keys: |
+            buildroot-chime-${{ runner.os }}-2024.02.1-
 
       - name: Build Buildroot chime package
         env:
