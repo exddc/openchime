@@ -14,8 +14,7 @@ yocto/**/downloads/
 # CMake
 **/build/
 **/build-arm/
-chime/build-local/
-chime/build-ci/
+chime/build-*/
 
 # General
 *.log

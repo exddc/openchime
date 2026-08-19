@@ -64,8 +64,7 @@ fi
 
 rsync -a --delete \
     --exclude 'build/' \
-    --exclude 'build-ci/' \
-    --exclude 'build-local/' \
+    --exclude 'build-*/' \
     --exclude 'cmake-build-*/' \
     "$REPO_ROOT/chime/" "$DEST/chime/"
 rsync -a --delete "$REPO_ROOT/common/" "$DEST/common/"

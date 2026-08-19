@@ -95,6 +95,7 @@ require_tool() {
 is_cxx_file() {
   local path="$1"
   case "$path" in
+    chime/third_party/*) return 1 ;;
     chime/*|common/*) ;;
     *) return 1 ;;
   esac

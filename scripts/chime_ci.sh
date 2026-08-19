@@ -121,6 +121,7 @@ require_tool() {
 is_chime_format_file() {
   local path="$1"
   case "$path" in
+    chime/third_party/*) return 1 ;;
     chime/*|common/*) ;;
     *) return 1 ;;
   esac

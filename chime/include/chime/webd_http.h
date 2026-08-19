@@ -1,0 +1,48 @@
+#ifndef CHIME_WEBD_HTTP_H
+#define CHIME_WEBD_HTTP_H
+
+#include <cstddef>
+#include <functional>
+#include <string>
+#include <string_view>
+
+namespace chime::webd {
+
+constexpr std::size_t kMaxRequestLineBytes = 8192;
+constexpr std::size_t kMaxHeaderBytes = 65536;
+constexpr std::size_t kMaxHeaderLineBytes = 8192;
+constexpr std::size_t kMaxHeaderCount = 100;
+constexpr std::size_t kMaxBodyBytes = 2 * 1024 * 1024;
+
+struct HttpRequest {
+    std::string method;
+    std::string path;
+    std::string body;
+    std::string content_type;
+    bool has_content_type = false;
+};
+
+struct HttpResponse {
+    int status = 500;
+    std::string content_type = "application/json; charset=utf-8";
+    std::string cache_control = "no-store";
+    std::string body = "{\"error\":\"internal\"}";
+};
+
+struct HttpParseResult {
+    bool success = false;
+    std::string error;
+    HttpRequest request;
+    std::size_t content_length = 0;
+};
+
+using HttpReadFn = std::function<int(char *buffer, std::size_t length)>;
+
+bool IsSupportedHttpMethod(std::string_view method);
+HttpParseResult ParseHttpRequest(std::string_view raw);
+bool ReadHttpRequest(const HttpReadFn &read, HttpRequest *request, std::string *error);
+std::string FormatHttpResponse(const HttpResponse &response);
+
+} // namespace chime::webd
+
+#endif

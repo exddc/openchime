@@ -40,6 +40,11 @@ main() {
     [ ! -e "$destination/cmake/deleted.cmake" ] || fail "sync retained deleted cmake/deleted.cmake"
     [ ! -e "$destination/stale-root" ] || fail "sync retained obsolete root entry"
 
+    mkdir -p "$source/chime/build-tw351-baseline"
+    printf 'cache\n' > "$source/chime/build-tw351-baseline/CMakeCache.txt"
+    bash "$SYNC_SCRIPT" "$source" "$destination"
+    [ ! -e "$destination/chime/build-tw351-baseline" ] || fail "sync copied host CMake output"
+
     rm -rf "$source/cmake"
     bash "$SYNC_SCRIPT" "$source" "$destination"
     [ ! -e "$destination/cmake" ] || fail "sync retained removed cmake/"
