@@ -15,6 +15,11 @@ add_executable(
   mqtt_topic_test.cpp
   kv_config_test.cpp
   json_test.cpp
+  http_parse_test.cpp
+  http_router_test.cpp
+  static_files_test.cpp
+  web_api_test.cpp
+  web_server_test.cpp
   chime_config_test.cpp
   sound_name_test.cpp
   chime_service_ring_test.cpp)

@@ -48,12 +48,14 @@ struct JsonParseResult {
     JsonValue value;
 };
 
-JsonParseResult ParseJson(std::string_view input);
-std::string JsonEscape(std::string_view input);
-std::string JsonString(std::string_view input);
-std::string JsonBool(bool value);
-std::string JsonNumber(int value);
+struct JsonDumpResult {
+    bool success = false;
+    std::string error;
+    std::string text;
+};
 
+JsonParseResult ParseJson(std::string_view input);
+JsonDumpResult DumpJson(const JsonValue &value);
 std::optional<JsonValue> GetObjectField(const JsonValue &value, const std::string &key);
 
 } // namespace chime::webd

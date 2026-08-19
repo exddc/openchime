@@ -1,10 +1,210 @@
 #include "chime/webd_json.h"
 
-#include <cctype>
-#include <cmath>
-#include <cstdlib>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+#include "cJSON.h"
 
 namespace chime::webd {
+namespace {
+
+struct CJsonDelete {
+    void operator()(cJSON *node) const noexcept { cJSON_Delete(node); }
+};
+
+struct CJsonFree {
+    void operator()(char *text) const noexcept { cJSON_free(text); }
+};
+
+using CJsonPtr = std::unique_ptr<cJSON, CJsonDelete>;
+using CJsonPrinted = std::unique_ptr<char, CJsonFree>;
+
+bool ContainsNul(std::string_view value) {
+    return value.find('\0') != std::string_view::npos;
+}
+
+bool IsRfcJsonWhitespace(unsigned char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+bool JsonTextHasDisallowedControl(std::string_view json) {
+    bool in_string = false;
+    bool escape = false;
+    for (std::size_t i = 0; i < json.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(json[i]);
+        if (!in_string) {
+            if (c == '"') {
+                in_string = true;
+                continue;
+            }
+            if (c < 0x20U && !IsRfcJsonWhitespace(c)) {
+                return true;
+            }
+            continue;
+        }
+        if (escape) {
+            escape = false;
+            if (c == 'u' && i + 4 < json.size() && json[i + 1] == '0' && json[i + 2] == '0' && json[i + 3] == '0' &&
+                json[i + 4] == '0') {
+                return true;
+            }
+            continue;
+        }
+        if (c == '\\') {
+            escape = true;
+            continue;
+        }
+        if (c == '"') {
+            in_string = false;
+            continue;
+        }
+        if (c < 0x20U) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool JsonValueContainsNul(const JsonValue &value) {
+    switch (value.type()) {
+    case JsonValue::Type::kString: {
+        std::string text;
+        value.AsString(&text);
+        return ContainsNul(text);
+    }
+    case JsonValue::Type::kArray:
+        for (const auto &item : value.array_items()) {
+            if (JsonValueContainsNul(item)) {
+                return true;
+            }
+        }
+        return false;
+    case JsonValue::Type::kObject:
+        for (const auto &entry : value.object_items()) {
+            if (ContainsNul(entry.first) || JsonValueContainsNul(entry.second)) {
+                return true;
+            }
+        }
+        return false;
+    default:
+        return false;
+    }
+}
+
+bool RemainderIsJsonWhitespace(const char *begin, const char *end) {
+    for (const auto *cursor = begin; cursor != end; ++cursor) {
+        if (!IsRfcJsonWhitespace(static_cast<unsigned char>(*cursor))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+JsonValue FromCJson(const cJSON *node) {
+    if (node == nullptr || cJSON_IsInvalid(node) || cJSON_IsNull(node)) {
+        return JsonValue::Null();
+    }
+    if (cJSON_IsBool(node)) {
+        return JsonValue::Bool(cJSON_IsTrue(node) != 0);
+    }
+    if (cJSON_IsNumber(node)) {
+        return JsonValue::Number(node->valuedouble);
+    }
+    if (cJSON_IsString(node)) {
+        if (node->valuestring == nullptr) {
+            return JsonValue::String("");
+        }
+        return JsonValue::String(node->valuestring);
+    }
+    if (cJSON_IsArray(node)) {
+        std::vector<JsonValue> items;
+        const int size = cJSON_GetArraySize(node);
+        if (size > 0) {
+            items.reserve(static_cast<std::size_t>(size));
+        }
+        for (const cJSON *child = node->child; child != nullptr; child = child->next) {
+            items.push_back(FromCJson(child));
+        }
+        return JsonValue::Array(std::move(items));
+    }
+    if (cJSON_IsObject(node)) {
+        std::map<std::string, JsonValue> object;
+        for (const cJSON *child = node->child; child != nullptr; child = child->next) {
+            if (child->string == nullptr) {
+                continue;
+            }
+            object[child->string] = FromCJson(child);
+        }
+        return JsonValue::Object(std::move(object));
+    }
+    return JsonValue::Null();
+}
+
+cJSON *ToCJson(const JsonValue &value) {
+    switch (value.type()) {
+    case JsonValue::Type::kNull:
+        return cJSON_CreateNull();
+    case JsonValue::Type::kBool: {
+        bool flag = false;
+        value.AsBool(&flag);
+        return cJSON_CreateBool(flag ? 1 : 0);
+    }
+    case JsonValue::Type::kNumber: {
+        double number = 0.0;
+        value.AsNumber(&number);
+        return cJSON_CreateNumber(number);
+    }
+    case JsonValue::Type::kString: {
+        std::string text;
+        value.AsString(&text);
+        if (ContainsNul(text)) {
+            return nullptr;
+        }
+        return cJSON_CreateString(text.c_str());
+    }
+    case JsonValue::Type::kArray: {
+        CJsonPtr array(cJSON_CreateArray());
+        if (!array) {
+            return nullptr;
+        }
+        for (const auto &item : value.array_items()) {
+            CJsonPtr child(ToCJson(item));
+            if (!child) {
+                return nullptr;
+            }
+            if (cJSON_AddItemToArray(array.get(), child.get()) == 0) {
+                return nullptr;
+            }
+            child.release();
+        }
+        return array.release();
+    }
+    case JsonValue::Type::kObject: {
+        CJsonPtr object(cJSON_CreateObject());
+        if (!object) {
+            return nullptr;
+        }
+        for (const auto &entry : value.object_items()) {
+            if (ContainsNul(entry.first)) {
+                return nullptr;
+            }
+            CJsonPtr child(ToCJson(entry.second));
+            if (!child) {
+                return nullptr;
+            }
+            if (cJSON_AddItemToObject(object.get(), entry.first.c_str(), child.get()) == 0) {
+                return nullptr;
+            }
+            child.release();
+        }
+        return object.release();
+    }
+    }
+    return cJSON_CreateNull();
+}
+
+} // namespace
 
 JsonValue::JsonValue() = default;
 
@@ -99,412 +299,48 @@ const std::map<std::string, JsonValue> &JsonValue::object_items() const {
     return object_value_;
 }
 
-namespace {
-
-class Parser {
-  public:
-    explicit Parser(std::string_view input) : input_(input) {}
-
-    JsonParseResult Parse() {
-        JsonParseResult result;
-        SkipWhitespace();
-        if (!ParseValue(&result.value, &result.error)) {
-            result.success = false;
-            if (result.error.empty()) {
-                result.error = "invalid json";
-            }
-            return result;
-        }
-
-        SkipWhitespace();
-        if (!AtEnd()) {
-            result.success = false;
-            result.error = "unexpected trailing characters";
-            return result;
-        }
-
-        result.success = true;
+JsonParseResult ParseJson(std::string_view input) {
+    JsonParseResult result;
+    if (input.empty() || input.data() == nullptr || JsonTextHasDisallowedControl(input)) {
+        result.error = "invalid json";
         return result;
     }
 
-  private:
-    bool ParseValue(JsonValue *value, std::string *error) {
-        if (value == nullptr || error == nullptr) {
-            return false;
-        }
-
-        if (AtEnd()) {
-            *error = "unexpected end of json";
-            return false;
-        }
-
-        const char c = Peek();
-        if (c == '{') {
-            return ParseObject(value, error);
-        }
-        if (c == '[') {
-            return ParseArray(value, error);
-        }
-        if (c == '"') {
-            std::string parsed;
-            if (!ParseString(&parsed, error)) {
-                return false;
-            }
-            *value = JsonValue::String(std::move(parsed));
-            return true;
-        }
-        if (c == 't') {
-            return ParseLiteral("true", JsonValue::Bool(true), value, error);
-        }
-        if (c == 'f') {
-            return ParseLiteral("false", JsonValue::Bool(false), value, error);
-        }
-        if (c == 'n') {
-            return ParseLiteral("null", JsonValue::Null(), value, error);
-        }
-        if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
-            double parsed = 0.0;
-            if (!ParseNumber(&parsed, error)) {
-                return false;
-            }
-            *value = JsonValue::Number(parsed);
-            return true;
-        }
-
-        *error = "unexpected token";
-        return false;
+    const char *parse_end = nullptr;
+    CJsonPtr root(cJSON_ParseWithLengthOpts(input.data(), input.size(), &parse_end, 0));
+    if (!root || parse_end == nullptr) {
+        result.error = "invalid json";
+        return result;
+    }
+    if (!RemainderIsJsonWhitespace(parse_end, input.data() + input.size())) {
+        result.error = "invalid json";
+        return result;
     }
 
-    bool ParseObject(JsonValue *value, std::string *error) {
-        Consume();
-        SkipWhitespace();
-
-        std::map<std::string, JsonValue> object;
-        if (!AtEnd() && Peek() == '}') {
-            Consume();
-            *value = JsonValue::Object(std::move(object));
-            return true;
-        }
-
-        while (!AtEnd()) {
-            std::string key;
-            if (!ParseString(&key, error)) {
-                return false;
-            }
-
-            SkipWhitespace();
-            if (AtEnd() || Peek() != ':') {
-                *error = "expected ':' in object";
-                return false;
-            }
-            Consume();
-            SkipWhitespace();
-
-            JsonValue parsed;
-            if (!ParseValue(&parsed, error)) {
-                return false;
-            }
-            object[key] = std::move(parsed);
-
-            SkipWhitespace();
-            if (AtEnd()) {
-                *error = "unterminated object";
-                return false;
-            }
-            if (Peek() == '}') {
-                Consume();
-                *value = JsonValue::Object(std::move(object));
-                return true;
-            }
-            if (Peek() != ',') {
-                *error = "expected ',' in object";
-                return false;
-            }
-            Consume();
-            SkipWhitespace();
-        }
-
-        *error = "unterminated object";
-        return false;
-    }
-
-    bool ParseArray(JsonValue *value, std::string *error) {
-        Consume();
-        SkipWhitespace();
-
-        std::vector<JsonValue> array;
-        if (!AtEnd() && Peek() == ']') {
-            Consume();
-            *value = JsonValue::Array(std::move(array));
-            return true;
-        }
-
-        while (!AtEnd()) {
-            JsonValue parsed;
-            if (!ParseValue(&parsed, error)) {
-                return false;
-            }
-            array.push_back(std::move(parsed));
-
-            SkipWhitespace();
-            if (AtEnd()) {
-                *error = "unterminated array";
-                return false;
-            }
-            if (Peek() == ']') {
-                Consume();
-                *value = JsonValue::Array(std::move(array));
-                return true;
-            }
-            if (Peek() != ',') {
-                *error = "expected ',' in array";
-                return false;
-            }
-            Consume();
-            SkipWhitespace();
-        }
-
-        *error = "unterminated array";
-        return false;
-    }
-
-    bool ParseString(std::string *value, std::string *error) {
-        if (value == nullptr || error == nullptr) {
-            return false;
-        }
-        if (AtEnd() || Peek() != '"') {
-            *error = "expected string";
-            return false;
-        }
-        Consume();
-
-        std::string out;
-        while (!AtEnd()) {
-            const char c = Consume();
-            if (c == '"') {
-                *value = std::move(out);
-                return true;
-            }
-            if (c == '\\') {
-                if (AtEnd()) {
-                    *error = "invalid escape";
-                    return false;
-                }
-                const char esc = Consume();
-                switch (esc) {
-                case '"':
-                case '\\':
-                case '/':
-                    out.push_back(esc);
-                    break;
-                case 'b':
-                    out.push_back('\b');
-                    break;
-                case 'f':
-                    out.push_back('\f');
-                    break;
-                case 'n':
-                    out.push_back('\n');
-                    break;
-                case 'r':
-                    out.push_back('\r');
-                    break;
-                case 't':
-                    out.push_back('\t');
-                    break;
-                case 'u': {
-                    if (position_ + 4 > input_.size()) {
-                        *error = "invalid unicode escape";
-                        return false;
-                    }
-                    const std::string hex(input_.substr(position_, 4));
-                    char *end = nullptr;
-                    const long code = std::strtol(hex.c_str(), &end, 16);
-                    if (end == nullptr || *end != '\0' || code < 0) {
-                        *error = "invalid unicode escape";
-                        return false;
-                    }
-                    position_ += 4;
-                    if (code < 0x80) {
-                        out.push_back(static_cast<char>(code));
-                    } else {
-                        out.push_back('?');
-                    }
-                    break;
-                }
-                default:
-                    *error = "unsupported escape sequence";
-                    return false;
-                }
-                continue;
-            }
-
-            if (static_cast<unsigned char>(c) < 0x20) {
-                *error = "control character in string";
-                return false;
-            }
-            out.push_back(c);
-        }
-
-        *error = "unterminated string";
-        return false;
-    }
-
-    bool ParseNumber(double *value, std::string *error) {
-        if (value == nullptr || error == nullptr) {
-            return false;
-        }
-
-        const std::size_t start = position_;
-
-        if (!AtEnd() && Peek() == '-') {
-            Consume();
-        }
-
-        if (AtEnd()) {
-            *error = "invalid number";
-            return false;
-        }
-
-        if (Peek() == '0') {
-            Consume();
-        } else {
-            if (!std::isdigit(static_cast<unsigned char>(Peek()))) {
-                *error = "invalid number";
-                return false;
-            }
-            while (!AtEnd() && std::isdigit(static_cast<unsigned char>(Peek()))) {
-                Consume();
-            }
-        }
-
-        if (!AtEnd() && Peek() == '.') {
-            Consume();
-            if (AtEnd() || !std::isdigit(static_cast<unsigned char>(Peek()))) {
-                *error = "invalid number";
-                return false;
-            }
-            while (!AtEnd() && std::isdigit(static_cast<unsigned char>(Peek()))) {
-                Consume();
-            }
-        }
-
-        if (!AtEnd() && (Peek() == 'e' || Peek() == 'E')) {
-            Consume();
-            if (!AtEnd() && (Peek() == '+' || Peek() == '-')) {
-                Consume();
-            }
-            if (AtEnd() || !std::isdigit(static_cast<unsigned char>(Peek()))) {
-                *error = "invalid number";
-                return false;
-            }
-            while (!AtEnd() && std::isdigit(static_cast<unsigned char>(Peek()))) {
-                Consume();
-            }
-        }
-
-        const std::string num(input_.substr(start, position_ - start));
-        char *end = nullptr;
-        const double parsed = std::strtod(num.c_str(), &end);
-        if (end == nullptr || *end != '\0' || std::isnan(parsed) || std::isinf(parsed)) {
-            *error = "invalid number";
-            return false;
-        }
-
-        *value = parsed;
-        return true;
-    }
-
-    bool ParseLiteral(std::string_view literal, const JsonValue &value, JsonValue *out, std::string *error) {
-        if (position_ + literal.size() > input_.size()) {
-            *error = "unexpected end of json";
-            return false;
-        }
-        if (input_.substr(position_, literal.size()) != literal) {
-            *error = "invalid literal";
-            return false;
-        }
-        position_ += literal.size();
-        *out = value;
-        return true;
-    }
-
-    void SkipWhitespace() {
-        while (!AtEnd()) {
-            const char c = Peek();
-            if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
-                Consume();
-                continue;
-            }
-            break;
-        }
-    }
-
-    bool AtEnd() const { return position_ >= input_.size(); }
-
-    char Peek() const { return input_[position_]; }
-
-    char Consume() { return input_[position_++]; }
-
-    std::string_view input_;
-    std::size_t position_ = 0;
-};
-
-} // namespace
-
-JsonParseResult ParseJson(std::string_view input) {
-    Parser parser(input);
-    return parser.Parse();
+    result.value = FromCJson(root.get());
+    result.success = true;
+    return result;
 }
 
-std::string JsonEscape(std::string_view input) {
-    std::string out;
-    out.reserve(input.size() + 8);
-    for (const char c : input) {
-        switch (c) {
-        case '"':
-            out += "\\\"";
-            break;
-        case '\\':
-            out += "\\\\";
-            break;
-        case '\b':
-            out += "\\b";
-            break;
-        case '\f':
-            out += "\\f";
-            break;
-        case '\n':
-            out += "\\n";
-            break;
-        case '\r':
-            out += "\\r";
-            break;
-        case '\t':
-            out += "\\t";
-            break;
-        default:
-            if (static_cast<unsigned char>(c) < 0x20) {
-                out += '?';
-            } else {
-                out.push_back(c);
-            }
-            break;
-        }
+JsonDumpResult DumpJson(const JsonValue &value) {
+    JsonDumpResult result;
+    if (JsonValueContainsNul(value)) {
+        result.error = "serialize_failed";
+        return result;
     }
-    return out;
-}
-
-std::string JsonString(std::string_view input) {
-    return std::string("\"") + JsonEscape(input) + "\"";
-}
-
-std::string JsonBool(bool value) {
-    return value ? "true" : "false";
-}
-
-std::string JsonNumber(int value) {
-    return std::to_string(value);
+    CJsonPtr root(ToCJson(value));
+    if (!root) {
+        result.error = "serialize_failed";
+        return result;
+    }
+    CJsonPrinted printed(cJSON_PrintUnformatted(root.get()));
+    if (!printed) {
+        result.error = "serialize_failed";
+        return result;
+    }
+    result.text = printed.get();
+    result.success = true;
+    return result;
 }
 
 std::optional<JsonValue> GetObjectField(const JsonValue &value, const std::string &key) {

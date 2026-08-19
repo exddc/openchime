@@ -64,6 +64,8 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
     `dist/`) instead of the embedded fallback UI.
 - Runs as a separate process from `chime` for ring-path reliability isolation.
 
+JSON and HTTP internals, library choice, and size measurements: [docs/webd-http-json.md](../docs/webd-http-json.md). Add product routes through `HttpRouter` in `WebApi::RegisterRoutes` (or `WebApi::router()`), not a monolithic method/path switch.
+
 ## Reliability Logging
 
 All ring-service logs go to `/var/log/chime.log` through the init supervisor (`S99chime`). `chime-webd` logs to `/var/log/chime-web.log`. Command examples are in the [reliability runbook](../docs/reliability-runbook.md).
