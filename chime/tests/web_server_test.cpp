@@ -31,13 +31,13 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     REQUIRE(fd >= 0);
 
-    struct timeval timeout{};
+    struct timeval timeout {};
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
-    struct sockaddr_in address{};
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port));
     REQUIRE(inet_pton(AF_INET, bind_address.c_str(), &address.sin_addr) == 1);
