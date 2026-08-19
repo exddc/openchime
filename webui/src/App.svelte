@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { apiFetch, setAuthErrorHandler, type AuthStatusResponse } from "./api";
 
   type ValidationError = {
     field: string;
@@ -112,6 +113,21 @@
   let messageText = "";
   let messageIsError = false;
   let isSaving = false;
+  let screen: "loading" | "pair" | "login" | "app" = "loading";
+  let pairingCode = "";
+  let setupPassword = "";
+  let setupPasswordConfirm = "";
+  let loginPassword = "";
+  let authBusy = false;
+
+  setAuthErrorHandler((kind) => {
+    if (kind === "pair") {
+      screen = "pair";
+      return;
+    }
+    screen = "login";
+    loginPassword = "";
+  });
 
   function setMessage(text: string, isError = false): void {
     messageText = text;
@@ -143,7 +159,7 @@
   }
 
   async function loadConfig(): Promise<void> {
-    const response = await fetch("/api/v1/config/core");
+    const response = await apiFetch("/api/v1/config/core");
     const data = (await response.json()) as CoreConfigResponse;
 
     if (!response.ok) {
@@ -182,7 +198,7 @@
   }
 
   async function loadApplyStatus(): Promise<ApplyStatus | undefined> {
-    const response = await fetch("/api/v1/config/core");
+    const response = await apiFetch("/api/v1/config/core");
     const data = (await response.json()) as CoreConfigResponse;
     if (!response.ok) {
       throw new Error(data.error ?? "Failed to load apply status");
@@ -220,7 +236,7 @@
   }
 
   async function scanNetworks(): Promise<void> {
-    const response = await fetch("/api/v1/wifi/scan");
+    const response = await apiFetch("/api/v1/wifi/scan");
     const data = (await response.json()) as WifiScanResponse;
 
     if (!response.ok) {
@@ -234,7 +250,7 @@
   }
 
   async function loadObservedTopics(): Promise<void> {
-    const response = await fetch("/api/v1/mqtt/topics");
+    const response = await apiFetch("/api/v1/mqtt/topics");
     const data = (await response.json()) as ObservedTopicsResponse;
 
     if (!response.ok) {
@@ -245,7 +261,7 @@
   }
 
   async function loadSystemVersion(): Promise<void> {
-    const response = await fetch("/api/v1/system/version");
+    const response = await apiFetch("/api/v1/system/version");
     const data = (await response.json()) as SystemVersionResponse;
 
     if (!response.ok) {
@@ -258,7 +274,7 @@
   }
 
   async function loadRingSounds(): Promise<void> {
-    const response = await fetch("/api/v1/ring/sounds");
+    const response = await apiFetch("/api/v1/ring/sounds");
     const data = (await response.json()) as RingSoundsResponse;
 
     if (!response.ok) {
@@ -324,7 +340,7 @@
 
     isUploadingRingSound = true;
     try {
-      const response = await fetch(`/api/v1/ring/sounds/${encodeURIComponent(uploadName)}`, {
+      const response = await apiFetch(`/api/v1/ring/sounds/${encodeURIComponent(uploadName)}`, {
         method: "PUT",
         body: await ringSoundUpload.arrayBuffer(),
       });
@@ -347,7 +363,7 @@
       throw new Error("Select a ring sound to activate.");
     }
 
-    const response = await fetch("/api/v1/ring/sounds/select", {
+    const response = await apiFetch("/api/v1/ring/sounds/select", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: selectedRingSound }),
@@ -385,14 +401,12 @@
     volumeNotifications = safeVolumeNotifications;
     volumeOther = safeVolumeOther;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       wifi_ssid: wifiSsid.trim(),
-      wifi_password: wifiPassword,
       mqtt_host: mqttHost.trim(),
       mqtt_port: Number(mqttPort),
       mqtt_client_id: mqttClientId.trim(),
       mqtt_username: mqttUsername.trim(),
-      mqtt_password: mqttPassword,
       mqtt_tls_enabled: mqttTlsEnabled,
       mqtt_tls_validate_certificate: mqttTlsValidateCertificate,
       mqtt_tls_ca_file: mqttTlsCaFile.trim(),
@@ -406,9 +420,15 @@
       volume_notifications: safeVolumeNotifications,
       volume_other: safeVolumeOther,
     };
+    if (wifiPassword.length > 0) {
+      payload.wifi_password = wifiPassword;
+    }
+    if (mqttPassword.length > 0) {
+      payload.mqtt_password = mqttPassword;
+    }
 
     try {
-      const response = await fetch("/api/v1/config/core", {
+      const response = await apiFetch("/api/v1/config/core", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -450,31 +470,236 @@
     }
   }
 
+  async function loadConsole(): Promise<void> {
+    await loadConfig();
+    await Promise.all([
+      loadObservedTopics(),
+      loadRingSounds(),
+      loadSystemVersion().catch((error: unknown) => {
+        console.warn("loadSystemVersion failed", error);
+        chimeVersion = "unknown";
+        osVersion = "unknown";
+        configVersion = "unknown";
+      }),
+    ]);
+  }
+
+  async function refreshAuth(): Promise<void> {
+    const response = await apiFetch("/api/v1/auth/status");
+    const data = (await response.json()) as AuthStatusResponse;
+    if (!response.ok) {
+      throw new Error(data.error ?? "Failed to read authentication status");
+    }
+    if (!data.paired) {
+      screen = "pair";
+      return;
+    }
+    if (!data.authenticated) {
+      screen = "login";
+      return;
+    }
+    screen = "app";
+    await loadConsole();
+  }
+
+  async function submitPairing(): Promise<void> {
+    if (setupPassword !== setupPasswordConfirm) {
+      throw new Error("Passwords do not match.");
+    }
+    authBusy = true;
+    try {
+      const response = await apiFetch("/api/v1/auth/pair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pairing_code: pairingCode.trim(),
+          password: setupPassword,
+        }),
+      });
+      const data = (await response.json()) as AuthStatusResponse;
+      if (!response.ok) {
+        throw new Error(data.message ?? data.error ?? "Pairing failed");
+      }
+      pairingCode = "";
+      setupPassword = "";
+      setupPasswordConfirm = "";
+      screen = "app";
+      setMessage("Device paired. You are signed in.", false);
+      await loadConsole();
+    } finally {
+      authBusy = false;
+    }
+  }
+
+  async function submitLogin(): Promise<void> {
+    authBusy = true;
+    try {
+      const response = await apiFetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+      const data = (await response.json()) as AuthStatusResponse;
+      if (!response.ok) {
+        throw new Error(data.message ?? data.error ?? "Login failed");
+      }
+      loginPassword = "";
+      screen = "app";
+      setMessage("", false);
+      await loadConsole();
+    } finally {
+      authBusy = false;
+    }
+  }
+
+  async function submitLogout(): Promise<void> {
+    authBusy = true;
+    try {
+      const response = await apiFetch("/api/v1/auth/logout", { method: "POST" });
+      const data = (await response.json()) as AuthStatusResponse;
+      if (!response.ok) {
+        throw new Error(data.message ?? data.error ?? "Logout failed");
+      }
+      loginPassword = "";
+      screen = "login";
+      setMessage("Signed out.", false);
+    } finally {
+      authBusy = false;
+    }
+  }
+
   onMount(() => {
-    loadConfig()
+    refreshAuth()
       .then(async () => {
-        await Promise.all([
-          loadObservedTopics(),
-          loadRingSounds(),
-          loadSystemVersion().catch((error: unknown) => {
-            console.warn("loadSystemVersion failed", error);
-            chimeVersion = "unknown";
-            osVersion = "unknown";
-            configVersion = "unknown";
-          }),
-        ]);
+        if (screen === "app") {
+          return;
+        }
+        await loadSystemVersion().catch((error: unknown) => {
+          console.warn("loadSystemVersion failed", error);
+          chimeVersion = "unknown";
+          osVersion = "unknown";
+          configVersion = "unknown";
+        });
       })
       .catch((error: unknown) => {
         const text = error instanceof Error ? error.message : String(error);
         setMessage(text, true);
+        screen = "login";
       });
   });
 </script>
 
 <div class="wrap">
+  {#if screen === "loading"}
+    <section class="card">
+      <h1>Chime Web Console</h1>
+      <p>Checking device setup…</p>
+    </section>
+  {:else if screen === "pair"}
+    <section class="card">
+      <h1>Set up this Chime</h1>
+      <p>
+        Enter the pairing code from the serial console, then choose an admin password. Pairing
+        closes after this step.
+      </p>
+      <form
+        on:submit|preventDefault={async () => {
+          try {
+            await submitPairing();
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : String(error), true);
+          }
+        }}
+      >
+        <label for="pairing_code">Pairing code</label>
+        <input
+          id="pairing_code"
+          bind:value={pairingCode}
+          autocomplete="one-time-code"
+          autocapitalize="characters"
+          spellcheck="false"
+          required
+        />
+        <label for="setup_password">Admin password</label>
+        <input
+          id="setup_password"
+          type="password"
+          bind:value={setupPassword}
+          autocomplete="new-password"
+          minlength="8"
+          maxlength="128"
+          required
+        />
+        <label for="setup_password_confirm">Confirm password</label>
+        <input
+          id="setup_password_confirm"
+          type="password"
+          bind:value={setupPasswordConfirm}
+          autocomplete="new-password"
+          minlength="8"
+          maxlength="128"
+          required
+        />
+        <div class="button-row">
+          <button type="submit" disabled={authBusy}>Pair device</button>
+        </div>
+      </form>
+      {#if messageText}
+        <div class:error={messageIsError} class="message">{messageText}</div>
+      {/if}
+      <p class="hint">The pairing code is printed once on the device console while unpaired.</p>
+    </section>
+  {:else if screen === "login"}
+    <section class="card">
+      <h1>Sign in</h1>
+      <p>This administration API requires the device password.</p>
+      <form
+        on:submit|preventDefault={async () => {
+          try {
+            await submitLogin();
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : String(error), true);
+          }
+        }}
+      >
+        <label for="login_password">Admin password</label>
+        <input
+          id="login_password"
+          type="password"
+          bind:value={loginPassword}
+          autocomplete="current-password"
+          required
+        />
+        <div class="button-row">
+          <button type="submit" disabled={authBusy}>Sign in</button>
+        </div>
+      </form>
+      {#if messageText}
+        <div class:error={messageIsError} class="message">{messageText}</div>
+      {/if}
+    </section>
+  {:else}
   <section class="card">
-    <h1>Chime Web Console</h1>
-    <p>Configure Wi-Fi and MQTT. Changes are applied automatically.</p>
+    <div class="console-header">
+      <div>
+        <h1>Chime Web Console</h1>
+        <p>Configure Wi-Fi and MQTT. Changes are applied automatically.</p>
+      </div>
+      <button
+        class="secondary"
+        type="button"
+        disabled={authBusy}
+        on:click={async () => {
+          try {
+            await submitLogout();
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : String(error), true);
+          }
+        }}
+      >
+        Sign out
+      </button>
+    </div>
   </section>
 
   <section class="card">
@@ -786,6 +1011,7 @@
       </div>
     {/if}
   </section>
+  {/if}
 
   <section class="version-strip">
     <span>Chime {chimeVersion}</span>

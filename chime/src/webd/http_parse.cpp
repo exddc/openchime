@@ -106,12 +106,18 @@ std::string StatusText(int code) {
         return "OK";
     case 400:
         return "Bad Request";
+    case 401:
+        return "Unauthorized";
+    case 403:
+        return "Forbidden";
     case 404:
         return "Not Found";
     case 405:
         return "Method Not Allowed";
     case 415:
         return "Unsupported Media Type";
+    case 429:
+        return "Too Many Requests";
     case 500:
         return "Internal Server Error";
     case 501:
@@ -246,6 +252,7 @@ HttpParseResult ParseHeaderBlock(std::string_view header_blob) {
     const auto content_type_it = headers.find("content-type");
     result.request.has_content_type = content_type_it != headers.end();
     result.request.content_type = content_type_it != headers.end() ? content_type_it->second : "";
+    result.request.headers = std::move(headers);
     result.success = true;
     return result;
 }
@@ -357,9 +364,21 @@ std::string FormatHttpResponse(const HttpResponse &response) {
     raw += "Content-Length: " + std::to_string(response.body.size()) + "\r\n";
     raw += "Cache-Control: " + response.cache_control + "\r\n";
     raw += "Connection: close\r\n";
+    for (const auto &cookie : response.set_cookies) {
+        raw += "Set-Cookie: " + cookie + "\r\n";
+    }
     raw += "\r\n";
     raw += response.body;
     return raw;
+}
+
+std::string RequestHeader(const HttpRequest &request, std::string_view name) {
+    const std::string key = ToLower(std::string(name));
+    const auto it = request.headers.find(key);
+    if (it == request.headers.end()) {
+        return "";
+    }
+    return it->second;
 }
 
 } // namespace chime::webd

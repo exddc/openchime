@@ -31,6 +31,7 @@ target_link_libraries(chime_core PUBLIC oc_common oc_build_version)
 add_library(
   chime_webd_core STATIC
   src/webd/api_handlers.cpp
+  src/webd/auth_store.cpp
   src/webd/apply_manager.cpp
   src/webd/config_store.cpp
   src/webd/http_parse.cpp

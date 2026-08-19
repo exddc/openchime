@@ -40,7 +40,18 @@ In a second terminal, run the backend on port 8443 (or set `CHIME_WEBD_PORT`):
 ./scripts/local_chime.sh run-webd
 ```
 
-Vite proxies `/api/*` to `https://127.0.0.1:8443` (TLS verification disabled for local self-signed certs).
+Vite proxies `/api/*` to `https://127.0.0.1:8443` (TLS verification disabled for local self-signed certs). The proxy strips the `Secure` flag from `Set-Cookie` so the HTTP Vite origin can store the session cookie. Production and `./scripts/local_chime.sh run-webd` keep `Secure` cookies.
+
+Local `chime-webd` is pre-paired. Sign in with password `openchime-local` unless you set `CHIME_WEBD_BOOTSTRAP_PASSWORD`.
+
+To exercise first-boot pairing locally:
+
+```bash
+rm -rf chime/build-local/runtime/auth
+LOCAL_CHIME_UNPAIRED=1 ./scripts/local_chime.sh run-webd
+```
+
+Add `CHIME_WEBD_PAIRING_CODE=ABCD2345` if you want a fixed pairing code instead of the one printed on stdout.
 
 ## Production Build
 

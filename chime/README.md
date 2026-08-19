@@ -49,12 +49,21 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 ## Web Platform (`chime-webd`)
 
 - Serves HTTPS UI/API on port `8443`.
+- First boot is unpaired. The pairing code is printed to the serial console (`/dev/console`) and stored at `/var/lib/chime/auth/pairing.code` (`/data/var/lib/chime/auth/pairing.code` on device). Pairing (`POST /api/v1/auth/pair`) sets the admin password and closes.
+- After pairing, administration APIs require a session cookie (`chime_session`, `HttpOnly; Secure; SameSite=Strict`) plus `X-CSRF-Token` on POST/PUT. Login is `POST /api/v1/auth/login`. Logout is `POST /api/v1/auth/logout`.
+- Public routes: static UI assets, `GET /api/v1/system/version`, `GET /api/v1/auth/status`, unpaired `POST /api/v1/auth/pair`, and `POST /api/v1/auth/login`.
 - Hosts current v1 endpoints:
   - `GET /`
+  - `GET /api/v1/auth/status`
+  - `POST /api/v1/auth/pair`
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/logout`
   - `GET /api/v1/config/core`
   - `POST /api/v1/config/core`
   - `GET /api/v1/wifi/scan`
   - `GET /api/v1/mqtt/topics` (observed MQTT topics for ring-topic suggestions)
+- Config GET/POST return `wifi_password_set` and `mqtt_password_set` only. Password hashes, Wi-Fi/MQTT passwords, session tokens, and pairing codes are never returned.
+- The salted admin verifier is `/var/lib/chime/auth/admin.verifier` (mode `0600`), PBKDF2-HMAC-SHA256 with 600000 iterations (OWASP 2023). The stored iteration count is used at verify time, so a later default change still accepts existing verifiers. Wipe that directory under `/data` to restore pairing without deleting Wi-Fi or MQTT config.
 - Reserves `/api/v1/system/*`, `/api/v1/device/*`, and `/api/v1/diagnostics/*` for future API expansion (`501` responses in v1).
 - Uses self-signed TLS cert/key at:
   - `/etc/chime-web/tls/cert.pem`
@@ -62,6 +71,11 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 - Optional static UI override:
   - Set `CHIME_WEBD_UI_DIST_DIR` to serve built web assets (for example Svelte
     `dist/`) instead of the embedded fallback UI.
+- Optional auth overrides:
+  - `CHIME_WEBD_AUTH_DIR` (default `/var/lib/chime/auth`)
+  - `CHIME_WEBD_BOOTSTRAP_PASSWORD` (development only; pairs immediately)
+  - `CHIME_WEBD_PAIRING_CODE` (development only; fixed unpaired setup secret)
+- Session cookies always include `Secure`. The Vite dev proxy strips that flag so `http://127.0.0.1:5173` can store them.
 - Runs as a separate process from `chime` for ring-path reliability isolation.
 
 JSON and HTTP internals, library choice, and size measurements: [docs/webd-http-json.md](../docs/webd-http-json.md). Add product routes through `HttpRouter` in `WebApi::RegisterRoutes` (or `WebApi::router()`), not a monolithic method/path switch.

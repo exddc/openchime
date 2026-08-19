@@ -32,6 +32,23 @@ body {
   box-shadow: 0 6px 24px rgba(15, 118, 110, 0.08);
 }
 
+.console-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.console-header h1,
+.console-header p {
+  margin-bottom: 0;
+}
+
+.console-header p {
+  margin-top: 8px;
+}
+
 .version-strip {
   display: flex;
   flex-wrap: wrap;

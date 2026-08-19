@@ -93,7 +93,22 @@ tail -f /var/log/chime-web.log
 ls -l /etc/chime-web/tls/cert.pem /etc/chime-web/tls/key.pem
 ```
 
-Open `https://<device-ip>:8443` (self-signed certificate). Apply from the UI restarts networking (`/etc/init.d/S40network restart`) and the ring service (`/etc/init.d/S99chime restart`).
+Open `https://<device-ip>:8443` (self-signed certificate). A new device shows pairing until an admin password is set. After pairing, sign in with that password. Apply from the UI restarts networking (`/etc/init.d/S40network restart`) and the ring service (`/etc/init.d/S99chime restart`).
+
+The pairing code is written to the serial console (`ttyS0`) while the device is unpaired. It is also stored at `/data/var/lib/chime/auth/pairing.code` (mode `0600`) for operators with serial or SSH access. After pairing that file is removed.
+
+## Administration authentication
+
+`chime-webd` is a single-admin appliance. It stores a PBKDF2-HMAC-SHA256 password verifier (600000 iterations) at `/data/var/lib/chime/auth/admin.verifier` (runtime path `/var/lib/chime/auth/admin.verifier` via the persistent bind). Sessions live in memory (12 hour cookie) and do not survive process restart. Mutating API calls need the `chime_session` cookie and `X-CSRF-Token`. Pairing and login failures are rate-limited per client address; malformed JSON does not consume that budget.
+
+To restore pairing without touching Wi-Fi, MQTT, or ring sounds:
+
+```sh
+rm -rf /data/var/lib/chime/auth
+reboot
+```
+
+Do not delete `/data/var/lib/chime/` as a whole; that directory also holds observed topics and uploaded sounds.
 
 ## Persistent config
 
@@ -103,7 +118,7 @@ Open `https://<device-ip>:8443` (self-signed certificate). Apply from the UI res
 | --- | --- |
 | `/data/etc/chime.conf` | `/etc/chime.conf` |
 | `/data/etc/wpa_supplicant.conf` | `/etc/wpa_supplicant/wpa_supplicant.conf` |
-| `/data/var/lib/chime/` | `/var/lib/chime/` (observed topics, uploaded ring sounds) |
+| `/data/var/lib/chime/` | `/var/lib/chime/` (observed topics, uploaded ring sounds, `/auth` verifier) |
 | `/data/ota/` | OTA pending/status (not bind-mounted) |
 
 WiFi credentials are **not** tracked in git. Image builds copy `wpa_supplicant.conf.example` locally to `wpa_supplicant.conf` (gitignored). SSH keys use `root/.ssh/authorized_keys.example` the same way.
@@ -169,4 +184,5 @@ Boot-time behavior:
 3. **SSH**: `ssh root@<device-ip>` (key-only). Discover a Pi Zero W: `arp -a | grep b8:27:eb`.
 4. **Stuck pending OTA**: inspect `/data/ota/pending.env`; roll back with `/usr/local/sbin/ota-rollback` or `./scripts/deploy.sh firmware-rollback <device-ip>`.
 5. **Bad persisted config**: remove `/data/etc/chime.conf` and/or `/data/etc/wpa_supplicant.conf`, reboot.
-6. **Reflash**: `./scripts/flash_sd.sh /dev/diskN` from a host (destroys the card, including `/data`).
+6. **Lost admin password**: remove `/data/var/lib/chime/auth` only, reboot, then pair again from the serial pairing code. Wi-Fi and MQTT config stay in place.
+7. **Reflash**: `./scripts/flash_sd.sh /dev/diskN` from a host (destroys the card, including `/data`).

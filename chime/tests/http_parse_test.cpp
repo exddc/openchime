@@ -127,6 +127,28 @@ TEST_SUITE("http_parse") {
         CHECK(error == "unsupported transfer encoding");
     }
 
+    TEST_CASE("parses Cookie and CSRF headers onto the request") {
+        const auto parsed = chime::webd::ParseHttpRequest(
+            "POST /api/v1/config/core HTTP/1.1\r\nCookie: chime_session=abc; chime_csrf=def\r\n"
+            "X-CSRF-Token: def\r\nContent-Length: 2\r\n\r\n{}");
+        REQUIRE(parsed.success);
+        CHECK(chime::webd::RequestHeader(parsed.request, "cookie") == "chime_session=abc; chime_csrf=def");
+        CHECK(chime::webd::RequestHeader(parsed.request, "X-CSRF-Token") == "def");
+        CHECK(parsed.request.body == "{}");
+    }
+
+    TEST_CASE("formats Set-Cookie headers and 401 status text") {
+        chime::webd::HttpResponse response;
+        response.status = 401;
+        response.body = "{\"error\":\"unauthorized\"}";
+        response.set_cookies.push_back("chime_session=abc; Path=/; HttpOnly; Secure; SameSite=Strict");
+        const std::string raw = chime::webd::FormatHttpResponse(response);
+        CHECK(raw.find("HTTP/1.1 401 Unauthorized\r\n") == 0);
+        CHECK(raw.find("Set-Cookie: chime_session=abc; Path=/; HttpOnly; Secure; SameSite=Strict\r\n") !=
+              std::string::npos);
+        CHECK(raw.find("Connection: close\r\n") != std::string::npos);
+    }
+
     TEST_CASE("formats responses with connection close") {
         chime::webd::HttpResponse response;
         response.status = 400;
