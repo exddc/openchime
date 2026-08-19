@@ -423,7 +423,7 @@ TEST_SUITE("web_auth") {
         WebHarness harness(WebHarness::Mode::Paired, "correct-horse");
         const auto verifier = harness.path() / "auth" / chime::webd::kVerifierFileName;
         REQUIRE(std::filesystem::is_regular_file(verifier));
-        struct stat st{};
+        struct stat st {};
         REQUIRE(::stat(verifier.c_str(), &st) == 0);
         CHECK((st.st_mode & 0777) == 0600);
         std::ifstream file(verifier);
