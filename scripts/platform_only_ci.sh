@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck source=cmake_host_args.sh
+. "$SCRIPT_DIR/cmake_host_args.sh"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 
 log() {
@@ -18,35 +20,15 @@ require_tool() {
   command -v "$1" >/dev/null 2>&1 || error "Required tool not found: $1"
 }
 
-discover_cmake_host_args() {
-  CMAKE_HOST_ARGS=()
-  if ! command -v brew >/dev/null 2>&1; then
-    return
-  fi
-
-  local openssl_prefix mosq_prefix prefixes=""
-  openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || true)"
-  mosq_prefix="$(brew --prefix mosquitto 2>/dev/null || true)"
-  if [ -n "$openssl_prefix" ] && [ -d "$openssl_prefix" ]; then
-    CMAKE_HOST_ARGS+=("-DOPENSSL_ROOT_DIR=$openssl_prefix")
-    prefixes="$openssl_prefix"
-    if [ -d "$openssl_prefix/lib/pkgconfig" ]; then
-      export PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-    fi
-  fi
-  if [ -n "$mosq_prefix" ] && [ -d "$mosq_prefix" ]; then
-    if [ -n "$prefixes" ]; then
-      prefixes="$prefixes;$mosq_prefix"
-    else
-      prefixes="$mosq_prefix"
-    fi
-    if [ -d "$mosq_prefix/lib/pkgconfig" ]; then
-      export PKG_CONFIG_PATH="$mosq_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-    fi
-  fi
-  if [ -n "$prefixes" ]; then
-    CMAKE_HOST_ARGS+=("-DCMAKE_PREFIX_PATH=$prefixes")
-  fi
+host_args_without_openssl() {
+  CORE_HOST_ARGS=()
+  local arg
+  for arg in "${CMAKE_HOST_ARGS[@]+"${CMAKE_HOST_ARGS[@]}"}"; do
+    case "$arg" in
+      -DOPENSSL_ROOT_DIR=*) ;;
+      *) CORE_HOST_ARGS+=("$arg") ;;
+    esac
+  done
 }
 
 [ -f "$PROJECT_DIR/CMakeLists.txt" ] || error "missing $PROJECT_DIR/CMakeLists.txt"
@@ -55,6 +37,7 @@ require_tool cmake
 require_tool ninja
 require_tool rsync
 require_tool ctest
+require_tool grep
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "${STAGE:-}"' EXIT
@@ -79,9 +62,17 @@ cmake --version
 cmake -S "$STAGE" -B "$STAGE/build" \
   -G Ninja \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -DOC_BUILD_TESTS=ON \
   -DOC_BUILD_CHIME=OFF \
   ${CMAKE_HOST_ARGS[@]+"${CMAKE_HOST_ARGS[@]}"}
+
+if grep -E -- '-DCHIME_|-DOPENCHIME_' "$STAGE/build/compile_commands.json"; then
+  error "platform compilation received CHIME_* or OPENCHIME_* definitions"
+fi
+if grep -q 'oc_build_version' "$STAGE/build/build.ninja"; then
+  error "platform-only ninja graph still references oc_build_version"
+fi
 
 cmake --build "$STAGE/build"
 ctest --test-dir "$STAGE/build" --output-on-failure --no-tests=error
@@ -89,5 +80,38 @@ ctest --test-dir "$STAGE/build" --output-on-failure --no-tests=error
 [ ! -e "$STAGE/build/bin/chime" ] || error "platform-only build produced chime"
 [ ! -e "$STAGE/build/bin/chime-webd" ] || error "platform-only build produced chime-webd"
 [ -x "$STAGE/build/bin/oc_platform_tests" ] || error "missing oc_platform_tests"
+[ -x "$STAGE/build/bin/oc_platform_http_tests" ] || error "missing oc_platform_http_tests"
+
+log "Configuring a core-only graph without OpenSSL"
+host_args_without_openssl
+cmake -S "$STAGE" -B "$STAGE/core" \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DOC_BUILD_TESTS=ON \
+  -DOC_BUILD_CHIME=OFF \
+  -DOC_BUILD_HTTP=OFF \
+  ${CORE_HOST_ARGS[@]+"${CORE_HOST_ARGS[@]}"}
+
+if [ -e "$STAGE/core/CMakeFiles/oc_platform_http.dir" ]; then
+  error "core-only configure created oc_platform_http"
+fi
+if grep -q 'oc_platform_http\|OpenSSL::SSL' "$STAGE/core/build.ninja"; then
+  error "core-only ninja graph still references HTTP or OpenSSL"
+fi
+
+cmake --build "$STAGE/core"
+ctest --test-dir "$STAGE/core" --output-on-failure --no-tests=error
+[ -x "$STAGE/core/bin/oc_platform_tests" ] || error "missing core oc_platform_tests"
+[ ! -e "$STAGE/core/bin/oc_platform_http_tests" ] || error "core-only build produced HTTP tests"
+
+log "Configuring production platform-only without Chime metadata"
+cmake -S "$STAGE" -B "$STAGE/prod" \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+  -DOC_BUILD_TESTS=OFF \
+  -DOC_BUILD_CHIME=OFF \
+  -DOC_BUILD_HTTP=OFF \
+  -DOC_PRODUCTION_BUILD=ON \
+  ${CORE_HOST_ARGS[@]+"${CORE_HOST_ARGS[@]}"}
 
 log "Platform-only configure, build, and tests passed"

@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdio>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
@@ -10,7 +12,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <openssl/pem.h>
 #include <openssl/ssl.h>
+#include <openssl/x509.h>
 
 #include "doctest.h"
 #include "oc/http/http.h"
@@ -40,13 +44,13 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     REQUIRE(fd >= 0);
 
-    struct timeval timeout_tv {};
+    struct timeval timeout_tv{};
     timeout_tv.tv_sec = static_cast<time_t>(timeout.count());
     timeout_tv.tv_usec = 0;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout_tv, sizeof(timeout_tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout_tv, sizeof(timeout_tv));
 
-    struct sockaddr_in address {};
+    struct sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port));
     REQUIRE(inet_pton(AF_INET, bind_address.c_str(), &address.sin_addr) == 1);
@@ -87,6 +91,22 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
     return response;
 }
 
+std::string CertificateOrganization(const std::string &cert_path) {
+    FILE *file = std::fopen(cert_path.c_str(), "r");
+    REQUIRE(file != nullptr);
+    X509 *cert = PEM_read_X509(file, nullptr, nullptr, nullptr);
+    std::fclose(file);
+    REQUIRE(cert != nullptr);
+    char organization[256] = {};
+    const int n = X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_organizationName, organization,
+                                            sizeof(organization));
+    X509_free(cert);
+    if (n < 0) {
+        return {};
+    }
+    return std::string(organization);
+}
+
 } // namespace
 
 TEST_SUITE("tls_server") {
@@ -109,6 +129,7 @@ TEST_SUITE("tls_server") {
 
         REQUIRE(server.Start());
         CHECK(server.port() > 0);
+        CHECK(CertificateOrganization(config.cert_path).empty());
 
         const std::string ok =
             TlsExchange("127.0.0.1", server.port(), "GET /api/v1/ping HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
@@ -148,7 +169,7 @@ TEST_SUITE("tls_server") {
 
         int fd = socket(AF_INET, SOCK_STREAM, 0);
         REQUIRE(fd >= 0);
-        struct sockaddr_in address {};
+        struct sockaddr_in address{};
         address.sin_family = AF_INET;
         address.sin_port = htons(static_cast<uint16_t>(server.port()));
         REQUIRE(inet_pton(AF_INET, "127.0.0.1", &address.sin_addr) == 1);
@@ -160,5 +181,89 @@ TEST_SUITE("tls_server") {
         const auto elapsed = std::chrono::steady_clock::now() - started;
         CHECK(elapsed < std::chrono::seconds(1));
         close(fd);
+    }
+
+    TEST_CASE("returns HTTP 500 when the request handler throws") {
+        const ScopedTempDir tmp;
+        NullLogger logger;
+        oc::http::TlsServerConfig config;
+        config.bind_address = "127.0.0.1";
+        config.port = 0;
+        config.cert_path = (tmp.path() / "cert.pem").string();
+        config.key_path = (tmp.path() / "key.pem").string();
+
+        oc::http::TlsServer server(logger, config, [](const oc::http::HttpRequest &) -> oc::http::HttpResponse {
+            throw std::runtime_error("handler boom");
+        });
+        REQUIRE(server.Start());
+
+        const std::string response =
+            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/ping HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        CHECK(response.find("HTTP/1.1 500 Internal Server Error\r\n") == 0);
+        CHECK(response.find("Connection: close\r\n") != std::string::npos);
+        CHECK(response.find("\"error\":\"internal_error\"") != std::string::npos);
+        server.Stop();
+    }
+
+    TEST_CASE("returns HTTP 500 when the request handler throws an unknown exception") {
+        const ScopedTempDir tmp;
+        NullLogger logger;
+        oc::http::TlsServerConfig config;
+        config.bind_address = "127.0.0.1";
+        config.port = 0;
+        config.cert_path = (tmp.path() / "cert.pem").string();
+        config.key_path = (tmp.path() / "key.pem").string();
+
+        oc::http::TlsServer server(logger, config,
+                                   [](const oc::http::HttpRequest &) -> oc::http::HttpResponse { throw 42; });
+        REQUIRE(server.Start());
+
+        const std::string response =
+            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/ping HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        CHECK(response.find("HTTP/1.1 500 Internal Server Error\r\n") == 0);
+        server.Stop();
+    }
+
+    TEST_CASE("returns HTTP 500 when the slow-request predicate throws") {
+        const ScopedTempDir tmp;
+        NullLogger logger;
+        oc::http::HttpRouter router;
+        PingRoutes ping;
+        ping.Register(router);
+
+        oc::http::TlsServerConfig config;
+        config.bind_address = "127.0.0.1";
+        config.port = 0;
+        config.cert_path = (tmp.path() / "cert.pem").string();
+        config.key_path = (tmp.path() / "key.pem").string();
+
+        oc::http::TlsServer server(
+            logger, config, [&router](const oc::http::HttpRequest &request) { return router.Dispatch(request); },
+            [](const oc::http::HttpRequest &) -> bool { throw std::runtime_error("predicate boom"); });
+        REQUIRE(server.Start());
+
+        const std::string response =
+            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/ping HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        CHECK(response.find("HTTP/1.1 500 Internal Server Error\r\n") == 0);
+        CHECK(response.find("HTTP/1.1 200 OK\r\n") == std::string::npos);
+        server.Stop();
+    }
+
+    TEST_CASE("self-signed certificate uses the configured organization") {
+        const ScopedTempDir tmp;
+        NullLogger logger;
+        oc::http::TlsServerConfig config;
+        config.bind_address = "127.0.0.1";
+        config.port = 0;
+        config.cert_path = (tmp.path() / "cert.pem").string();
+        config.key_path = (tmp.path() / "key.pem").string();
+        config.cert_organization = "Acme Bell Co";
+        config.cert_common_name = "acme.local";
+
+        oc::http::TlsServer server(
+            logger, config, [](const oc::http::HttpRequest &) { return oc::http::JsonHttpError(404, "not_found"); });
+        REQUIRE(server.Start());
+        CHECK(CertificateOrganization(config.cert_path) == "Acme Bell Co");
+        server.Stop();
     }
 }

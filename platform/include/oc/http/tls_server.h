@@ -27,7 +27,7 @@ struct TlsServerConfig {
     int port = 8443;
     std::string cert_path;
     std::string key_path;
-    std::string cert_organization = "OpenChime";
+    std::string cert_organization;
     std::string cert_common_name = "localhost";
     std::string log_component = "http";
 };
@@ -64,6 +64,7 @@ class TlsServer {
     void InterruptClients();
     bool EnsureTlsMaterial(std::string *error) const;
     bool IsSlowRequest(const HttpRequest &request) const;
+    HttpResponse InvokeHandler(const HttpRequest &request) const;
 
     oc::logging::Logger &logger_;
     TlsServerConfig config_;

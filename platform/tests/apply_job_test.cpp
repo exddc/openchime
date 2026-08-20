@@ -1,5 +1,6 @@
 #include <atomic>
 #include <chrono>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -94,5 +95,46 @@ TEST_SUITE("apply_job") {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
         CHECK(status.state == "succeeded");
+    }
+
+    TEST_CASE("records a failed status when a product step throws") {
+        NullLogger logger;
+        oc::apply::JobRunner runner(logger, "test");
+        const auto started = runner.Start({
+            {"explode", [](std::string *) -> bool { throw std::runtime_error("callback boom"); }},
+        });
+        CHECK(started.job_id == 1);
+
+        oc::apply::Status status;
+        for (int i = 0; i < 50; ++i) {
+            status = runner.Current();
+            if (status.state == "failed" || status.state == "succeeded") {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        CHECK(status.state == "failed");
+        CHECK(status.error.find("explode failed: callback boom") == 0);
+        CHECK_FALSE(status.finished_at_utc.empty());
+    }
+
+    TEST_CASE("records a failed status when a product step throws an unknown exception") {
+        NullLogger logger;
+        oc::apply::JobRunner runner(logger, "test");
+        const auto started = runner.Start({
+            {"explode", [](std::string *) -> bool { throw 42; }},
+        });
+        CHECK(started.job_id == 1);
+
+        oc::apply::Status status;
+        for (int i = 0; i < 50; ++i) {
+            status = runner.Current();
+            if (status.state == "failed" || status.state == "succeeded") {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        CHECK(status.state == "failed");
+        CHECK(status.error.find("explode failed: unknown exception") == 0);
     }
 }

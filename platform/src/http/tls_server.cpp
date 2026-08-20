@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
+#include <exception>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -112,8 +113,10 @@ bool GenerateSelfSignedCertificate(const std::string &cert_path, const std::stri
 
     name = X509_get_subject_name(cert);
     X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("US"), -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(organization.c_str()),
-                               -1, -1, 0);
+    if (!organization.empty()) {
+        X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC,
+                                   reinterpret_cast<const unsigned char *>(organization.c_str()), -1, -1, 0);
+    }
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>(common_name.c_str()),
                                -1, -1, 0);
     X509_set_issuer_name(cert, name);
@@ -184,7 +187,7 @@ constexpr std::size_t kMaxPendingClients = 16;
 constexpr std::size_t kMaxHashJobs = 4;
 
 void SetSocketTimeout(int fd, int seconds) {
-    struct timeval timeout {};
+    struct timeval timeout{};
     timeout.tv_sec = seconds;
     timeout.tv_usec = 0;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
@@ -247,7 +250,7 @@ bool TlsServer::Start() {
     const int reuse = 1;
     setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    struct sockaddr_in address {};
+    struct sockaddr_in address{};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port_));
     if (inet_pton(AF_INET, config_.bind_address.c_str(), &address.sin_addr) != 1) {
@@ -267,7 +270,7 @@ bool TlsServer::Start() {
     }
 
     if (port_ == 0) {
-        struct sockaddr_in actual {};
+        struct sockaddr_in actual{};
         socklen_t actual_len = sizeof(actual);
         if (getsockname(listen_fd_, reinterpret_cast<struct sockaddr *>(&actual), &actual_len) != 0) {
             logger_.Error(config_.log_component, "getsockname() failed after bind");
@@ -369,7 +372,7 @@ void TlsServer::Stop() {
 
 void TlsServer::AcceptLoop() {
     while (running_.load()) {
-        struct sockaddr_in client_addr {};
+        struct sockaddr_in client_addr{};
         socklen_t client_len = sizeof(client_addr);
         const int client_fd = accept(listen_fd_, reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
 
@@ -444,7 +447,7 @@ void TlsServer::HashLoop() {
             job = std::move(hash_jobs_.front());
             hash_jobs_.pop_front();
         }
-        CompleteConnection(job.ssl, job.client_fd, handler_(job.request));
+        CompleteConnection(job.ssl, job.client_fd, InvokeHandler(job.request));
     }
 }
 
@@ -518,7 +521,7 @@ void TlsServer::HandleConnection(int client_fd) {
         return;
     }
 
-    struct sockaddr_in peer {};
+    struct sockaddr_in peer{};
     socklen_t peer_len = sizeof(peer);
     char ip[INET_ADDRSTRLEN] = {};
     if (getpeername(client_fd, reinterpret_cast<struct sockaddr *>(&peer), &peer_len) == 0 &&
@@ -526,14 +529,27 @@ void TlsServer::HandleConnection(int client_fd) {
         request.peer_address = ip;
     }
 
-    if (IsSlowRequest(request)) {
+    bool slow = false;
+    try {
+        slow = IsSlowRequest(request);
+    } catch (const std::exception &ex) {
+        logger_.Error(config_.log_component, std::string("request predicate threw: ") + ex.what());
+        CompleteConnection(ssl, client_fd, JsonHttpError(500, "internal_error"));
+        return;
+    } catch (...) {
+        logger_.Error(config_.log_component, "request predicate threw");
+        CompleteConnection(ssl, client_fd, JsonHttpError(500, "internal_error"));
+        return;
+    }
+
+    if (slow) {
         if (!EnqueueHashJob(client_fd, ssl, std::move(request))) {
             CompleteConnection(ssl, client_fd, JsonHttpError(429, "rate_limited"));
         }
         return;
     }
 
-    CompleteConnection(ssl, client_fd, handler_(request));
+    CompleteConnection(ssl, client_fd, InvokeHandler(request));
 }
 
 bool TlsServer::EnsureTlsMaterial(std::string *error) const {
@@ -566,6 +582,18 @@ bool TlsServer::EnsureTlsMaterial(std::string *error) const {
 
 bool TlsServer::IsSlowRequest(const HttpRequest &request) const {
     return static_cast<bool>(slow_request_) && slow_request_(request);
+}
+
+HttpResponse TlsServer::InvokeHandler(const HttpRequest &request) const {
+    try {
+        return handler_(request);
+    } catch (const std::exception &ex) {
+        logger_.Error(config_.log_component, std::string("request handler threw: ") + ex.what());
+        return JsonHttpError(500, "internal_error");
+    } catch (...) {
+        logger_.Error(config_.log_component, "request handler threw");
+        return JsonHttpError(500, "internal_error");
+    }
 }
 
 } // namespace oc::http

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
+#include <exception>
 #include <iomanip>
 #include <sstream>
 #include <utility>
@@ -113,7 +114,15 @@ void JobRunner::RunJob(unsigned long long job_id, std::vector<Step> steps) {
 
     for (const auto &step : steps) {
         std::string error;
-        if (step.run && step.run(&error)) {
+        bool ok = false;
+        try {
+            ok = static_cast<bool>(step.run) && step.run(&error);
+        } catch (const std::exception &ex) {
+            error = ex.what();
+        } catch (...) {
+            error = "unknown exception";
+        }
+        if (ok) {
             continue;
         }
         std::lock_guard<std::mutex> lock(mutex_);

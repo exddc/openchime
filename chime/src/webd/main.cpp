@@ -206,6 +206,7 @@ int main(int argc, char *argv[]) {
     tls.port = listen_port;
     tls.cert_path = tls_cert_path;
     tls.key_path = tls_key_path;
+    tls.cert_organization = "OpenChime";
     tls.cert_common_name = "chime.local";
     tls.log_component = "webd";
     oc::http::TlsServer web_server(

@@ -1,6 +1,8 @@
+if(NOT DEFINED OC_BUILD_HTTP)
+  set(OC_BUILD_HTTP ON)
+endif()
+
 find_package(PkgConfig)
-find_package(OpenSSL REQUIRED)
-find_package(Threads REQUIRED)
 
 set(OC_MQTT_CLIENT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt/client_stub.cpp")
 set(OC_MQTT_TARGET "")
@@ -65,37 +67,41 @@ add_library(
   src/util/time.cpp)
 target_include_directories(oc_platform PUBLIC include)
 target_compile_options(oc_platform PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(oc_platform PUBLIC oc_build_version)
 if(OC_MQTT_TARGET)
   target_link_libraries(oc_platform PUBLIC ${OC_MQTT_TARGET})
 endif()
 
-add_library(oc_cjson STATIC third_party/cJSON/cJSON.c)
-# cJSON 1.7.19 (MIT). Keep this include private and SYSTEM: a public -I on this
-# directory shadows the C++20 <version> header on case-insensitive filesystems,
-# and clang-tidy should not apply project checks to the vendored header.
-target_include_directories(oc_cjson SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cJSON")
-set_target_properties(oc_cjson PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
-target_compile_options(oc_cjson PRIVATE -Wno-unused-parameter)
+if(OC_BUILD_HTTP)
+  find_package(OpenSSL REQUIRED)
+  find_package(Threads REQUIRED)
 
-# HTTPS/JSON/discovery. Linked by configuration daemons, not the ring service.
-add_library(
-  oc_platform_http STATIC
-  src/http/json_http.cpp
-  src/http/parse.cpp
-  src/http/router.cpp
-  src/http/static_files.cpp
-  src/http/tls_server.cpp
-  src/json/json.cpp
-  src/json/validate.cpp
-  src/mdns/responder.cpp
-  src/wifi/scan.cpp)
-target_include_directories(oc_platform_http PUBLIC include)
-target_include_directories(oc_platform_http SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cJSON")
-target_compile_options(oc_platform_http PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(
-  oc_platform_http
-  PUBLIC oc_platform oc_cjson OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+  add_library(oc_cjson STATIC third_party/cJSON/cJSON.c)
+  # cJSON 1.7.19 (MIT). Keep this include private and SYSTEM: a public -I on this
+  # directory shadows the C++20 <version> header on case-insensitive filesystems,
+  # and clang-tidy should not apply project checks to the vendored header.
+  target_include_directories(oc_cjson SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cJSON")
+  set_target_properties(oc_cjson PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
+  target_compile_options(oc_cjson PRIVATE -Wno-unused-parameter)
+
+  # HTTPS/JSON/discovery. Linked by configuration daemons, not the ring service.
+  add_library(
+    oc_platform_http STATIC
+    src/http/json_http.cpp
+    src/http/parse.cpp
+    src/http/router.cpp
+    src/http/static_files.cpp
+    src/http/tls_server.cpp
+    src/json/json.cpp
+    src/json/validate.cpp
+    src/mdns/responder.cpp
+    src/wifi/scan.cpp)
+  target_include_directories(oc_platform_http PUBLIC include)
+  target_include_directories(oc_platform_http SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/cJSON")
+  target_compile_options(oc_platform_http PRIVATE -Wall -Wextra -Wpedantic)
+  target_link_libraries(
+    oc_platform_http
+    PUBLIC oc_platform oc_cjson OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+endif()
 
 if(OC_BUILD_TESTS)
   add_subdirectory(tests)

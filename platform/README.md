@@ -14,11 +14,11 @@ chime (product policy, routes, schema)      # chime, chime-webd, chime-migrate
 platform (oc_platform, oc_platform_http)    # no chime/ includes or links
 ```
 
-- `oc_platform` — logging, MQTT transport, signal handling, filesystem/environment/time, key/value schema primitives (`kv_config`, `kv_document`, atomic writes), apply-job infrastructure.
-- `oc_platform_http` — HTTP parser/router, JSON adapter, TLS server, static UI files, Wi-Fi scan, mDNS. Linked by configuration daemons only, so the ring binary does not take OpenSSL.
-- CMake fails configure if any file under `platform/include`, `platform/src`, or `platform/tests` includes `chime/`, or if `oc_platform` / `oc_platform_http` link a `chime*` target.
+- `oc_platform` — logging, MQTT transport, signal handling, filesystem/environment/time, key/value schema primitives (`kv_config`, `kv_document`, atomic writes), apply-job infrastructure. Does not link OpenSSL or Chime release macros.
+- `oc_platform_http` — HTTP parser/router, JSON adapter, TLS server, static UI files, Wi-Fi scan, mDNS. Optional (`OC_BUILD_HTTP`, default ON). Linked by configuration daemons only, so the ring binary does not take OpenSSL.
+- CMake fails configure if any file under `platform/include`, `platform/src`, or `platform/tests` includes `chime/`, if `oc_platform` / `oc_platform_http` link a `chime*` target, or if `CHIME_*` / `OPENCHIME_*` compile definitions reach platform targets.
 - Product binaries stay `chime` (ring) and `chime-webd` (configuration). They remain separate processes.
-- A platform-only graph is `cmake -DOC_BUILD_CHIME=OFF`. Native CI runs `./scripts/platform_only_ci.sh`, which configures, builds, and tests a staged tree that does not contain `chime/`. `./scripts/test_platform_link_guard.sh` checks that a Chime target added after `platform/` still fails configure.
+- A platform-only graph is `cmake -DOC_BUILD_CHIME=OFF`. A TLS-free core is `cmake -DOC_BUILD_CHIME=OFF -DOC_BUILD_HTTP=OFF`. Native CI runs `./scripts/platform_only_ci.sh`, which configures, builds, and tests a staged tree that does not contain `chime/`, then repeats that for a core-only OpenSSL-free configure. `./scripts/test_platform_link_guard.sh` checks that a Chime target added after `platform/` still fails configure.
 
 Board-specific work (kernel, device tree, rootfs overlay, Pi quirks) stays in `buildroot/` until TW-356 documents that boundary. Do not add Bell here.
 
