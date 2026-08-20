@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
     if (!migrated.success) {
         if (chime::MigrateFailureBlocksStartup(migrated)) {
             logger.Error("webd", migrated.error);
-            return 1;
+            return chime::kConfigFatalExitCode;
         }
         logger.Warn("webd", "config migration did not rewrite " + chime_config_path + ": " + migrated.error);
     } else if (migrated.rewritten) {

@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     if (!migrated.success) {
         if (chime::MigrateFailureBlocksStartup(migrated)) {
             logger.Error("chime", migrated.error);
-            return 1;
+            return chime::kConfigFatalExitCode;
         }
         logger.Warn("chime", "config migration did not rewrite " + config_path + ": " + migrated.error);
     } else if (migrated.rewritten) {

@@ -322,6 +322,7 @@ run_tests() {
   require_tool ctest
   [ -d "$BUILD_DIR" ] || error "Build directory not found: $BUILD_DIR (build once before --skip-build)"
   ctest --test-dir "$BUILD_DIR" --output-on-failure --no-tests=error
+  bash "$PROJECT_DIR/scripts/test_chime_config_fatal.sh" "$BUILD_DIR/bin/chime-migrate"
   log "Tests passed"
 }
 

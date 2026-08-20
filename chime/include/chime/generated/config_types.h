@@ -1,6 +1,7 @@
 #ifndef CHIME_GENERATED_CONFIG_TYPES_H
 #define CHIME_GENERATED_CONFIG_TYPES_H
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <string_view>
@@ -38,44 +39,77 @@ struct ConfigFieldSpec {
     int max_len;
 };
 
+struct ConfigRenameSpec {
+    const char *from;
+    const char *to;
+};
+
+struct ConfigMigrationStep {
+    int to_version;
+    const char *const *remove;
+    std::size_t remove_count;
+    const ConfigRenameSpec *renames;
+    std::size_t rename_count;
+};
+
+struct ConfigInvalidValueExample {
+    const char *key;
+    const char *value;
+};
+
 constexpr ConfigFieldSpec kAllConfigFields[] = {
     {"schema_version", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, false, false, false, false, false, false, false, false, false, false, 1, 1000000, 0, 0},
-    {"mqtt_host", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, false, 0, 0, 0, 256},
+    {"mqtt_host", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, true, 0, 0, 0, 256},
     {"mqtt_port", ConfigValueType::kInt, "1883", "1883", ConfigPersist::kFile, true, true, true, false, false, true, true, false, false, false, 1, 65535, 0, 0},
-    {"mqtt_client_id", ConfigValueType::kString, "chime", "chime", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 0, 0, 128},
-    {"mqtt_username", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, false, 0, 0, 0, 128},
-    {"mqtt_password", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, true, false, false, false, false, false, 0, 0, 0, 256},
+    {"mqtt_client_id", ConfigValueType::kString, "chime", "chime", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, true, 0, 0, 0, 128},
+    {"mqtt_username", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 128},
+    {"mqtt_password", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, true, false, false, false, false, true, 0, 0, 0, 256},
     {"mqtt_tls_enabled", ConfigValueType::kBool, "false", "false", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 0, 0, 0},
     {"mqtt_tls_validate_certificate", ConfigValueType::kBool, "true", "true", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 0, 0, 0},
-    {"mqtt_tls_ca_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, false, 0, 0, 0, 256},
-    {"mqtt_tls_cert_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, false, 0, 0, 0, 256},
-    {"mqtt_tls_key_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, false, 0, 0, 0, 256},
-    {"mqtt_topics", ConfigValueType::kCsv, "", "doorbell/ring,doorbell/status", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, false, 0, 0, 0, 0},
+    {"mqtt_tls_ca_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
+    {"mqtt_tls_cert_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
+    {"mqtt_tls_key_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
+    {"mqtt_topics", ConfigValueType::kCsv, "", "doorbell/ring,doorbell/status", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, true, 0, 0, 0, 0},
     {"mqtt_subscribe_qos", ConfigValueType::kInt, "0", "0", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 2, 0, 0},
     {"heartbeat_interval", ConfigValueType::kInt, "60", "60", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 3600, 0, 0},
-    {"heartbeat_topic", ConfigValueType::kString, "chime/heartbeat", "chime/heartbeat", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 0, 0, 256},
-    {"ntp_servers", ConfigValueType::kCsv, "time.cloudflare.com,time.google.com,pool.ntp.org", "time.cloudflare.com,time.google.com,pool.ntp.org", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 0, 0, 0, 0},
-    {"time_http_urls", ConfigValueType::kCsv, "http://connectivitycheck.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,http://example.com/", "http://connectivitycheck.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,http://example.com/", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 0, 0, 0, 0},
+    {"heartbeat_topic", ConfigValueType::kString, "chime/heartbeat", "chime/heartbeat", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 256},
+    {"ntp_servers", ConfigValueType::kCsv, "time.cloudflare.com,time.google.com,pool.ntp.org", "time.cloudflare.com,time.google.com,pool.ntp.org", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, true, 0, 0, 0, 0},
+    {"time_http_urls", ConfigValueType::kCsv, "http://connectivitycheck.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,http://example.com/", "http://connectivitycheck.gstatic.com/generate_204,http://detectportal.firefox.com/success.txt,http://example.com/", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, true, 0, 0, 0, 0},
     {"time_sync_retries", ConfigValueType::kInt, "6", "6", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 100, 0, 0},
     {"time_sync_retry_delay", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 3600, 0, 0},
     {"time_sync_interval", ConfigValueType::kInt, "3600", "3600", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 0, 86400, 0, 0},
-    {"ring_topic", ConfigValueType::kString, "doorbell/ring", "doorbell/ring", ConfigPersist::kFile, true, true, true, false, false, false, true, false, true, false, 0, 0, 0, 256},
-    {"sound_path", ConfigValueType::kString, "/usr/local/share/chime/ring.wav", "/usr/local/share/chime/ring.wav", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 0, 0, 256},
+    {"ring_topic", ConfigValueType::kString, "doorbell/ring", "doorbell/ring", ConfigPersist::kFile, true, true, true, false, false, false, true, false, true, true, 0, 0, 0, 256},
+    {"sound_path", ConfigValueType::kString, "/usr/local/share/chime/ring.wav", "/usr/local/share/chime/ring.wav", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 256},
     {"notification_success_sound_path", ConfigValueType::kString, "/usr/local/share/chime/test.wav", "/usr/local/share/chime/test.wav", ConfigPersist::kFile, true, true, true, false, false, false, false, false, false, true, 0, 0, 1, 256},
     {"notification_failure_sound_path", ConfigValueType::kString, "/usr/local/share/chime/ring.wav", "/usr/local/share/chime/ring.wav", ConfigPersist::kFile, true, true, true, false, false, false, false, false, false, true, 0, 0, 1, 256},
     {"volume_bell", ConfigValueType::kInt, "80", "80", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 100, 0, 0},
     {"volume_notifications", ConfigValueType::kInt, "70", "70", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 100, 0, 0},
     {"audio_enabled", ConfigValueType::kBool, "true", "true", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 0, 0, 0},
-    {"wifi_interface", ConfigValueType::kString, "wlan0", "wlan0", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 0, 0, 32},
+    {"wifi_interface", ConfigValueType::kString, "wlan0", "wlan0", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 32},
     {"wifi_check_interval", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 3600, 0, 0},
     {"log_max_bytes", ConfigValueType::kInt, "262144", "262144", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1024, 104857600, 0, 0},
     {"log_rotate_keep", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 100, 0, 0},
     {"log_rotate_check_interval", ConfigValueType::kInt, "30", "30", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 3600, 0, 0},
-    {"wifi_ssid", ConfigValueType::kString, "", "", ConfigPersist::kWpa, false, true, true, false, false, false, true, false, false, false, 0, 0, 0, 32},
-    {"wifi_password", ConfigValueType::kString, "", "", ConfigPersist::kWpa, false, true, true, false, true, false, false, false, false, false, 0, 0, 8, 63}
+    {"wifi_ssid", ConfigValueType::kString, "", "", ConfigPersist::kWpa, false, true, true, false, false, false, true, false, false, true, 0, 0, 0, 32},
+    {"wifi_password", ConfigValueType::kString, "", "", ConfigPersist::kWpa, false, true, true, false, true, false, false, false, false, true, 0, 0, 8, 63}
 };
 
 inline constexpr const char *kRemovedConfigKeys[] = {"volume_other"};
+
+inline constexpr const char *kConfigMigrationRemove5[] = {"volume_other"};
+
+inline constexpr ConfigMigrationStep kConfigMigrationSteps[] = {
+    {5, kConfigMigrationRemove5, 1, nullptr, 0}
+};
+
+inline constexpr ConfigInvalidValueExample kConfigInvalidValueExamples[] = {
+    {"mqtt_host", "bad host"},
+    {"mqtt_client_id", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
+    {"ring_topic", "doorbell/ring\ninjected"},
+    {"mqtt_topics", "bad topic"},
+    {"heartbeat_topic", "chime/heartbeat\n"},
+    {"notification_success_sound_path", ""}
+};
 
 inline const ConfigFieldSpec *FindConfigField(std::string_view key) {
     for (const auto &field : kAllConfigFields) {
@@ -84,6 +118,32 @@ inline const ConfigFieldSpec *FindConfigField(std::string_view key) {
         }
     }
     return nullptr;
+}
+
+inline bool ConfigFieldValueValid(const ConfigFieldSpec &spec, std::string_view value) {
+    if (spec.type == ConfigValueType::kInt) {
+        int parsed = 0;
+        return oc::config::parse_int_value(value, spec.min_value, spec.max_value, &parsed);
+    }
+    if (spec.type == ConfigValueType::kBool) {
+        bool parsed = false;
+        return oc::config::parse_bool_value(value, &parsed);
+    }
+    if (spec.type == ConfigValueType::kCsv) {
+        const auto items = oc::config::split_csv(value);
+        if (spec.file_required && items.empty()) {
+            return false;
+        }
+        for (const auto &item : items) {
+            if (!oc::config::string_value_valid(item, spec.min_len, spec.max_len, spec.forbid_whitespace,
+                                                spec.forbid_newline)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return oc::config::string_value_valid(value, spec.min_len, spec.max_len, spec.forbid_whitespace,
+                                         spec.forbid_newline);
 }
 
 struct ChimeConfig {
@@ -113,28 +173,28 @@ struct ChimeConfig {
 };
 
 inline const oc::config::Field<ChimeConfig> kChimeConfigFields[] = {
-    {"mqtt_host", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_host>, true},
+    {"mqtt_host", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_host, 0, 256, true, true>, true},
     {"mqtt_port", oc::config::parse_int<ChimeConfig, &ChimeConfig::mqtt_port, 1, 65535>, true},
-    {"mqtt_client_id", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_client_id>, false},
-    {"mqtt_username", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_username>, false},
-    {"mqtt_password", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_password>, false},
+    {"mqtt_client_id", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_client_id, 0, 128, false, true>, false},
+    {"mqtt_username", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_username, 0, 128, false, true>, false},
+    {"mqtt_password", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_password, 0, 256, false, true>, false},
     {"mqtt_tls_enabled", oc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_enabled>, false},
     {"mqtt_tls_validate_certificate", oc::config::parse_bool<ChimeConfig, &ChimeConfig::mqtt_tls_validate_certificate>, false},
-    {"mqtt_tls_ca_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_ca_file>, false},
-    {"mqtt_tls_cert_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_cert_file>, false},
-    {"mqtt_tls_key_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_key_file>, false},
-    {"mqtt_topics", oc::config::parse_csv<ChimeConfig, &ChimeConfig::mqtt_topics>, true},
+    {"mqtt_tls_ca_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_ca_file, 0, 256, false, true>, false},
+    {"mqtt_tls_cert_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_cert_file, 0, 256, false, true>, false},
+    {"mqtt_tls_key_file", oc::config::parse_string<ChimeConfig, &ChimeConfig::mqtt_tls_key_file, 0, 256, false, true>, false},
+    {"mqtt_topics", oc::config::parse_csv<ChimeConfig, &ChimeConfig::mqtt_topics, true, true>, true},
     {"mqtt_subscribe_qos", oc::config::parse_int<ChimeConfig, &ChimeConfig::mqtt_subscribe_qos, 0, 2>, false},
     {"heartbeat_interval", oc::config::parse_int<ChimeConfig, &ChimeConfig::heartbeat_interval, 0, 3600>, false},
-    {"heartbeat_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::heartbeat_topic>, false},
-    {"ring_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::ring_topic>, false},
-    {"sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::sound_path>, false},
-    {"notification_success_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_success_sound_path>, false},
-    {"notification_failure_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_failure_sound_path>, false},
+    {"heartbeat_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::heartbeat_topic, 0, 256, false, true>, false},
+    {"ring_topic", oc::config::parse_string<ChimeConfig, &ChimeConfig::ring_topic, 0, 256, true, true>, false},
+    {"sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::sound_path, 0, 256, false, true>, false},
+    {"notification_success_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_success_sound_path, 1, 256, false, true>, false},
+    {"notification_failure_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_failure_sound_path, 1, 256, false, true>, false},
     {"volume_bell", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_bell, 0, 100>, false},
     {"volume_notifications", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_notifications, 0, 100>, false},
     {"audio_enabled", oc::config::parse_bool<ChimeConfig, &ChimeConfig::audio_enabled>, false},
-    {"wifi_interface", oc::config::parse_string<ChimeConfig, &ChimeConfig::wifi_interface>, false},
+    {"wifi_interface", oc::config::parse_string<ChimeConfig, &ChimeConfig::wifi_interface, 0, 32, false, true>, false},
     {"wifi_check_interval", oc::config::parse_int<ChimeConfig, &ChimeConfig::wifi_check_interval, 0, 3600>, false},
 };
 
@@ -175,33 +235,33 @@ struct FileConfig {
 
 inline const oc::config::Field<FileConfig> kFileConfigFields[] = {
     {"schema_version", oc::config::parse_int<FileConfig, &FileConfig::schema_version, 1, 1000000>, false},
-    {"mqtt_host", oc::config::parse_string<FileConfig, &FileConfig::mqtt_host>, false},
+    {"mqtt_host", oc::config::parse_string<FileConfig, &FileConfig::mqtt_host, 0, 256, true, true>, false},
     {"mqtt_port", oc::config::parse_int<FileConfig, &FileConfig::mqtt_port, 1, 65535>, false},
-    {"mqtt_client_id", oc::config::parse_string<FileConfig, &FileConfig::mqtt_client_id>, false},
-    {"mqtt_username", oc::config::parse_string<FileConfig, &FileConfig::mqtt_username>, false},
-    {"mqtt_password", oc::config::parse_string<FileConfig, &FileConfig::mqtt_password>, false},
+    {"mqtt_client_id", oc::config::parse_string<FileConfig, &FileConfig::mqtt_client_id, 0, 128, false, true>, false},
+    {"mqtt_username", oc::config::parse_string<FileConfig, &FileConfig::mqtt_username, 0, 128, false, true>, false},
+    {"mqtt_password", oc::config::parse_string<FileConfig, &FileConfig::mqtt_password, 0, 256, false, true>, false},
     {"mqtt_tls_enabled", oc::config::parse_bool<FileConfig, &FileConfig::mqtt_tls_enabled>, false},
     {"mqtt_tls_validate_certificate", oc::config::parse_bool<FileConfig, &FileConfig::mqtt_tls_validate_certificate>, false},
-    {"mqtt_tls_ca_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_ca_file>, false},
-    {"mqtt_tls_cert_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_cert_file>, false},
-    {"mqtt_tls_key_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_key_file>, false},
-    {"mqtt_topics", oc::config::parse_csv<FileConfig, &FileConfig::mqtt_topics>, false},
+    {"mqtt_tls_ca_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_ca_file, 0, 256, false, true>, false},
+    {"mqtt_tls_cert_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_cert_file, 0, 256, false, true>, false},
+    {"mqtt_tls_key_file", oc::config::parse_string<FileConfig, &FileConfig::mqtt_tls_key_file, 0, 256, false, true>, false},
+    {"mqtt_topics", oc::config::parse_csv<FileConfig, &FileConfig::mqtt_topics, true, true>, false},
     {"mqtt_subscribe_qos", oc::config::parse_int<FileConfig, &FileConfig::mqtt_subscribe_qos, 0, 2>, false},
     {"heartbeat_interval", oc::config::parse_int<FileConfig, &FileConfig::heartbeat_interval, 0, 3600>, false},
-    {"heartbeat_topic", oc::config::parse_string<FileConfig, &FileConfig::heartbeat_topic>, false},
-    {"ntp_servers", oc::config::parse_csv<FileConfig, &FileConfig::ntp_servers>, false},
-    {"time_http_urls", oc::config::parse_csv<FileConfig, &FileConfig::time_http_urls>, false},
+    {"heartbeat_topic", oc::config::parse_string<FileConfig, &FileConfig::heartbeat_topic, 0, 256, false, true>, false},
+    {"ntp_servers", oc::config::parse_csv<FileConfig, &FileConfig::ntp_servers, false, true>, false},
+    {"time_http_urls", oc::config::parse_csv<FileConfig, &FileConfig::time_http_urls, false, true>, false},
     {"time_sync_retries", oc::config::parse_int<FileConfig, &FileConfig::time_sync_retries, 1, 100>, false},
     {"time_sync_retry_delay", oc::config::parse_int<FileConfig, &FileConfig::time_sync_retry_delay, 1, 3600>, false},
     {"time_sync_interval", oc::config::parse_int<FileConfig, &FileConfig::time_sync_interval, 0, 86400>, false},
-    {"ring_topic", oc::config::parse_string<FileConfig, &FileConfig::ring_topic>, false},
-    {"sound_path", oc::config::parse_string<FileConfig, &FileConfig::sound_path>, false},
-    {"notification_success_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_success_sound_path>, false},
-    {"notification_failure_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_failure_sound_path>, false},
+    {"ring_topic", oc::config::parse_string<FileConfig, &FileConfig::ring_topic, 0, 256, true, true>, false},
+    {"sound_path", oc::config::parse_string<FileConfig, &FileConfig::sound_path, 0, 256, false, true>, false},
+    {"notification_success_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_success_sound_path, 1, 256, false, true>, false},
+    {"notification_failure_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_failure_sound_path, 1, 256, false, true>, false},
     {"volume_bell", oc::config::parse_int<FileConfig, &FileConfig::volume_bell, 0, 100>, false},
     {"volume_notifications", oc::config::parse_int<FileConfig, &FileConfig::volume_notifications, 0, 100>, false},
     {"audio_enabled", oc::config::parse_bool<FileConfig, &FileConfig::audio_enabled>, false},
-    {"wifi_interface", oc::config::parse_string<FileConfig, &FileConfig::wifi_interface>, false},
+    {"wifi_interface", oc::config::parse_string<FileConfig, &FileConfig::wifi_interface, 0, 32, false, true>, false},
     {"wifi_check_interval", oc::config::parse_int<FileConfig, &FileConfig::wifi_check_interval, 0, 3600>, false},
     {"log_max_bytes", oc::config::parse_int<FileConfig, &FileConfig::log_max_bytes, 1024, 104857600>, false},
     {"log_rotate_keep", oc::config::parse_int<FileConfig, &FileConfig::log_rotate_keep, 1, 100>, false},

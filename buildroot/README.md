@@ -178,7 +178,8 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | Path | Purpose |
 |------|---------|
 | `etc/init.d/S30modules` | Decompresses WiFi modules, runs depmod, loads brcmfmac |
-| `etc/init.d/S31persistent` | Binds persisted config/data from `/data` into runtime paths |
+| `etc/init.d/S31persistent` | Bind-mounts `/data/etc` onto `/etc/persistent` and symlinks runtime config paths |
+| `etc/init.d/S32config-migrate` | Rewrites `/etc/chime.conf` to the current schema before daemons start |
 | `etc/init.d/S40network` | Starts wpa_supplicant and DHCP |
 | `etc/init.d/S42otaguard` | Tracks pending OTA boot attempts and triggers rollback when exhausted |
 | `etc/init.d/S45webd` | Chime HTTPS web daemon supervisor (`chime-webd`) |

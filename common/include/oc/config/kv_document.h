@@ -20,6 +20,7 @@ std::string KvDocumentValue(const std::vector<KvEntry> &entries, std::string_vie
 bool KvDocumentHasKey(const std::vector<KvEntry> &entries, std::string_view key);
 void KvDocumentSetValue(std::vector<KvEntry> &entries, const std::string &key, const std::string &value);
 void KvDocumentRemoveKey(std::vector<KvEntry> &entries, std::string_view key);
+void KvDocumentRenameKey(std::vector<KvEntry> &entries, std::string_view from, std::string_view to);
 
 } // namespace oc::config
 

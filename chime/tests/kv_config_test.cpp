@@ -131,13 +131,33 @@ TEST_SUITE("kv_document") {
         CHECK(rendered.find("foo=1") == std::string::npos);
     }
 
-    TEST_CASE("join_csv and bool_to_text match parsers") {
-        CHECK(oc::config::join_csv({"a", "b"}) == "a,b");
-        bool parsed = false;
-        CHECK(oc::config::parse_bool_value(oc::config::bool_to_text(true), &parsed));
-        CHECK(parsed);
-        int number = 0;
-        CHECK(oc::config::parse_int_value("12", 1, 20, &number));
-        CHECK(number == 12);
+    TEST_CASE("rename moves a key unless the destination already exists") {
+        auto document = oc::config::ParseKvDocument("old=1\nkeep=2\n");
+        oc::config::KvDocumentRenameKey(document, "old", "new");
+        CHECK(oc::config::KvDocumentValue(document, "new") == "1");
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "old"));
+
+        auto collision = oc::config::ParseKvDocument("from=a\nto=b\n");
+        oc::config::KvDocumentRenameKey(collision, "from", "to");
+        CHECK(oc::config::KvDocumentValue(collision, "to") == "b");
+        CHECK_FALSE(oc::config::KvDocumentHasKey(collision, "from"));
+    }
+
+    TEST_CASE("constrained string parsers reject whitespace and oversize values") {
+        constexpr oc::config::Field<SampleConfig> constrained[] = {
+            {"name", oc::config::parse_string<SampleConfig, &SampleConfig::name, 1, 8, true, true>, true},
+            {"port", oc::config::parse_int<SampleConfig, &SampleConfig::port, 1, 65535>, true},
+        };
+        const ScopedTempDir tmp;
+        CHECK_FALSE(oc::config::load(tmp.WriteFile("space.conf", "name=bad name\nport=1\n").string(), SampleConfig{},
+                                     constrained));
+        CHECK_FALSE(oc::config::load(tmp.WriteFile("long.conf", "name=toolongxx\nport=1\n").string(), SampleConfig{},
+                                     constrained));
+        CHECK_FALSE(
+            oc::config::load(tmp.WriteFile("cr.conf", "name=ba\rd\nport=1\n").string(), SampleConfig{}, constrained));
+        const auto ok = oc::config::load(tmp.WriteFile("ok-name.conf", "name=ok-host\nport=1\n").string(),
+                                         SampleConfig{}, constrained);
+        REQUIRE(ok);
+        CHECK(ok.config.name == "ok-host");
     }
 }

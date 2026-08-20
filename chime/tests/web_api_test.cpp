@@ -182,8 +182,8 @@ TEST_SUITE("web_api") {
             return harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
         };
 
-        const auto client_id = post_replaced("\"mqtt_client_id\": \"chime-lab\"",
-                                             "\"mqtt_client_id\": \"x\\naudio_enabled=false\"");
+        const auto client_id =
+            post_replaced("\"mqtt_client_id\": \"chime-lab\"", "\"mqtt_client_id\": \"x\\naudio_enabled=false\"");
         CHECK(client_id.status == 400);
         CHECK(RequireError(client_id) == "validation_failed");
 

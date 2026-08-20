@@ -11,6 +11,13 @@
       }
     ]
   },
+  "migrations": [
+    {
+      "to": 5,
+      "remove": ["volume_other"],
+      "rename": []
+    }
+  ],
   "fields": [
     {
       "key": "schema_version",

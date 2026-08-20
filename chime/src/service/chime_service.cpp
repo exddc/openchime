@@ -77,9 +77,8 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
         return 0;
     }
 
-    logger_.Info("mqtt",
-                 "broker=" + config_.mqtt_host + ":" + std::to_string(config_.mqtt_port) +
-                     " client_id=" + config_.mqtt_client_id);
+    logger_.Info("mqtt", "broker=" + config_.mqtt_host + ":" + std::to_string(config_.mqtt_port) +
+                             " client_id=" + config_.mqtt_client_id);
     logger_.Info("mqtt", "auth username=" + (config_.mqtt_username.empty() ? "<none>" : config_.mqtt_username) +
                              " password_set=" + oc::util::BoolToString(!config_.mqtt_password.empty()));
     logger_.Info("mqtt",

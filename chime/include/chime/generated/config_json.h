@@ -140,11 +140,11 @@ inline void ReadSaveRequestFromJson(const JsonValue &object, SaveRequest *reques
 }
 
 inline bool ContainsWhitespace(const std::string &value) {
-    return value.find(' ') != std::string::npos || value.find('\t') != std::string::npos;
+    return oc::config::contains_whitespace(value);
 }
 
 inline bool ContainsNewline(const std::string &value) {
-    return value.find('\n') != std::string::npos || value.find('\r') != std::string::npos;
+    return oc::config::contains_newline(value);
 }
 
 inline void ValidateApiString(const ::chime::ConfigFieldSpec *spec, const std::string &value,
@@ -156,20 +156,23 @@ inline void ValidateApiString(const ::chime::ConfigFieldSpec *spec, const std::s
         errors->push_back({spec->key, std::string(spec->key) + " is required"});
         return;
     }
-    if (ContainsNewline(value)) {
-        errors->push_back({spec->key, std::string(spec->key) + " must not contain newline characters"});
-        return;
-    }
-    if (spec->min_len > 0 && value.size() < static_cast<std::size_t>(spec->min_len)) {
-        errors->push_back({spec->key, std::string(spec->key) + " must be >= " + std::to_string(spec->min_len) + " chars"});
-        return;
-    }
-    if (spec->max_len > 0 && value.size() > static_cast<std::size_t>(spec->max_len)) {
-        errors->push_back({spec->key, std::string(spec->key) + " must be <= " + std::to_string(spec->max_len) + " chars"});
-        return;
-    }
-    if (spec->forbid_whitespace && ContainsWhitespace(value)) {
-        errors->push_back({spec->key, std::string(spec->key) + " must not contain spaces"});
+    if (!oc::config::string_value_valid(value, spec->min_len, spec->max_len, spec->forbid_whitespace,
+                                        spec->forbid_newline)) {
+        if (ContainsNewline(value)) {
+            errors->push_back({spec->key, std::string(spec->key) + " must not contain newline characters"});
+            return;
+        }
+        if (spec->min_len > 0 && value.size() < static_cast<std::size_t>(spec->min_len)) {
+            errors->push_back({spec->key, std::string(spec->key) + " must be >= " + std::to_string(spec->min_len) + " chars"});
+            return;
+        }
+        if (spec->max_len > 0 && value.size() > static_cast<std::size_t>(spec->max_len)) {
+            errors->push_back({spec->key, std::string(spec->key) + " must be <= " + std::to_string(spec->max_len) + " chars"});
+            return;
+        }
+        if (spec->forbid_whitespace && ContainsWhitespace(value)) {
+            errors->push_back({spec->key, std::string(spec->key) + " must not contain spaces"});
+        }
     }
 }
 
@@ -193,8 +196,8 @@ inline void ValidateApiCsv(const ::chime::ConfigFieldSpec *spec, const std::vect
         return;
     }
     for (std::size_t i = 0; i < items.size(); ++i) {
-        if (items[i].empty() || ContainsNewline(items[i]) ||
-            (spec->forbid_whitespace && ContainsWhitespace(items[i]))) {
+        if (items[i].empty() || !oc::config::string_value_valid(items[i], spec->min_len, spec->max_len,
+                                                                spec->forbid_whitespace, spec->forbid_newline)) {
             errors->push_back({spec->key, std::string(spec->key) + "[" + std::to_string(i) + "] is invalid"});
         }
     }

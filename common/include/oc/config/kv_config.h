@@ -2,6 +2,7 @@
 #define OC_CONFIG_KV_CONFIG_H
 
 #include <cctype>
+#include <cstddef>
 #include <cstdlib>
 #include <fstream>
 #include <string>
@@ -49,7 +50,34 @@ inline std::string join_csv(const std::vector<std::string> &items) {
     return out;
 }
 
-inline const char *bool_to_text(bool value) { return value ? "true" : "false"; }
+inline const char *bool_to_text(bool value) {
+    return value ? "true" : "false";
+}
+
+inline bool contains_whitespace(std::string_view value) {
+    return value.find(' ') != std::string_view::npos || value.find('\t') != std::string_view::npos;
+}
+
+inline bool contains_newline(std::string_view value) {
+    return value.find('\n') != std::string_view::npos || value.find('\r') != std::string_view::npos;
+}
+
+inline bool string_value_valid(std::string_view value, int min_len, int max_len, bool forbid_whitespace,
+                               bool forbid_newline) {
+    if (min_len > 0 && value.size() < static_cast<std::size_t>(min_len)) {
+        return false;
+    }
+    if (max_len > 0 && value.size() > static_cast<std::size_t>(max_len)) {
+        return false;
+    }
+    if (forbid_newline && contains_newline(value)) {
+        return false;
+    }
+    if (forbid_whitespace && contains_whitespace(value)) {
+        return false;
+    }
+    return true;
+}
 
 inline bool parse_int_value(std::string_view value, int min_val, int max_val, int *output) {
     if (output == nullptr) {
@@ -96,7 +124,12 @@ template <typename T> struct Field {
     bool required;
 };
 
-template <typename T, std::string T::*member> bool parse_string(T &target, std::string_view value) {
+template <typename T, std::string T::*member, int min_len = 0, int max_len = 0, bool forbid_whitespace = false,
+          bool forbid_newline = false>
+bool parse_string(T &target, std::string_view value) {
+    if (!string_value_valid(value, min_len, max_len, forbid_whitespace, forbid_newline)) {
+        return false;
+    }
     target.*member = std::string(value);
     return true;
 }
@@ -106,9 +139,19 @@ bool parse_int(T &target, std::string_view value) {
     return parse_int_value(value, min_val, max_val, &(target.*member));
 }
 
-template <typename T, std::vector<std::string> T::*member> bool parse_csv(T &target, std::string_view value) {
-    target.*member = split_csv(value);
-    return !(target.*member).empty();
+template <typename T, std::vector<std::string> T::*member, bool forbid_whitespace = false, bool forbid_newline = false>
+bool parse_csv(T &target, std::string_view value) {
+    std::vector<std::string> items = split_csv(value);
+    if (items.empty()) {
+        return false;
+    }
+    for (const auto &item : items) {
+        if (!string_value_valid(item, 0, 0, forbid_whitespace, forbid_newline)) {
+            return false;
+        }
+    }
+    target.*member = std::move(items);
+    return true;
 }
 
 template <typename T, bool T::*member> bool parse_bool(T &target, std::string_view value) {

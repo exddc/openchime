@@ -1,13 +1,17 @@
 #!/bin/sh
 
-# Migrates /etc/chime.conf after S31persistent bind-mounts /data/etc/chime.conf.
-# Must run before S41timesync, S45webd, and S99chime.
-# Malformed or future schema_version values leave the file unchanged here;
-# chime and chime-webd refuse to start on those failures.
+# Migrates /etc/chime.conf after S31persistent bind-mounts /data/etc onto
+# /etc/persistent and points /etc/chime.conf at that directory. Must run
+# before S41timesync, S45webd, and S99chime.
+# Malformed or future schema_version is a permanent failure (exit 78):
+# supervisors must not start and retry.
 
 DAEMON="chime-migrate"
 MIGRATE_BIN="/usr/local/bin/chime-migrate"
 CONFIG_FILE="/etc/chime.conf"
+
+# shellcheck disable=SC1091,SC2154
+. /usr/local/sbin/chime-supervisor-policy.sh
 
 start() {
     printf "Starting %s: " "$DAEMON"
@@ -17,13 +21,22 @@ start() {
         return 0
     fi
 
-    if [ ! -f "$CONFIG_FILE" ]; then
+    if [ ! -e "$CONFIG_FILE" ]; then
         echo "SKIP (no config)"
         return 0
     fi
 
-    if "$MIGRATE_BIN" "$CONFIG_FILE"; then
+    "$MIGRATE_BIN" "$CONFIG_FILE"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+        chime_clear_config_fatal
         echo "OK"
+        return 0
+    fi
+
+    if [ "$rc" -eq "$CHIME_CONFIG_FATAL_EXIT" ]; then
+        chime_record_config_fatal "unsupported or malformed schema_version"
+        echo "FAIL (permanent config error)"
         return 0
     fi
 

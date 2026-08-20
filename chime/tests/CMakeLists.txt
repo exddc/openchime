@@ -23,7 +23,9 @@ add_executable(
   web_server_test.cpp
   chime_config_test.cpp
   config_schema_contract_test.cpp
+  config_constraints_test.cpp
   config_migrate_test.cpp
+  atomic_write_test.cpp
   sound_name_test.cpp
   chime_service_ring_test.cpp)
 

@@ -1,15 +1,12 @@
 #include "chime/config_migrate.h"
 
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <string>
 #include <sys/stat.h>
 #include <utility>
 
-#include "chime/generated/config_types.h"
-#include "oc/config/kv_config.h"
-#include "oc/config/kv_document.h"
 #include "oc/util/filesystem.h"
 
 namespace chime {
@@ -51,28 +48,53 @@ bool ParseSchemaVersion(const std::vector<oc::config::KvEntry> &document, int *v
     return true;
 }
 
-bool FieldValueValid(const ConfigFieldSpec &spec, std::string_view value) {
-    if (spec.type == ConfigValueType::kInt) {
-        int parsed = 0;
-        return oc::config::parse_int_value(value, spec.min_value, spec.max_value, &parsed);
-    }
-    if (spec.type == ConfigValueType::kBool) {
-        bool parsed = false;
-        return oc::config::parse_bool_value(value, &parsed);
-    }
-    if (spec.type == ConfigValueType::kCsv) {
-        if (spec.file_required) {
-            return !oc::config::split_csv(value).empty();
-        }
-        return true;
-    }
-    return true;
-}
-
-void ApplyCurrentSchema(std::vector<oc::config::KvEntry> *document) {
+void DropRemovedKeys(std::vector<oc::config::KvEntry> *document) {
     for (const char *key : kRemovedConfigKeys) {
         oc::config::KvDocumentRemoveKey(*document, key);
     }
+}
+
+std::string PersistentBackupPath(const std::string &path) {
+    std::error_code ec;
+    std::filesystem::path resolved(path);
+    if (std::filesystem::is_symlink(resolved, ec) && !ec) {
+        std::filesystem::path target = std::filesystem::read_symlink(resolved, ec);
+        if (!ec) {
+            if (target.is_relative()) {
+                target = resolved.parent_path() / target;
+            }
+            resolved = target.lexically_normal();
+        }
+    }
+    return resolved.string() + ".bak";
+}
+
+} // namespace
+
+void ApplyConfigMigrationSteps(std::vector<oc::config::KvEntry> *document, int from_version, int to_version,
+                               const ConfigMigrationStep *steps, std::size_t step_count) {
+    if (document == nullptr || steps == nullptr) {
+        return;
+    }
+    for (std::size_t i = 0; i < step_count; ++i) {
+        const ConfigMigrationStep &step = steps[i];
+        if (step.to_version <= from_version || step.to_version > to_version) {
+            continue;
+        }
+        for (std::size_t r = 0; r < step.remove_count; ++r) {
+            oc::config::KvDocumentRemoveKey(*document, step.remove[r]);
+        }
+        for (std::size_t n = 0; n < step.rename_count; ++n) {
+            oc::config::KvDocumentRenameKey(*document, step.renames[n].from, step.renames[n].to);
+        }
+    }
+}
+
+void FillAndRepairKnownFields(std::vector<oc::config::KvEntry> *document) {
+    if (document == nullptr) {
+        return;
+    }
+    DropRemovedKeys(document);
     for (const auto &spec : kAllConfigFields) {
         if (spec.persist != ConfigPersist::kFile) {
             continue;
@@ -82,25 +104,12 @@ void ApplyCurrentSchema(std::vector<oc::config::KvEntry> *document) {
             continue;
         }
         const std::string current = oc::config::KvDocumentValue(*document, spec.key);
-        if (!FieldValueValid(spec, current)) {
+        if (!ConfigFieldValueValid(spec, current)) {
             oc::config::KvDocumentSetValue(*document, spec.key, spec.repair_text);
         }
     }
     oc::config::KvDocumentSetValue(*document, "schema_version", std::to_string(kConfigSchemaVersion));
 }
-
-std::string PersistentBackupPath(const std::string &path) {
-    const std::filesystem::path twin = std::filesystem::path("/data/etc") / std::filesystem::path(path).filename();
-    struct stat target_stat;
-    struct stat twin_stat;
-    if (stat(path.c_str(), &target_stat) == 0 && stat(twin.c_str(), &twin_stat) == 0 &&
-        target_stat.st_dev == twin_stat.st_dev && target_stat.st_ino == twin_stat.st_ino) {
-        return twin.string() + ".bak";
-    }
-    return path + ".bak";
-}
-
-} // namespace
 
 MigrateResult MigratePersistedConfig(const std::string &path) {
     MigrateResult result;
@@ -122,7 +131,9 @@ MigrateResult MigratePersistedConfig(const std::string &path) {
         return result;
     }
 
-    ApplyCurrentSchema(&document);
+    ApplyConfigMigrationSteps(&document, result.from_version, kConfigSchemaVersion, kConfigMigrationSteps,
+                              std::size(kConfigMigrationSteps));
+    FillAndRepairKnownFields(&document);
     const std::string migrated = oc::config::RenderKvDocument(document);
     if (migrated == original) {
         result.success = true;

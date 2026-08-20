@@ -123,4 +123,4 @@ Init-service keys (used by `S41timesync` and `S99chime`, not by the daemons):
 - `time_sync_retries`, `time_sync_retry_delay`, `time_sync_interval`
 - `log_max_bytes`, `log_rotate_keep`, `log_rotate_check_interval`
 
-`schema_version` is written by `chime-migrate`. `volume_other` was removed in schema 5.
+`schema_version` is written by `chime-migrate`. `volume_other` was removed in schema 5. Malformed or future `schema_version` values make `chime-migrate`, `chime`, and `chime-webd` exit 78 so the init supervisors do not restart-loop.

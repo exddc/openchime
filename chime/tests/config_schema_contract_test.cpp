@@ -1,3 +1,4 @@
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,10 @@ TEST_SUITE("config_schema_contract") {
         CHECK(chime::FindConfigField("mqtt_host") != nullptr);
         CHECK(chime::FindConfigField("ntp_servers")->init_only);
         CHECK_FALSE(chime::FindConfigField("ntp_servers")->runtime);
+        REQUIRE(std::size(chime::kConfigMigrationSteps) >= 1);
+        CHECK(chime::kConfigMigrationSteps[0].to_version == 5);
+        CHECK(chime::kConfigMigrationSteps[std::size(chime::kConfigMigrationSteps) - 1].to_version ==
+              chime::kConfigSchemaVersion);
     }
 
     TEST_CASE("schema field specs expose API validation metadata") {
@@ -91,6 +96,7 @@ TEST_SUITE("config_schema_contract") {
         CHECK(host->api_required);
         CHECK_FALSE(host->api_empty_ok);
         CHECK(host->forbid_whitespace);
+        CHECK(host->forbid_newline);
         CHECK(host->max_len == 256);
 
         const auto *volume = chime::FindConfigField("volume_bell");
@@ -220,5 +226,13 @@ TEST_SUITE("config_schema_contract") {
         errors.clear();
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
         CHECK(HasFieldError(errors, "mqtt_topics"));
+    }
+
+    TEST_CASE("shared invalid fixtures fail generated field validation") {
+        for (const auto &example : chime::kConfigInvalidValueExamples) {
+            const auto *spec = chime::FindConfigField(example.key);
+            REQUIRE(spec != nullptr);
+            CHECK_FALSE(chime::ConfigFieldValueValid(*spec, example.value));
+        }
     }
 }

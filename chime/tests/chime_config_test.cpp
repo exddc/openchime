@@ -105,8 +105,8 @@ wifi_check_interval=0
 
     TEST_CASE("ignores init-only, unknown, and removed keys") {
         const ScopedTempDir tmp;
-        const auto path = tmp.WriteFile("legacy.conf", RequiredKeys() +
-                                                           "volume_other=12\nntp_servers=example.invalid\nlab_flag=1\n");
+        const auto path =
+            tmp.WriteFile("legacy.conf", RequiredKeys() + "volume_other=12\nntp_servers=example.invalid\nlab_flag=1\n");
         const auto result = chime::LoadConfig(path.string());
         REQUIRE(result);
         CHECK(result.config.mqtt_host == "broker.local");

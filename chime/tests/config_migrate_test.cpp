@@ -3,9 +3,6 @@
 #include <iterator>
 #include <string>
 #include <sys/stat.h>
-#if defined(__linux__)
-#include <sys/mount.h>
-#endif
 
 #include "chime/chime_config.h"
 #include "chime/config_migrate.h"
@@ -124,6 +121,11 @@ TEST_SUITE("config_migrate") {
         CHECK(result.unsupported_version);
         CHECK(chime::MigrateFailureBlocksStartup(result));
         CHECK(ReadText(path) == original);
+        const auto second = chime::MigratePersistedConfig(path.string());
+        CHECK_FALSE(second.success);
+        CHECK(second.unsupported_version);
+        CHECK(ReadText(path) == original);
+        CHECK_FALSE(std::filesystem::exists(path.string() + ".bak"));
     }
 
     TEST_CASE("write failure leaves the original config") {
@@ -170,37 +172,55 @@ TEST_SUITE("config_migrate") {
         REQUIRE(loaded_empty.config.mqtt_topics.size() == 2);
     }
 
-#if defined(__linux__)
-    TEST_CASE("migrates a bind-mounted file the way S31persistent installs it") {
+    TEST_CASE("migrates an explicit schema 4 file") {
+        const ScopedTempDir tmp;
+        const auto path = tmp.WriteFile(
+            "v4.conf", "schema_version=4\nmqtt_host=broker\nmqtt_port=1883\nmqtt_topics=a\nvolume_other=9\n");
+        const auto result = chime::MigratePersistedConfig(path.string());
+        REQUIRE(result.success);
+        CHECK(result.from_version == 4);
+        CHECK(result.to_version == chime::kConfigSchemaVersion);
+        const auto document = oc::config::ParseKvDocument(ReadText(path));
+        CHECK(oc::config::KvDocumentValue(document, "schema_version") == std::to_string(chime::kConfigSchemaVersion));
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "volume_other"));
+    }
+
+    TEST_CASE("runs every intermediate step on a skipped-version upgrade") {
+        const char *remove5[] = {"volume_other"};
+        const char *remove6[] = {"lab_flag"};
+        const chime::ConfigRenameSpec rename6[] = {{"old_host", "mqtt_host"}};
+        const chime::ConfigMigrationStep steps[] = {
+            {5, remove5, 1, nullptr, 0},
+            {6, remove6, 1, rename6, 1},
+        };
+        auto document = oc::config::ParseKvDocument(
+            "old_host=broker.example\nvolume_other=1\nlab_flag=gone\nmqtt_port=1883\nmqtt_topics=a\n");
+        chime::ApplyConfigMigrationSteps(&document, 4, 6, steps, std::size(steps));
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "volume_other"));
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "lab_flag"));
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "old_host"));
+        CHECK(oc::config::KvDocumentValue(document, "mqtt_host") == "broker.example");
+    }
+
+    TEST_CASE("migrates through the S31 symlink without replacing it") {
         const ScopedTempDir tmp;
         const auto data_dir = tmp.path() / "data";
         const auto etc_dir = tmp.path() / "etc";
         std::filesystem::create_directories(data_dir);
         std::filesystem::create_directories(etc_dir);
         const auto backing = tmp.WriteFile("data/chime.conf", std::string(kShippedV4Config));
-        const auto mounted = etc_dir / "chime.conf";
-        {
-            std::ofstream placeholder(mounted);
-            placeholder << "placeholder\n";
-        }
-        if (mount(backing.c_str(), mounted.c_str(), nullptr, MS_BIND, nullptr) != 0) {
-            SKIP("bind mount not permitted");
-        }
-        struct Unmount {
-            std::string path;
-            ~Unmount() { umount(path.c_str()); }
-        } unmount{mounted.string()};
+        const auto link = etc_dir / "chime.conf";
+        std::filesystem::create_symlink(backing, link);
 
-        const auto result = chime::MigratePersistedConfig(mounted.string());
+        const auto result = chime::MigratePersistedConfig(link.string());
         REQUIRE(result.success);
         CHECK(result.rewritten);
+        CHECK(std::filesystem::is_symlink(link));
         const std::string persisted = ReadText(backing);
-        const std::string visible = ReadText(mounted);
-        CHECK(persisted == visible);
+        CHECK(persisted == ReadText(link));
         CHECK(persisted.find("volume_other=") == std::string::npos);
         CHECK(persisted.find("schema_version=" + std::to_string(chime::kConfigSchemaVersion)) != std::string::npos);
-        CHECK(std::filesystem::is_regular_file(mounted.string() + ".bak"));
-        CHECK(ReadText(mounted.string() + ".bak") == std::string(kShippedV4Config));
+        CHECK(std::filesystem::is_regular_file(backing.string() + ".bak"));
+        CHECK(ReadText(backing.string() + ".bak") == std::string(kShippedV4Config));
     }
-#endif
 }

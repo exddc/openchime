@@ -222,7 +222,8 @@ std::vector<ValidationError> ConfigStore::ValidateRequest(const SaveRequest &req
         if (!value.empty() && oc::config::trim(value).empty()) {
             const auto *spec = FindConfigField(key);
             const int max_len = spec != nullptr && spec->max_len > 0 ? spec->max_len : 256;
-            errors.push_back({key, std::string(key) + " must be 1-" + std::to_string(max_len) + " chars after trimming"});
+            errors.push_back(
+                {key, std::string(key) + " must be 1-" + std::to_string(max_len) + " chars after trimming"});
         }
     };
     reject_blank_after_trim("notification_success_sound_path", request.config.notification_success_sound_path);
@@ -286,7 +287,8 @@ bool ConfigStore::SaveChimeConfig(const SaveRequest &request, const CoreConfigSn
         oc::config::KvDocumentRemoveKey(document, removed);
     }
 
-    return oc::util::AtomicWriteFile(chime_config_path_, oc::config::RenderKvDocument(document), kChimeConfigMode, error);
+    return oc::util::AtomicWriteFile(chime_config_path_, oc::config::RenderKvDocument(document), kChimeConfigMode,
+                                     error);
 }
 
 bool ConfigStore::SaveWpaSupplicant(const SaveRequest &request, const CoreConfigSnapshot &, std::string *error) const {

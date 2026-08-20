@@ -358,10 +358,12 @@ HttpResponse WebApi::HandlePostCoreConfig(const HttpRequest &request) {
             return JsonHttpError(500, "save_failed", loaded.error);
         }
         if (missing_success_sound) {
-            save_request.config.notification_success_sound_path = loaded.snapshot.config.notification_success_sound_path;
+            save_request.config.notification_success_sound_path =
+                loaded.snapshot.config.notification_success_sound_path;
         }
         if (missing_failure_sound) {
-            save_request.config.notification_failure_sound_path = loaded.snapshot.config.notification_failure_sound_path;
+            save_request.config.notification_failure_sound_path =
+                loaded.snapshot.config.notification_failure_sound_path;
         }
     }
 

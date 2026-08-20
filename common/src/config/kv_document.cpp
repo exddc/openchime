@@ -113,4 +113,25 @@ void KvDocumentRemoveKey(std::vector<KvEntry> &entries, std::string_view key) {
     entries.swap(kept);
 }
 
+void KvDocumentRenameKey(std::vector<KvEntry> &entries, std::string_view from, std::string_view to) {
+    if (from.empty() || to.empty() || from == to) {
+        return;
+    }
+    if (KvDocumentHasKey(entries, to)) {
+        KvDocumentRemoveKey(entries, from);
+        return;
+    }
+    for (auto &entry : entries) {
+        if (entry.kind != KvEntry::Kind::kAssignment || entry.key != from) {
+            continue;
+        }
+        const auto sep = entry.text.find('=');
+        if (sep == std::string::npos) {
+            continue;
+        }
+        entry.text = std::string(to) + std::string(entry.text.substr(sep));
+        entry.key = std::string(to);
+    }
+}
+
 } // namespace oc::config

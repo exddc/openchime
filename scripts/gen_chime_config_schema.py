@@ -101,6 +101,12 @@ def repair_text(field: dict[str, Any]) -> str:
     return default_text(field)
 
 
+def field_forbid_newline(field: dict[str, Any]) -> bool:
+    if "forbid_newline" in field:
+        return bool(field["forbid_newline"])
+    return field["type"] in ("string", "csv")
+
+
 def spec_row(field: dict[str, Any]) -> str:
     persist = field.get("persist") or "none"
     persist_enum = {
@@ -127,7 +133,7 @@ def spec_row(field: dict[str, Any]) -> str:
         f'{bool_lit(bool(field["ui"]))}, {bool_lit(bool(field["init"]))}, '
         f'{bool_lit(bool(field["secret"]))}, {bool_lit(bool(field.get("file_required")))}, '
         f'{bool_lit(bool(field.get("api_required")))}, {bool_lit(bool(field.get("api_empty_ok")))}, '
-        f'{bool_lit(bool(field.get("forbid_whitespace")))}, {bool_lit(bool(field.get("forbid_newline")))}, '
+        f'{bool_lit(bool(field.get("forbid_whitespace")))}, {bool_lit(field_forbid_newline(field))}, '
         f"{min_value}, {max_value}, {min_len}, {max_len}"
         "}"
     )
@@ -136,12 +142,19 @@ def spec_row(field: dict[str, Any]) -> str:
 def parse_call(struct: str, field: dict[str, Any]) -> str:
     name = field["key"]
     kind = field["type"]
+    min_len = int(field.get("min_len") or 0)
+    max_len = int(field.get("max_len") or 0)
+    forbid_ws = bool_lit(bool(field.get("forbid_whitespace")))
+    forbid_nl = bool_lit(field_forbid_newline(field))
     if kind == "string":
-        return f"oc::config::parse_string<{struct}, &{struct}::{name}>"
+        return (
+            f"oc::config::parse_string<{struct}, &{struct}::{name}, {min_len}, {max_len}, "
+            f"{forbid_ws}, {forbid_nl}>"
+        )
     if kind == "bool":
         return f"oc::config::parse_bool<{struct}, &{struct}::{name}>"
     if kind == "csv":
-        return f"oc::config::parse_csv<{struct}, &{struct}::{name}>"
+        return f"oc::config::parse_csv<{struct}, &{struct}::{name}, {forbid_ws}, {forbid_nl}>"
     if kind == "int":
         min_value = int(field["min"])
         max_value = int(field["max"])
@@ -158,18 +171,85 @@ def field_table(struct: str, fields: list[dict[str, Any]], required_key: str) ->
     return "\n".join(lines)
 
 
+def cpp_string_literal(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
+
+
+def invalid_value_examples() -> list[tuple[str, str]]:
+    return [
+        ("mqtt_host", "bad host"),
+        ("mqtt_client_id", "x" * 129),
+        ("ring_topic", "doorbell/ring\ninjected"),
+        ("mqtt_topics", "bad topic"),
+        ("heartbeat_topic", "chime/heartbeat\n"),
+        ("notification_success_sound_path", ""),
+    ]
+
+
+def generate_invalid_examples_cpp() -> str:
+    rows = []
+    for key, value in invalid_value_examples():
+        rows.append(f"    {{{cpp_string_literal(key)}, {cpp_string_literal(value)}}}")
+    return ",\n".join(rows)
+
+
+def generate_migration_cpp(schema: dict[str, Any]) -> tuple[str, str, list[str]]:
+    migrations = sorted(schema.get("migrations") or [], key=lambda item: int(item["to"]))
+    arrays: list[str] = []
+    steps: list[str] = []
+    removed_keys: list[str] = []
+    for mig in migrations:
+        to = int(mig["to"])
+        remove = list(mig.get("remove") or [])
+        renames = list(mig.get("rename") or [])
+        remove_ptr = "nullptr"
+        remove_count = "0"
+        if remove:
+            name = f"kConfigMigrationRemove{to}"
+            inner = ", ".join(cpp_string_literal(key) for key in remove)
+            arrays.append(f"inline constexpr const char *{name}[] = {{{inner}}};")
+            remove_ptr = name
+            remove_count = str(len(remove))
+            removed_keys.extend(remove)
+        rename_ptr = "nullptr"
+        rename_count = "0"
+        if renames:
+            name = f"kConfigMigrationRename{to}"
+            inner = ", ".join(
+                f"{{{cpp_string_literal(item['from'])}, {cpp_string_literal(item['to'])}}}" for item in renames
+            )
+            arrays.append(f"inline constexpr ConfigRenameSpec {name}[] = {{{inner}}};")
+            rename_ptr = name
+            rename_count = str(len(renames))
+        steps.append(f"    {{{to}, {remove_ptr}, {remove_count}, {rename_ptr}, {rename_count}}}")
+    unique_removed: list[str] = []
+    for key in removed_keys:
+        if key not in unique_removed:
+            unique_removed.append(key)
+    return "\n".join(arrays), ",\n".join(steps), unique_removed
+
+
 def generate_cpp_types(schema: dict[str, Any]) -> str:
     fields = schema["fields"]
     runtime_fields = [field for field in fields if field["runtime"]]
     file_fields = [field for field in fields if field.get("persist") == "file"]
     core_fields = [field for field in fields if field["api"] and field["key"] != "wifi_password"]
-    removed = schema["removed"][str(schema["schema_version"])]
+    migration_arrays, migration_steps, removed_keys = generate_migration_cpp(schema)
 
     runtime_members = "\n".join(f"    {cpp_default(field)};" for field in runtime_fields)
     file_members = "\n".join(f"    {cpp_default(field)};" for field in file_fields)
     core_members = "\n".join(f"    {cpp_default(field)};" for field in core_fields)
     spec_rows = ",\n".join(spec_row(field) for field in fields)
-    removed_keys = ", ".join(f'"{item["key"]}"' for item in removed)
+    removed_key_list = ", ".join(cpp_string_literal(key) for key in removed_keys)
+    invalid_examples = generate_invalid_examples_cpp()
+    migration_arrays_block = f"{migration_arrays}\n\n" if migration_arrays else ""
 
     copies_runtime = []
     for field in runtime_fields:
@@ -209,6 +289,7 @@ def generate_cpp_types(schema: dict[str, Any]) -> str:
     return f"""#ifndef CHIME_GENERATED_CONFIG_TYPES_H
 #define CHIME_GENERATED_CONFIG_TYPES_H
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <string_view>
@@ -246,11 +327,37 @@ struct ConfigFieldSpec {{
     int max_len;
 }};
 
+struct ConfigRenameSpec {{
+    const char *from;
+    const char *to;
+}};
+
+struct ConfigMigrationStep {{
+    int to_version;
+    const char *const *remove;
+    std::size_t remove_count;
+    const ConfigRenameSpec *renames;
+    std::size_t rename_count;
+}};
+
+struct ConfigInvalidValueExample {{
+    const char *key;
+    const char *value;
+}};
+
 constexpr ConfigFieldSpec kAllConfigFields[] = {{
 {spec_rows}
 }};
 
-inline constexpr const char *kRemovedConfigKeys[] = {{{removed_keys}}};
+inline constexpr const char *kRemovedConfigKeys[] = {{{removed_key_list}}};
+
+{migration_arrays_block}inline constexpr ConfigMigrationStep kConfigMigrationSteps[] = {{
+{migration_steps}
+}};
+
+inline constexpr ConfigInvalidValueExample kConfigInvalidValueExamples[] = {{
+{invalid_examples}
+}};
 
 inline const ConfigFieldSpec *FindConfigField(std::string_view key) {{
     for (const auto &field : kAllConfigFields) {{
@@ -259,6 +366,32 @@ inline const ConfigFieldSpec *FindConfigField(std::string_view key) {{
         }}
     }}
     return nullptr;
+}}
+
+inline bool ConfigFieldValueValid(const ConfigFieldSpec &spec, std::string_view value) {{
+    if (spec.type == ConfigValueType::kInt) {{
+        int parsed = 0;
+        return oc::config::parse_int_value(value, spec.min_value, spec.max_value, &parsed);
+    }}
+    if (spec.type == ConfigValueType::kBool) {{
+        bool parsed = false;
+        return oc::config::parse_bool_value(value, &parsed);
+    }}
+    if (spec.type == ConfigValueType::kCsv) {{
+        const auto items = oc::config::split_csv(value);
+        if (spec.file_required && items.empty()) {{
+            return false;
+        }}
+        for (const auto &item : items) {{
+            if (!oc::config::string_value_valid(item, spec.min_len, spec.max_len, spec.forbid_whitespace,
+                                                spec.forbid_newline)) {{
+                return false;
+            }}
+        }}
+        return true;
+    }}
+    return oc::config::string_value_valid(value, spec.min_len, spec.max_len, spec.forbid_whitespace,
+                                         spec.forbid_newline);
 }}
 
 struct ChimeConfig {{
@@ -433,11 +566,11 @@ inline void ReadSaveRequestFromJson(const JsonValue &object, SaveRequest *reques
 }}
 
 inline bool ContainsWhitespace(const std::string &value) {{
-    return value.find(' ') != std::string::npos || value.find('\\t') != std::string::npos;
+    return oc::config::contains_whitespace(value);
 }}
 
 inline bool ContainsNewline(const std::string &value) {{
-    return value.find('\\n') != std::string::npos || value.find('\\r') != std::string::npos;
+    return oc::config::contains_newline(value);
 }}
 
 inline void ValidateApiString(const ::chime::ConfigFieldSpec *spec, const std::string &value,
@@ -449,20 +582,23 @@ inline void ValidateApiString(const ::chime::ConfigFieldSpec *spec, const std::s
         errors->push_back({{spec->key, std::string(spec->key) + " is required"}});
         return;
     }}
-    if (ContainsNewline(value)) {{
-        errors->push_back({{spec->key, std::string(spec->key) + " must not contain newline characters"}});
-        return;
-    }}
-    if (spec->min_len > 0 && value.size() < static_cast<std::size_t>(spec->min_len)) {{
-        errors->push_back({{spec->key, std::string(spec->key) + " must be >= " + std::to_string(spec->min_len) + " chars"}});
-        return;
-    }}
-    if (spec->max_len > 0 && value.size() > static_cast<std::size_t>(spec->max_len)) {{
-        errors->push_back({{spec->key, std::string(spec->key) + " must be <= " + std::to_string(spec->max_len) + " chars"}});
-        return;
-    }}
-    if (spec->forbid_whitespace && ContainsWhitespace(value)) {{
-        errors->push_back({{spec->key, std::string(spec->key) + " must not contain spaces"}});
+    if (!oc::config::string_value_valid(value, spec->min_len, spec->max_len, spec->forbid_whitespace,
+                                        spec->forbid_newline)) {{
+        if (ContainsNewline(value)) {{
+            errors->push_back({{spec->key, std::string(spec->key) + " must not contain newline characters"}});
+            return;
+        }}
+        if (spec->min_len > 0 && value.size() < static_cast<std::size_t>(spec->min_len)) {{
+            errors->push_back({{spec->key, std::string(spec->key) + " must be >= " + std::to_string(spec->min_len) + " chars"}});
+            return;
+        }}
+        if (spec->max_len > 0 && value.size() > static_cast<std::size_t>(spec->max_len)) {{
+            errors->push_back({{spec->key, std::string(spec->key) + " must be <= " + std::to_string(spec->max_len) + " chars"}});
+            return;
+        }}
+        if (spec->forbid_whitespace && ContainsWhitespace(value)) {{
+            errors->push_back({{spec->key, std::string(spec->key) + " must not contain spaces"}});
+        }}
     }}
 }}
 
@@ -486,8 +622,8 @@ inline void ValidateApiCsv(const ::chime::ConfigFieldSpec *spec, const std::vect
         return;
     }}
     for (std::size_t i = 0; i < items.size(); ++i) {{
-        if (items[i].empty() || ContainsNewline(items[i]) ||
-            (spec->forbid_whitespace && ContainsWhitespace(items[i]))) {{
+        if (items[i].empty() || !oc::config::string_value_valid(items[i], spec->min_len, spec->max_len,
+                                                                spec->forbid_whitespace, spec->forbid_newline)) {{
             errors->push_back({{spec->key, std::string(spec->key) + "[" + std::to_string(i) + "] is invalid"}});
         }}
     }}
@@ -641,7 +777,7 @@ Before (shipped schema 4, no persisted version key): [`docs/config-samples/chime
 
 After: [`buildroot/board/raspberrypi0w/rootfs_overlay/etc/chime.conf`](../buildroot/board/raspberrypi0w/rootfs_overlay/etc/chime.conf).
 
-Migration from unversioned files treats them as schema {schema["legacy_unversioned"]}. `chime-migrate` runs from `S32config-migrate` after the `/data` bind mount and before `S41timesync`, `S45webd`, and `S99chime`. The daemons also migrate on start so `scripts/local_chime.sh` stays consistent. On rewrite, migration first writes a `.bak` of the last pre-migration bytes (next to `/data/etc/chime.conf` when that file is the same inode as the path, otherwise `<path>.bak`), then updates the live file. File bind-mounts are updated in place so the mount keeps the new bytes. If either write fails, the original path is left unchanged.
+Migration from unversioned files treats them as schema {schema["legacy_unversioned"]}. `chime-migrate` runs from `S32config-migrate` after `S31persistent` bind-mounts `/data/etc` onto `/etc/persistent` and before `S41timesync`, `S45webd`, and `S99chime`. The daemons also migrate on start so `scripts/local_chime.sh` stays consistent. Ordered per-version steps in `schema/chime_config.json` `migrations` run from the file version to the current schema, then missing keys are filled and invalid values repaired. On rewrite, migration writes `<resolved-path>.bak` (following the `/etc/chime.conf` symlink) and replaces the live file with `rename(2)`. A write failure leaves the original inode unchanged. Malformed or future `schema_version` values are a permanent failure: `chime-migrate` and the daemons exit 78 (`EX_CONFIG`), `S32config-migrate` records `/var/lib/chime/config.fatal`, and `S45webd` / `S99chime` do not restart.
 
 Secrets: GET `/api/v1/config/core` returns `wifi_password_set` and `mqtt_password_set`, never the password values. POST may omit `wifi_password` / `mqtt_password` to keep the stored secret.
 """
@@ -705,7 +841,8 @@ def generate_contract_test(schema: dict[str, Any]) -> str:
         CHECK(HasFieldError(errors, "{name}"));"""
             )
 
-    return f"""#include <string>
+    return f"""#include <iterator>
+#include <string>
 #include <vector>
 
 #include "chime/chime_config.h"
@@ -761,6 +898,10 @@ TEST_SUITE("config_schema_contract") {{
         CHECK(chime::FindConfigField("mqtt_host") != nullptr);
         CHECK(chime::FindConfigField("ntp_servers")->init_only);
         CHECK_FALSE(chime::FindConfigField("ntp_servers")->runtime);
+        REQUIRE(std::size(chime::kConfigMigrationSteps) >= 1);
+        CHECK(chime::kConfigMigrationSteps[0].to_version == 5);
+        CHECK(chime::kConfigMigrationSteps[std::size(chime::kConfigMigrationSteps) - 1].to_version ==
+              chime::kConfigSchemaVersion);
     }}
 
     TEST_CASE("schema field specs expose API validation metadata") {{
@@ -769,6 +910,7 @@ TEST_SUITE("config_schema_contract") {{
         CHECK(host->api_required);
         CHECK_FALSE(host->api_empty_ok);
         CHECK(host->forbid_whitespace);
+        CHECK(host->forbid_newline);
         CHECK(host->max_len == 256);
 
         const auto *volume = chime::FindConfigField("volume_bell");
@@ -799,6 +941,14 @@ TEST_SUITE("config_schema_contract") {{
         errors.clear();
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
         CHECK(HasFieldError(errors, "mqtt_topics"));
+    }}
+
+    TEST_CASE("shared invalid fixtures fail generated field validation") {{
+        for (const auto &example : chime::kConfigInvalidValueExamples) {{
+            const auto *spec = chime::FindConfigField(example.key);
+            REQUIRE(spec != nullptr);
+            CHECK_FALSE(chime::ConfigFieldValueValid(*spec, example.value));
+        }}
     }}
 }}
 """
@@ -874,6 +1024,30 @@ def check_product(schema: dict[str, Any]) -> int:
             file=sys.stderr,
         )
         failed = True
+
+    migrations = schema.get("migrations")
+    if not isinstance(migrations, list) or not migrations:
+        print("schema migrations must be a non-empty list", file=sys.stderr)
+        failed = True
+    else:
+        tos = [int(item["to"]) for item in migrations]
+        if tos != sorted(tos) or len(set(tos)) != len(tos):
+            print("schema migrations must have unique increasing to versions", file=sys.stderr)
+            failed = True
+        elif tos[-1] != schema["schema_version"]:
+            print("last migration to= must equal schema_version", file=sys.stderr)
+            failed = True
+        removed = schema.get("removed") or {}
+        for item in migrations:
+            to = str(int(item["to"]))
+            expected = [entry["key"] for entry in removed.get(to, [])]
+            actual = list(item.get("remove") or [])
+            if expected != actual:
+                print(
+                    f"migrations to {to} remove {actual!r} != removed.{to} keys {expected!r}",
+                    file=sys.stderr,
+                )
+                failed = True
 
     conf_path = REPO / "buildroot" / "board" / "raspberrypi0w" / "rootfs_overlay" / "etc" / "chime.conf"
     shipped = conf_keys(conf_path)
