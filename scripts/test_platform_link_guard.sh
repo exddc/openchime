@@ -108,4 +108,11 @@ target_link_libraries(oc_platform PUBLIC "$<LINK_ONLY:chime_core>")
 EOF
 )"
 
-log "Product-link guard rejected late and genex edges"
+expect_product_link_rejected "post-platform alias" "$(cat <<'EOF'
+add_library(chime_core INTERFACE)
+add_library(product_alias ALIAS chime_core)
+target_link_libraries(oc_platform PUBLIC product_alias)
+EOF
+)"
+
+log "Product-link guard rejected late, genex, and alias edges"
