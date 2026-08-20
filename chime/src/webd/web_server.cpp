@@ -3,17 +3,22 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <openssl/bn.h>
@@ -171,16 +176,33 @@ cleanup:
     return success;
 }
 
+constexpr int kHandlerWorkers = 2;
+constexpr int kHandshakeTimeoutSeconds = 10;
+constexpr std::size_t kMaxPendingClients = 16;
+constexpr std::size_t kMaxHashJobs = 4;
+
+bool IsCredentialHashRequest(const HttpRequest &request) {
+    return request.method == "POST" && (request.path == "/api/v1/auth/pair" || request.path == "/api/v1/auth/login");
+}
+
+void SetSocketTimeout(int fd, int seconds) {
+    struct timeval timeout {};
+    timeout.tv_sec = seconds;
+    timeout.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+}
+
 } // namespace
 
 WebServer::WebServer(oc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
-                     ApplyManager &apply_manager, std::string bind_address, int port, std::string cert_path,
-                     std::string key_path, std::string ui_dist_dir, std::string observed_topics_path,
-                     std::string ring_sounds_dir, std::string active_ring_sound_path)
+                     ApplyManager &apply_manager, AuthStore &auth_store, std::string bind_address, int port,
+                     std::string cert_path, std::string key_path, std::string ui_dist_dir,
+                     std::string observed_topics_path, std::string ring_sounds_dir, std::string active_ring_sound_path)
     : logger_(logger), bind_address_(std::move(bind_address)), port_(port), cert_path_(std::move(cert_path)),
       key_path_(std::move(key_path)),
-      api_(logger, config_store, wifi_scanner, apply_manager, std::move(ui_dist_dir), std::move(observed_topics_path),
-           std::move(ring_sounds_dir), std::move(active_ring_sound_path)) {}
+      api_(logger, config_store, wifi_scanner, apply_manager, auth_store, std::move(ui_dist_dir),
+           std::move(observed_topics_path), std::move(ring_sounds_dir), std::move(active_ring_sound_path)) {}
 
 WebServer::~WebServer() {
     Stop();
@@ -199,6 +221,7 @@ bool WebServer::Start() {
 
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
+    std::signal(SIGPIPE, SIG_IGN);
 
     SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
     if (ctx == nullptr) {
@@ -272,6 +295,12 @@ bool WebServer::Start() {
 
     ssl_ctx_ = ctx;
     running_.store(true);
+    hash_thread_ = std::thread([this]() { HashLoop(); });
+    workers_.clear();
+    workers_.reserve(static_cast<std::size_t>(kHandlerWorkers));
+    for (int i = 0; i < kHandlerWorkers; ++i) {
+        workers_.emplace_back([this]() { WorkerLoop(); });
+    }
     accept_thread_ = std::thread([this]() { AcceptLoop(); });
 
     logger_.Info("webd", "https server listening on " + bind_address_ + ":" + std::to_string(port_));
@@ -293,8 +322,46 @@ void WebServer::Stop() {
         listen_fd_ = -1;
     }
 
+    InterruptClients();
+    connection_cv_.notify_all();
+    hash_cv_.notify_all();
+
     if (accept_thread_.joinable()) {
         accept_thread_.join();
+    }
+
+    for (auto &worker : workers_) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
+    workers_.clear();
+
+    hash_cv_.notify_all();
+    if (hash_thread_.joinable()) {
+        hash_thread_.join();
+    }
+
+    {
+        const std::lock_guard<std::mutex> lock(connection_mutex_);
+        for (const int fd : pending_clients_) {
+            close(fd);
+        }
+        pending_clients_.clear();
+        active_client_fds_.clear();
+    }
+
+    {
+        const std::lock_guard<std::mutex> lock(hash_mutex_);
+        for (auto &job : hash_jobs_) {
+            if (job.ssl != nullptr) {
+                SSL_free(static_cast<SSL *>(job.ssl));
+            }
+            if (job.client_fd >= 0) {
+                close(job.client_fd);
+            }
+        }
+        hash_jobs_.clear();
     }
 
     if (ssl_ctx_ != nullptr) {
@@ -322,43 +389,156 @@ void WebServer::AcceptLoop() {
             continue;
         }
 
+        EnqueueClient(client_fd);
+    }
+}
+
+void WebServer::EnqueueClient(int client_fd) {
+    std::lock_guard<std::mutex> lock(connection_mutex_);
+    if (!running_.load() || pending_clients_.size() >= kMaxPendingClients) {
+        close(client_fd);
+        return;
+    }
+    pending_clients_.push_back(client_fd);
+    active_client_fds_.insert(client_fd);
+    connection_cv_.notify_one();
+}
+
+void WebServer::WorkerLoop() {
+    for (;;) {
+        int client_fd = -1;
+        {
+            std::unique_lock<std::mutex> lock(connection_mutex_);
+            connection_cv_.wait(lock, [this]() { return !running_.load() || !pending_clients_.empty(); });
+            if (!running_.load()) {
+                for (const int fd : pending_clients_) {
+                    active_client_fds_.erase(fd);
+                    close(fd);
+                }
+                pending_clients_.clear();
+                return;
+            }
+            if (pending_clients_.empty()) {
+                continue;
+            }
+            client_fd = pending_clients_.front();
+            pending_clients_.pop_front();
+        }
         HandleConnection(client_fd);
     }
 }
 
+void WebServer::HashLoop() {
+    for (;;) {
+        HashJob job;
+        {
+            std::unique_lock<std::mutex> lock(hash_mutex_);
+            hash_cv_.wait(lock, [this]() { return !running_.load() || !hash_jobs_.empty(); });
+            if (!running_.load()) {
+                std::deque<HashJob> leftover = std::move(hash_jobs_);
+                hash_jobs_.clear();
+                lock.unlock();
+                for (auto &pending : leftover) {
+                    ReleaseConnection(pending.ssl, pending.client_fd);
+                }
+                return;
+            }
+            if (hash_jobs_.empty()) {
+                continue;
+            }
+            job = std::move(hash_jobs_.front());
+            hash_jobs_.pop_front();
+        }
+        CompleteConnection(job.ssl, job.client_fd, api_.Handle(job.request));
+    }
+}
+
+bool WebServer::EnqueueHashJob(int client_fd, void *ssl, HttpRequest request) {
+    const std::lock_guard<std::mutex> lock(hash_mutex_);
+    if (!running_.load() || hash_jobs_.size() >= kMaxHashJobs) {
+        return false;
+    }
+    HashJob job;
+    job.client_fd = client_fd;
+    job.ssl = ssl;
+    job.request = std::move(request);
+    hash_jobs_.push_back(std::move(job));
+    hash_cv_.notify_one();
+    return true;
+}
+
+void WebServer::CompleteConnection(void *ssl, int client_fd, const HttpResponse &response) {
+    if (ssl != nullptr) {
+        WriteAllSsl(static_cast<SSL *>(ssl), FormatHttpResponse(response));
+    }
+    ReleaseConnection(ssl, client_fd);
+}
+
+void WebServer::ReleaseConnection(void *ssl, int client_fd) {
+    if (ssl != nullptr) {
+        SSL_shutdown(static_cast<SSL *>(ssl));
+        SSL_free(static_cast<SSL *>(ssl));
+    }
+    UnregisterClientFd(client_fd);
+    if (client_fd >= 0) {
+        close(client_fd);
+    }
+}
+
+void WebServer::UnregisterClientFd(int client_fd) {
+    const std::lock_guard<std::mutex> lock(connection_mutex_);
+    active_client_fds_.erase(client_fd);
+}
+
+void WebServer::InterruptClients() {
+    const std::lock_guard<std::mutex> lock(connection_mutex_);
+    for (const int fd : active_client_fds_) {
+        shutdown(fd, SHUT_RDWR);
+    }
+}
+
 void WebServer::HandleConnection(int client_fd) {
+    SetSocketTimeout(client_fd, kHandshakeTimeoutSeconds);
+
     SSL *ssl = SSL_new(static_cast<SSL_CTX *>(ssl_ctx_));
     if (ssl == nullptr) {
-        close(client_fd);
+        ReleaseConnection(nullptr, client_fd);
         return;
     }
 
     SSL_set_fd(ssl, client_fd);
     if (SSL_accept(ssl) <= 0) {
-        SSL_shutdown(ssl);
-        SSL_free(ssl);
-        close(client_fd);
+        ReleaseConnection(ssl, client_fd);
         return;
     }
 
     HttpRequest request;
     std::string read_error;
-    HttpResponse response;
     const HttpReadFn reader = [ssl](char *buffer, std::size_t length) {
         const int to_read = static_cast<int>(std::min(length, static_cast<std::size_t>(16384)));
         return SSL_read(ssl, buffer, to_read);
     };
     if (!ReadHttpRequest(reader, &request, &read_error)) {
-        response = JsonHttpError(400, "bad_request", read_error);
-    } else {
-        response = api_.Handle(request);
+        CompleteConnection(ssl, client_fd, JsonHttpError(400, "bad_request", read_error));
+        return;
     }
 
-    WriteAllSsl(ssl, FormatHttpResponse(response));
+    struct sockaddr_in peer {};
+    socklen_t peer_len = sizeof(peer);
+    char ip[INET_ADDRSTRLEN] = {};
+    if (getpeername(client_fd, reinterpret_cast<struct sockaddr *>(&peer), &peer_len) == 0 &&
+        inet_ntop(AF_INET, &peer.sin_addr, ip, sizeof(ip)) != nullptr) {
+        request.peer_address = ip;
+    }
 
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
-    close(client_fd);
+    if (IsCredentialHashRequest(request)) {
+        if (!EnqueueHashJob(client_fd, ssl, std::move(request))) {
+            CompleteConnection(ssl, client_fd, JsonHttpError(429, "rate_limited"));
+        }
+        return;
+    }
+
+    CompleteConnection(ssl, client_fd, api_.Handle(request));
 }
 
 bool WebServer::EnsureTlsMaterial(std::string *error) const {

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -11,16 +10,14 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <utility>
 #include <vector>
-
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "chime/chime_config.h"
 #include "oc/config/kv_config.h"
 #include "oc/logging/logger.h"
+#include "oc/util/filesystem.h"
 
 namespace chime::webd {
 namespace {
@@ -66,74 +63,6 @@ std::string JoinLines(const std::vector<std::string> &lines) {
         content.push_back('\n');
     }
     return content;
-}
-
-bool AtomicWriteFile(const std::string &path, const std::string &content, mode_t mode, std::string *error) {
-    if (error == nullptr) {
-        return false;
-    }
-
-    std::filesystem::path target(path);
-    const std::filesystem::path directory = target.parent_path();
-    std::error_code ec;
-    std::filesystem::create_directories(directory, ec);
-    if (ec) {
-        *error = "failed to create directory '" + directory.string() + "': " + ec.message();
-        return false;
-    }
-
-    std::string template_path = (directory / (target.filename().string() + ".tmpXXXXXX")).string();
-    std::vector<char> buffer(template_path.begin(), template_path.end());
-    buffer.push_back('\0');
-
-    const int fd = mkstemp(buffer.data());
-    if (fd < 0) {
-        *error = "mkstemp failed for '" + path + "': " + std::strerror(errno);
-        return false;
-    }
-
-    if (fchmod(fd, mode) != 0) {
-        *error = "fchmod failed for temp file: " + std::string(std::strerror(errno));
-        close(fd);
-        std::remove(buffer.data());
-        return false;
-    }
-
-    std::size_t offset = 0;
-    while (offset < content.size()) {
-        const ssize_t written = write(fd, content.data() + offset, content.size() - offset);
-        if (written < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            *error = "write failed: " + std::string(std::strerror(errno));
-            close(fd);
-            std::remove(buffer.data());
-            return false;
-        }
-        offset += static_cast<std::size_t>(written);
-    }
-
-    if (fsync(fd) != 0) {
-        *error = "fsync failed: " + std::string(std::strerror(errno));
-        close(fd);
-        std::remove(buffer.data());
-        return false;
-    }
-
-    if (close(fd) != 0) {
-        *error = "close failed: " + std::string(std::strerror(errno));
-        std::remove(buffer.data());
-        return false;
-    }
-
-    if (rename(buffer.data(), path.c_str()) != 0) {
-        *error = "rename failed for '" + path + "': " + std::strerror(errno);
-        std::remove(buffer.data());
-        return false;
-    }
-
-    return true;
 }
 
 std::string JoinCsv(const std::vector<std::string> &items) {
@@ -558,18 +487,8 @@ bool ConfigStore::SaveChimeConfig(const SaveRequest &request, const CoreConfigSn
     }
 
     std::string mqtt_password = existing.config.mqtt_password;
-    if (request.config.mqtt_username.empty()) {
-        mqtt_password.clear();
-    } else if (request.mqtt_password.has_value()) {
-        if (request.mqtt_password->empty()) {
-            if (request.config.mqtt_username != existing.config.mqtt_username) {
-                mqtt_password.clear();
-            }
-        } else {
-            mqtt_password = *request.mqtt_password;
-        }
-    } else if (request.config.mqtt_username != existing.config.mqtt_username) {
-        mqtt_password.clear();
+    if (request.mqtt_password.has_value()) {
+        mqtt_password = *request.mqtt_password;
     }
 
     const std::map<std::string, std::string> replacements = {
@@ -621,7 +540,7 @@ bool ConfigStore::SaveChimeConfig(const SaveRequest &request, const CoreConfigSn
     }
 
     const std::string content = JoinLines(lines);
-    return AtomicWriteFile(chime_config_path_, content, kChimeConfigMode, error);
+    return oc::util::AtomicWriteFile(chime_config_path_, content, kChimeConfigMode, error);
 }
 
 bool ConfigStore::SaveWpaSupplicant(const SaveRequest &request, const CoreConfigSnapshot &, std::string *error) const {
@@ -703,7 +622,7 @@ bool ConfigStore::SaveWpaSupplicant(const SaveRequest &request, const CoreConfig
     }
 
     const std::string content = JoinLines(lines);
-    return AtomicWriteFile(wpa_supplicant_path_, content, kWpaConfigMode, error);
+    return oc::util::AtomicWriteFile(wpa_supplicant_path_, content, kWpaConfigMode, error);
 }
 
 } // namespace chime::webd

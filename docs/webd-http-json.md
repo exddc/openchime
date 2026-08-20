@@ -33,7 +33,7 @@ Library probes, same host flags, overhead versus a stripped empty `main`:
 
 cJSON's overhead matches the `chime-webd` delta. nlohmann/json was about 2x cJSON on this host. cpp-httplib's TLS server templates alone were 353 KiB, nearly the size of the previous `chime-webd` binary.
 
-Runtime memory for cpp-httplib was not sampled with `rss`. The header default thread pool is `max(8, hardware_concurrency())`. glibc's default pthread stack is commonly 8 MiB, so eight idle workers can reserve on the order of 64 MiB of virtual memory on a 512 MiB Pi Zero W. The current daemon accepts connections one at a time on the listener thread.
+Runtime memory for cpp-httplib was not sampled with `rss`. The header default thread pool is `max(8, hardware_concurrency())`. glibc's default pthread stack is commonly 8 MiB, so eight idle workers can reserve on the order of 64 MiB of virtual memory on a 512 MiB Pi Zero W. `chime-webd` keeps two I/O worker threads plus one credential-hash thread so PBKDF2 on login or pairing does not stall `GET /api/v1/system/version`. Handshake and HTTP reads use a 10 second socket timeout so an incomplete client cannot occupy a worker indefinitely. Product config/apply handlers still run under one mutex. That is far smaller than httplib's default pool.
 
 ## Why not Mongoose or cpp-httplib
 
@@ -42,13 +42,13 @@ Mongoose 7.18 is dual-licensed GPL-2.0 or commercial ([mongoose.ws/licensing](ht
 cpp-httplib is MIT and talks to OpenSSL, which matches the ticket's evaluation request. Two properties made it a poor replacement here:
 
 1. Size. A stub that only constructed `httplib::SSLServer` and registered three routes added 353 KiB. OpenSSL certificate generation would still live in-tree.
-2. Concurrency. The library's default pool is eight worker threads. `chime-webd` is a control-plane daemon on a single-core 512 MiB board and already isolates ring playback in a separate process. A one-thread compile-time override would shrink the RAM concern and would not shrink the binary.
+2. Concurrency. The library's default pool is eight worker threads. `chime-webd` is a control-plane daemon on a single-core 512 MiB board and already isolates ring playback in a separate process. Two I/O threads plus a dedicated hash thread are enough for slow logins plus a health/version request; an eight-thread default is not.
 
 The in-tree parser is now small enough to test without opening sockets, which is what the malformed-request cases need.
 
 ## JSON
 
-Handlers build `JsonValue` trees. `DumpJson` returns a success/error result instead of substituting JSON `null` on failure; `JsonHttpBody` maps a serialization failure to HTTP 500. `webui/` field names, status codes, and password redaction are unchanged. GET and POST `/api/v1/config/core` still return `wifi_password_set` and `mqtt_password_set`, never `wifi_password` or `mqtt_password`.
+Handlers build `JsonValue` trees. `DumpJson` returns a success/error result instead of substituting JSON `null` on failure; `JsonHttpBody` maps a serialization failure to HTTP 500. `webui/` field names, status codes, and password redaction are unchanged. GET and POST `/api/v1/config/core` still return `wifi_password_set` and `mqtt_password_set`, never `wifi_password` or `mqtt_password`. After pairing, those routes require a session; unauthenticated callers receive `401`.
 
 cJSON 1.7.19 is MIT and lives in two vendored files, so native CMake and the Buildroot `chime` package both compile it offline. The upstream archive is `https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz` (SHA-256 `7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562`). Keep `third_party/cJSON` off public include paths. On a case-insensitive filesystem that directory shadows the C++20 `<version>` header.
 
@@ -77,4 +77,4 @@ Register new product routes with `HttpRouter::Add` / `AddPrefix` (or `WebApi::ro
 
 ## Tests
 
-CTest covers malformed request lines, invalid `Content-Length`, oversized bodies, blank header lines, and unsupported methods. It also covers path traversal, malformed JSON, a large-array JSON conversion, static-file containment (SPA fallback, `/assets/` 404, outbound symlink), a config GET/POST round trip that asserts password redaction, ring-sound upload/select, and a TLS start/stop smoke test (ephemeral port, self-signed cert, `Connection: close`, `WebServer::Stop()`). Run them with `./scripts/chime_ci.sh` or `ctest --test-dir chime/build-ci --output-on-failure --no-tests=error`.
+CTest covers malformed request lines, invalid `Content-Length`, oversized bodies, blank header lines, and unsupported methods. It also covers path traversal, malformed JSON, a large-array JSON conversion, static-file containment (SPA fallback, `/assets/` 404, outbound symlink), a config GET/POST round trip that asserts password redaction, omitted-password preservation, pairing/login/logout, CSRF on mutating routes, ring-sound upload/select, a TLS start/stop smoke test (ephemeral port, self-signed cert, `Connection: close`, `WebServer::Stop()`), and a TLS test that `GET /api/v1/system/version` stays responsive while two slow login hashes run. Run them with `./scripts/chime_ci.sh` or `ctest --test-dir chime/build-ci --output-on-failure --no-tests=error`.

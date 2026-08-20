@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <string>
@@ -16,6 +17,7 @@
 #include <vector>
 
 #include "chime/webd_apply_manager.h"
+#include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
 #include "chime/webd_json.h"
 #include "chime/webd_json_http.h"
@@ -238,20 +240,53 @@ JsonValue SerializeCoreConfig(const CoreConfigSnapshot &snapshot, const ApplySta
     });
 }
 
+bool IsApiPath(const std::string &path) {
+    return path == "/api" || path.rfind("/api/", 0) == 0;
+}
+
+bool IsPublicApi(const HttpRequest &request) {
+    if (request.method == "GET" && request.path == "/api/v1/system/version") {
+        return true;
+    }
+    if (request.method == "GET" && request.path == "/api/v1/auth/status") {
+        return true;
+    }
+    if (request.method == "POST" && request.path == "/api/v1/auth/pair") {
+        return true;
+    }
+    if (request.method == "POST" && request.path == "/api/v1/auth/login") {
+        return true;
+    }
+    return false;
+}
+
+bool IsMutatingMethod(const std::string &method) {
+    return method == "POST" || method == "PUT";
+}
+
 } // namespace
 
 WebApi::WebApi(oc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
-               ApplyManager &apply_manager, std::string ui_dist_dir, std::string observed_topics_path,
-               std::string ring_sounds_dir, std::string active_ring_sound_path)
+               ApplyManager &apply_manager, AuthStore &auth_store, std::string ui_dist_dir,
+               std::string observed_topics_path, std::string ring_sounds_dir, std::string active_ring_sound_path)
     : logger_(logger), config_store_(config_store), wifi_scanner_(wifi_scanner), apply_manager_(apply_manager),
-      ui_dist_dir_(std::move(ui_dist_dir)), observed_topics_path_(std::move(observed_topics_path)),
-      ring_sounds_dir_(std::move(ring_sounds_dir)), active_ring_sound_path_(std::move(active_ring_sound_path)) {
+      auth_store_(auth_store), ui_dist_dir_(std::move(ui_dist_dir)),
+      observed_topics_path_(std::move(observed_topics_path)), ring_sounds_dir_(std::move(ring_sounds_dir)),
+      active_ring_sound_path_(std::move(active_ring_sound_path)) {
     RegisterRoutes();
 }
 
 void WebApi::RegisterRoutes() {
     router_.SetMethodNotAllowed(JsonHttpError(405, "method_not_allowed"));
     router_.SetNotFound(JsonHttpError(404, "not_found"));
+    router_.Add("GET", "/api/v1/auth/status",
+                [this](const HttpRequest &request) { return auth_store_.HandleStatus(request); });
+    router_.Add("POST", "/api/v1/auth/pair",
+                [this](const HttpRequest &request) { return auth_store_.HandlePair(request); });
+    router_.Add("POST", "/api/v1/auth/login",
+                [this](const HttpRequest &request) { return auth_store_.HandleLogin(request); });
+    router_.Add("POST", "/api/v1/auth/logout",
+                [this](const HttpRequest &request) { return auth_store_.HandleLogout(request); });
     router_.Add("GET", "/api/v1/config/core", [this](const HttpRequest &) { return HandleGetCoreConfig(); });
     router_.Add("POST", "/api/v1/config/core",
                 [this](const HttpRequest &request) { return HandlePostCoreConfig(request); });
@@ -276,6 +311,27 @@ void WebApi::RegisterRoutes() {
 }
 
 HttpResponse WebApi::Handle(const HttpRequest &request) {
+    if (!IsApiPath(request.path) || IsPublicApi(request)) {
+        return router_.Dispatch(request);
+    }
+    const std::lock_guard<std::mutex> lock(product_mutex_);
+    return AuthorizeAndDispatch(request);
+}
+
+HttpResponse WebApi::AuthorizeAndDispatch(const HttpRequest &request) {
+    if (!auth_store_.Ready()) {
+        return JsonHttpError(503, "auth_unavailable");
+    }
+    if (!auth_store_.IsPaired()) {
+        return JsonHttpError(401, "unpaired");
+    }
+    const SessionView session = auth_store_.Inspect(request);
+    if (!session.authenticated) {
+        return JsonHttpError(401, "unauthorized");
+    }
+    if (IsMutatingMethod(request.method) && !session.csrf_valid) {
+        return JsonHttpError(403, "csrf_failed");
+    }
     return router_.Dispatch(request);
 }
 

@@ -1,7 +1,10 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <ctime>
 #include <string>
+#include <thread>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -12,6 +15,7 @@
 #include <openssl/ssl.h>
 
 #include "chime/webd_apply_manager.h"
+#include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
 #include "chime/webd_json.h"
 #include "chime/webd_web_server.h"
@@ -27,15 +31,16 @@ mqtt_port=1883
 mqtt_topics=doorbell/ring
 )";
 
-std::string TlsExchange(const std::string &bind_address, int port, const std::string &request) {
+std::string TlsExchange(const std::string &bind_address, int port, const std::string &request,
+                        std::chrono::seconds timeout = std::chrono::seconds(5)) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     REQUIRE(fd >= 0);
 
-    struct timeval timeout {};
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    struct timeval timeout_tv {};
+    timeout_tv.tv_sec = static_cast<time_t>(timeout.count());
+    timeout_tv.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout_tv, sizeof(timeout_tv));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout_tv, sizeof(timeout_tv));
 
     struct sockaddr_in address {};
     address.sin_family = AF_INET;
@@ -88,15 +93,36 @@ TEST_SUITE("web_server_tls") {
         chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
         chime::webd::WifiScanner scanner(logger, "wlan0");
         chime::webd::ApplyManager apply(logger, "true", "true");
-        chime::webd::WebServer server(logger, store, scanner, apply, "127.0.0.1", 0, (tmp.path() / "cert.pem").string(),
-                                      (tmp.path() / "key.pem").string(), "", (tmp.path() / "topics.txt").string(),
-                                      (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());
+        chime::webd::AuthStoreOptions auth_options;
+        auth_options.auth_dir = (tmp.path() / "auth").string();
+        auth_options.bootstrap_password = "test-password-ok";
+        auth_options.pbkdf2_iterations = 2;
+        chime::webd::AuthStore auth(logger, auth_options);
+        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
+                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
+                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
+                                      (tmp.path() / "ring.wav").string());
 
         REQUIRE(server.Start());
         CHECK(server.port() > 0);
 
-        const std::string ok =
-            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/config/core HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        const std::string login =
+            TlsExchange("127.0.0.1", server.port(),
+                        "POST /api/v1/auth/login HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
+                        "Content-Length: 31\r\n\r\n{\"password\":\"test-password-ok\"}");
+        CHECK(login.find("HTTP/1.1 200 OK\r\n") == 0);
+        CHECK(login.find("Set-Cookie: chime_session=") != std::string::npos);
+        const auto session_pos = login.find("Set-Cookie: chime_session=");
+        REQUIRE(session_pos != std::string::npos);
+        const auto session_end = login.find(';', session_pos);
+        REQUIRE(session_end != std::string::npos);
+        const std::string session_cookie =
+            login.substr(session_pos + std::string("Set-Cookie: ").size(),
+                         session_end - (session_pos + std::string("Set-Cookie: ").size()));
+
+        const std::string ok = TlsExchange(
+            "127.0.0.1", server.port(),
+            "GET /api/v1/config/core HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: " + session_cookie + "\r\n\r\n");
         CHECK(ok.find("HTTP/1.1 200 OK\r\n") == 0);
         CHECK(ok.find("Connection: close\r\n") != std::string::npos);
         const auto parsed = chime::webd::ParseJson(ok.substr(ok.find("\r\n\r\n") + 4));
@@ -104,11 +130,104 @@ TEST_SUITE("web_server_tls") {
         CHECK(chime::webd::GetObjectField(parsed.value, "mqtt_host").has_value());
         CHECK_FALSE(chime::webd::GetObjectField(parsed.value, "mqtt_password").has_value());
 
+        const std::string unauthenticated =
+            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/config/core HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        CHECK(unauthenticated.find("HTTP/1.1 401 Unauthorized\r\n") == 0);
+
         const std::string bad = TlsExchange("127.0.0.1", server.port(), "GET / HTTP/2.0\r\n\r\n");
         CHECK(bad.find("HTTP/1.1 400 Bad Request\r\n") == 0);
         CHECK(bad.find("Connection: close\r\n") != std::string::npos);
 
         server.Stop();
         server.Stop();
+    }
+
+    TEST_CASE("version stays available while two slow login hashes run") {
+        const ScopedTempDir tmp;
+        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
+        NullLogger logger;
+        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
+        chime::webd::WifiScanner scanner(logger, "wlan0");
+        chime::webd::ApplyManager apply(logger, "true", "true");
+        chime::webd::AuthStoreOptions auth_options;
+        auth_options.auth_dir = (tmp.path() / "auth").string();
+        auth_options.bootstrap_password = "test-password-ok";
+        auth_options.pbkdf2_iterations = 2000000;
+        chime::webd::AuthStore auth(logger, auth_options);
+        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
+                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
+                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
+                                      (tmp.path() / "ring.wav").string());
+
+        REQUIRE(server.Start());
+
+        const auto login_request =
+            "POST /api/v1/auth/login HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
+            "Content-Length: 31\r\n\r\n{\"password\":\"test-password-ok\"}";
+        std::string login_one;
+        std::string login_two;
+        std::chrono::milliseconds login_one_ms{0};
+        std::chrono::milliseconds login_two_ms{0};
+        const auto run_login = [&](std::string *response, std::chrono::milliseconds *elapsed) {
+            const auto started = std::chrono::steady_clock::now();
+            *response = TlsExchange("127.0.0.1", server.port(), login_request, std::chrono::seconds(30));
+            *elapsed =
+                std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+        };
+        std::thread first([&]() { run_login(&login_one, &login_one_ms); });
+        std::thread second([&]() { run_login(&login_two, &login_two_ms); });
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(80));
+        const auto version_started = std::chrono::steady_clock::now();
+        const std::string version =
+            TlsExchange("127.0.0.1", server.port(), "GET /api/v1/system/version HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+        const auto version_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - version_started);
+
+        first.join();
+        second.join();
+        CHECK(login_one.find("HTTP/1.1 200 OK\r\n") == 0);
+        CHECK(login_two.find("HTTP/1.1 200 OK\r\n") == 0);
+        CHECK(version.find("HTTP/1.1 200 OK\r\n") == 0);
+        const auto faster_login = std::min(login_one_ms, login_two_ms);
+        CHECK(faster_login > std::chrono::milliseconds(200));
+        CHECK(version_ms * 3 < faster_login);
+
+        server.Stop();
+    }
+
+    TEST_CASE("Stop returns promptly when a client stalls in the TLS handshake") {
+        const ScopedTempDir tmp;
+        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
+        NullLogger logger;
+        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
+        chime::webd::WifiScanner scanner(logger, "wlan0");
+        chime::webd::ApplyManager apply(logger, "true", "true");
+        chime::webd::AuthStoreOptions auth_options;
+        auth_options.auth_dir = (tmp.path() / "auth").string();
+        auth_options.bootstrap_password = "test-password-ok";
+        auth_options.pbkdf2_iterations = 2;
+        chime::webd::AuthStore auth(logger, auth_options);
+        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
+                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
+                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
+                                      (tmp.path() / "ring.wav").string());
+
+        REQUIRE(server.Start());
+
+        int fd = socket(AF_INET, SOCK_STREAM, 0);
+        REQUIRE(fd >= 0);
+        struct sockaddr_in address {};
+        address.sin_family = AF_INET;
+        address.sin_port = htons(static_cast<uint16_t>(server.port()));
+        REQUIRE(inet_pton(AF_INET, "127.0.0.1", &address.sin_addr) == 1);
+        REQUIRE(connect(fd, reinterpret_cast<struct sockaddr *>(&address), sizeof(address)) == 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        const auto started = std::chrono::steady_clock::now();
+        server.Stop();
+        const auto elapsed = std::chrono::steady_clock::now() - started;
+        CHECK(elapsed < std::chrono::seconds(1));
+        close(fd);
     }
 }

@@ -19,6 +19,7 @@ add_executable(
   http_router_test.cpp
   static_files_test.cpp
   web_api_test.cpp
+  web_auth_test.cpp
   web_server_test.cpp
   chime_config_test.cpp
   sound_name_test.cpp

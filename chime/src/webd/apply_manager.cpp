@@ -41,7 +41,7 @@ ApplyManager::ApplyManager(oc::logging::Logger &logger, std::string network_rest
 }
 
 ApplyStatus ApplyManager::StartApply() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     if (status_.state == "pending" || status_.state == "running") {
         return status_;
     }
@@ -51,11 +51,12 @@ ApplyStatus ApplyManager::StartApply() {
     status_.error.clear();
     status_.started_at_utc = NowIso8601Utc();
     status_.finished_at_utc.clear();
+    const ApplyStatus started = status_;
+    const unsigned long long job_id = started.job_id;
+    lock.unlock();
 
-    const unsigned long long job_id = status_.job_id;
-    std::thread([this, job_id]() { RunApplyJob(job_id); }).detach();
-
-    return status_;
+    worker_ = std::jthread([this, job_id]() { RunApplyJob(job_id); });
+    return started;
 }
 
 ApplyStatus ApplyManager::CurrentStatus() const {

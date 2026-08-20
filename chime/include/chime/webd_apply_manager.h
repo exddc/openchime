@@ -4,6 +4,7 @@
 #include <atomic>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include "chime/webd_types.h"
 
@@ -16,6 +17,8 @@ namespace chime::webd {
 class ApplyManager {
   public:
     ApplyManager(oc::logging::Logger &logger, std::string network_restart_command, std::string chime_restart_command);
+    ApplyManager(const ApplyManager &) = delete;
+    ApplyManager &operator=(const ApplyManager &) = delete;
 
     ApplyStatus StartApply();
     ApplyStatus CurrentStatus() const;
@@ -30,6 +33,7 @@ class ApplyManager {
     mutable std::mutex mutex_;
     ApplyStatus status_;
     std::atomic<unsigned long long> next_job_id_{1};
+    std::jthread worker_;
 };
 
 } // namespace chime::webd

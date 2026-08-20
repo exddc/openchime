@@ -1,37 +1,16 @@
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 
 #include "chime/webd_api.h"
-#include "chime/webd_apply_manager.h"
-#include "chime/webd_config_store.h"
 #include "chime/webd_http.h"
 #include "chime/webd_json.h"
 #include "chime/webd_json_http.h"
-#include "chime/webd_wifi_scan.h"
 #include "doctest.h"
-#include "test_support.h"
+#include "web_test_harness.h"
 
 namespace {
-
-constexpr const char *kCoreConfig = R"(
-mqtt_host=broker.local
-mqtt_port=1883
-mqtt_client_id=chime
-mqtt_username=
-mqtt_password=
-mqtt_tls_enabled=false
-mqtt_tls_validate_certificate=true
-mqtt_tls_ca_file=
-mqtt_tls_cert_file=
-mqtt_tls_key_file=
-mqtt_topics=doorbell/ring
-ring_topic=doorbell/ring
-notification_success_sound_path=/usr/local/share/chime/test.wav
-notification_failure_sound_path=/usr/local/share/chime/ring.wav
-volume_bell=80
-volume_notifications=70
-volume_other=70
-)";
 
 std::string CorePostBody() {
     return R"({
@@ -103,21 +82,9 @@ TEST_SUITE("web_api") {
     }
 
     TEST_CASE("config GET/POST round trip redacts passwords and keeps UI field names") {
-        const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
-        const auto wpa = tmp.path() / "wpa.conf";
-        NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), wpa.string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
-        chime::webd::WebApi api(logger, store, scanner, apply, (tmp.path() / "ui").string(),
-                                (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
-                                (tmp.path() / "ring.wav").string());
+        WebHarness harness;
 
-        chime::webd::HttpRequest get;
-        get.method = "GET";
-        get.path = "/api/v1/config/core";
-        const auto get_response = api.Handle(get);
+        const auto get_response = harness.api().Handle(harness.Request("GET", "/api/v1/config/core"));
         REQUIRE(get_response.status == 200);
         const auto get_body = ParseBody(get_response);
         CHECK(get_response.content_type == "application/json; charset=utf-8");
@@ -134,7 +101,8 @@ TEST_SUITE("web_api") {
         post.method = "POST";
         post.path = "/api/v1/config/core";
         post.body = CorePostBody();
-        const auto post_response = api.Handle(post);
+        harness.Authorize(post);
+        const auto post_response = harness.api().Handle(post);
         REQUIRE(post_response.status == 200);
         const auto post_body = ParseBody(post_response);
         CHECK_FALSE(HasField(post_body, "wifi_password"));
@@ -149,7 +117,7 @@ TEST_SUITE("web_api") {
         REQUIRE(RequireField(post_body, "volume_bell").AsNumber(&volume));
         CHECK(volume == 40.0);
 
-        const auto get_after = ParseBody(api.Handle(get));
+        const auto get_after = ParseBody(harness.api().Handle(harness.Request("GET", "/api/v1/config/core")));
         REQUIRE(RequireField(get_after, "mqtt_host").AsString(&host));
         CHECK(host == "mqtt.example");
         CHECK_FALSE(HasField(get_after, "mqtt_password"));
@@ -158,57 +126,27 @@ TEST_SUITE("web_api") {
     }
 
     TEST_CASE("rejects malformed JSON, unsupported methods, and missing routes") {
-        const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
-        NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
-        chime::webd::WebApi api(logger, store, scanner, apply, "", (tmp.path() / "topics.txt").string(),
-                                (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());
+        WebHarness harness;
 
-        chime::webd::HttpRequest bad_json;
-        bad_json.method = "POST";
-        bad_json.path = "/api/v1/config/core";
-        bad_json.body = "{not json";
-        const auto bad_json_response = api.Handle(bad_json);
+        const auto bad_json_response =
+            harness.api().Handle(harness.Request("POST", "/api/v1/config/core", "{not json"));
         CHECK(bad_json_response.status == 400);
         std::string error;
         REQUIRE(RequireField(ParseBody(bad_json_response), "error").AsString(&error));
         CHECK(error == "invalid_json");
 
-        chime::webd::HttpRequest unsupported;
-        unsupported.method = "DELETE";
-        unsupported.path = "/api/v1/config/core";
-        CHECK(api.Handle(unsupported).status == 405);
+        CHECK(harness.api().Handle(harness.Request("DELETE", "/api/v1/config/core")).status == 405);
+        CHECK(harness.api().Handle(harness.Request("GET", "/api/v1/nope")).status == 404);
+        CHECK(harness.api().Handle(harness.Request("GET", "/api/v1/diagnostics/ping")).status == 501);
 
-        chime::webd::HttpRequest missing;
-        missing.method = "GET";
-        missing.path = "/api/v1/nope";
-        CHECK(api.Handle(missing).status == 404);
-
-        chime::webd::HttpRequest reserved;
-        reserved.method = "GET";
-        reserved.path = "/api/v1/diagnostics/ping";
-        CHECK(api.Handle(reserved).status == 501);
-
-        chime::webd::HttpRequest too_large;
-        too_large.method = "POST";
-        too_large.path = "/api/v1/config/core";
-        too_large.body = std::string(chime::webd::kMaxJsonBodyBytes + 1, 'x');
-        CHECK(api.Handle(too_large).status == 400);
-        CHECK(RequireError(api.Handle(too_large)) == "payload_too_large");
+        const auto too_large =
+            harness.Request("POST", "/api/v1/config/core", std::string(chime::webd::kMaxJsonBodyBytes + 1, 'x'));
+        CHECK(harness.api().Handle(too_large).status == 400);
+        CHECK(RequireError(harness.api().Handle(too_large)) == "payload_too_large");
     }
 
     TEST_CASE("rejects non-finite and out-of-range integers") {
-        const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
-        NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
-        chime::webd::WebApi api(logger, store, scanner, apply, "", (tmp.path() / "topics.txt").string(),
-                                (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());
+        WebHarness harness;
 
         const auto post_with_port = [&](const std::string &port) {
             std::string body = CorePostBody();
@@ -216,11 +154,7 @@ TEST_SUITE("web_api") {
             const auto pos = body.find(from);
             REQUIRE(pos != std::string::npos);
             body.replace(pos, from.size(), "\"mqtt_port\": " + port);
-            chime::webd::HttpRequest post;
-            post.method = "POST";
-            post.path = "/api/v1/config/core";
-            post.body = body;
-            return api.Handle(post);
+            return harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
         };
 
         for (const char *port : {"1e999", "2147483648", "-2147483649"}) {
@@ -232,68 +166,140 @@ TEST_SUITE("web_api") {
     }
 
     TEST_CASE("uploads a WAV, rejects bad names and magic, and selects a sound") {
-        const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
-        const auto sounds_dir = tmp.path() / "sounds";
-        const auto active_path = tmp.path() / "ring.wav";
-        NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
-        chime::webd::WebApi api(logger, store, scanner, apply, "", (tmp.path() / "topics.txt").string(),
-                                sounds_dir.string(), active_path.string());
+        WebHarness harness;
+        const auto sounds_dir = harness.path() / "sounds";
+        const auto active_path = harness.path() / "ring.wav";
 
-        chime::webd::HttpRequest bad_name;
-        bad_name.method = "PUT";
-        bad_name.path = "/api/v1/ring/sounds/not-a-sound.bin";
-        bad_name.body = MinimalWav();
-        CHECK(api.Handle(bad_name).status == 400);
-        CHECK(RequireError(api.Handle(bad_name)) == "invalid_sound_name");
+        auto bad_name = harness.Request("PUT", "/api/v1/ring/sounds/not-a-sound.bin", MinimalWav());
+        CHECK(harness.api().Handle(bad_name).status == 400);
+        CHECK(RequireError(harness.api().Handle(bad_name)) == "invalid_sound_name");
 
-        chime::webd::HttpRequest bad_magic;
-        bad_magic.method = "PUT";
-        bad_magic.path = "/api/v1/ring/sounds/ring-lab.wav";
-        bad_magic.body = "not a wav";
-        CHECK(api.Handle(bad_magic).status == 415);
-        CHECK(RequireError(api.Handle(bad_magic)) == "invalid_payload");
+        auto bad_magic = harness.Request("PUT", "/api/v1/ring/sounds/ring-lab.wav", "not a wav");
+        CHECK(harness.api().Handle(bad_magic).status == 415);
+        CHECK(RequireError(harness.api().Handle(bad_magic)) == "invalid_payload");
 
-        chime::webd::HttpRequest bad_type;
-        bad_type.method = "PUT";
-        bad_type.path = "/api/v1/ring/sounds/ring-lab.wav";
+        auto bad_type = harness.Request("PUT", "/api/v1/ring/sounds/ring-lab.wav", MinimalWav());
         bad_type.has_content_type = true;
         bad_type.content_type = "application/json";
-        bad_type.body = MinimalWav();
-        CHECK(api.Handle(bad_type).status == 415);
+        CHECK(harness.api().Handle(bad_type).status == 415);
 
-        chime::webd::HttpRequest upload;
-        upload.method = "PUT";
-        upload.path = "/api/v1/ring/sounds/ring-lab.wav";
+        auto upload = harness.Request("PUT", "/api/v1/ring/sounds/ring-lab.wav", MinimalWav());
         upload.has_content_type = true;
         upload.content_type = "audio/wav";
-        upload.body = MinimalWav();
-        const auto uploaded = api.Handle(upload);
+        const auto uploaded = harness.api().Handle(upload);
         CHECK(uploaded.status == 200);
         std::string uploaded_name;
         REQUIRE(RequireField(ParseBody(uploaded), "uploaded").AsString(&uploaded_name));
         CHECK(uploaded_name == "ring-lab.wav");
         CHECK(std::filesystem::is_regular_file(sounds_dir / "ring-lab.wav"));
 
-        chime::webd::HttpRequest missing;
-        missing.method = "POST";
-        missing.path = "/api/v1/ring/sounds/select";
-        missing.body = R"({"name":"ring-missing.wav"})";
-        CHECK(api.Handle(missing).status == 404);
-        CHECK(RequireError(api.Handle(missing)) == "not_found");
+        CHECK(harness.api()
+                  .Handle(harness.Request("POST", "/api/v1/ring/sounds/select", R"({"name":"ring-missing.wav"})"))
+                  .status == 404);
+        CHECK(RequireError(harness.api().Handle(harness.Request("POST", "/api/v1/ring/sounds/select",
+                                                                R"({"name":"ring-missing.wav"})"))) == "not_found");
 
-        chime::webd::HttpRequest select;
-        select.method = "POST";
-        select.path = "/api/v1/ring/sounds/select";
-        select.body = R"({"name":"ring-lab.wav"})";
-        const auto selected = api.Handle(select);
+        const auto selected =
+            harness.api().Handle(harness.Request("POST", "/api/v1/ring/sounds/select", R"({"name":"ring-lab.wav"})"));
         CHECK(selected.status == 200);
         std::string selected_name;
         REQUIRE(RequireField(ParseBody(selected), "selected").AsString(&selected_name));
         CHECK(selected_name == "ring-lab.wav");
         CHECK(std::filesystem::is_regular_file(active_path));
+    }
+
+    TEST_CASE("omitted passwords on update preserve existing secrets") {
+        WebHarness harness;
+        REQUIRE(harness.api().Handle(harness.Request("POST", "/api/v1/config/core", CorePostBody())).status == 200);
+
+        std::string body = CorePostBody();
+        const std::string wifi_field = "\"wifi_password\": \"supersecret\",";
+        const std::string mqtt_field = "\"mqtt_password\": \"mqtt-secret\",";
+        REQUIRE(body.find(wifi_field) != std::string::npos);
+        REQUIRE(body.find(mqtt_field) != std::string::npos);
+        body.replace(body.find(wifi_field), wifi_field.size(), "");
+        body.replace(body.find(mqtt_field), mqtt_field.size(), "");
+
+        const auto updated = harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
+        REQUIRE(updated.status == 200);
+        CHECK(updated.body.find("supersecret") == std::string::npos);
+        CHECK(updated.body.find("mqtt-secret") == std::string::npos);
+        bool wifi_password_set = false;
+        bool mqtt_password_set = false;
+        REQUIRE(RequireField(ParseBody(updated), "wifi_password_set").AsBool(&wifi_password_set));
+        REQUIRE(RequireField(ParseBody(updated), "mqtt_password_set").AsBool(&mqtt_password_set));
+        CHECK(wifi_password_set);
+        CHECK(mqtt_password_set);
+
+        std::ifstream conf(harness.path() / "chime.conf");
+        REQUIRE(conf.is_open());
+        std::string conf_text((std::istreambuf_iterator<char>(conf)), std::istreambuf_iterator<char>());
+        CHECK(conf_text.find("mqtt_password=mqtt-secret") != std::string::npos);
+        CHECK(conf_text.find("supersecret") == std::string::npos);
+        std::ifstream wpa(harness.path() / "wpa.conf");
+        REQUIRE(wpa.is_open());
+        std::string wpa_text((std::istreambuf_iterator<char>(wpa)), std::istreambuf_iterator<char>());
+        CHECK(wpa_text.find("supersecret") != std::string::npos);
+    }
+
+    TEST_CASE("omitted mqtt password is kept when the username changes") {
+        WebHarness harness;
+        REQUIRE(harness.api().Handle(harness.Request("POST", "/api/v1/config/core", CorePostBody())).status == 200);
+
+        std::string body = CorePostBody();
+        const std::string mqtt_field = "\"mqtt_password\": \"mqtt-secret\",";
+        const std::string username_field = "\"mqtt_username\": \"user\",";
+        REQUIRE(body.find(mqtt_field) != std::string::npos);
+        REQUIRE(body.find(username_field) != std::string::npos);
+        body.replace(body.find(mqtt_field), mqtt_field.size(), "");
+        body.replace(body.find(username_field), username_field.size(), "\"mqtt_username\": \"other-user\",");
+
+        const auto updated = harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
+        REQUIRE(updated.status == 200);
+        bool mqtt_password_set = false;
+        REQUIRE(RequireField(ParseBody(updated), "mqtt_password_set").AsBool(&mqtt_password_set));
+        CHECK(mqtt_password_set);
+        std::string username;
+        REQUIRE(RequireField(ParseBody(updated), "mqtt_username").AsString(&username));
+        CHECK(username == "other-user");
+
+        std::ifstream conf(harness.path() / "chime.conf");
+        REQUIRE(conf.is_open());
+        std::string conf_text((std::istreambuf_iterator<char>(conf)), std::istreambuf_iterator<char>());
+        CHECK(conf_text.find("mqtt_username=other-user") != std::string::npos);
+        CHECK(conf_text.find("mqtt_password=mqtt-secret") != std::string::npos);
+    }
+
+    TEST_CASE("omitted mqtt password is kept when the username is cleared") {
+        WebHarness harness;
+        REQUIRE(harness.api().Handle(harness.Request("POST", "/api/v1/config/core", CorePostBody())).status == 200);
+
+        std::string body = CorePostBody();
+        const std::string mqtt_field = "\"mqtt_password\": \"mqtt-secret\",";
+        const std::string username_field = "\"mqtt_username\": \"user\",";
+        REQUIRE(body.find(mqtt_field) != std::string::npos);
+        REQUIRE(body.find(username_field) != std::string::npos);
+        body.replace(body.find(mqtt_field), mqtt_field.size(), "");
+        body.replace(body.find(username_field), username_field.size(), "\"mqtt_username\": \"\",");
+
+        const auto updated = harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
+        REQUIRE(updated.status == 200);
+        bool mqtt_password_set = false;
+        REQUIRE(RequireField(ParseBody(updated), "mqtt_password_set").AsBool(&mqtt_password_set));
+        CHECK(mqtt_password_set);
+
+        std::ifstream conf(harness.path() / "chime.conf");
+        REQUIRE(conf.is_open());
+        std::string conf_text((std::istreambuf_iterator<char>(conf)), std::istreambuf_iterator<char>());
+        CHECK(conf_text.find("mqtt_username=") != std::string::npos);
+        CHECK(conf_text.find("mqtt_username=user") == std::string::npos);
+        CHECK(conf_text.find("mqtt_password=mqtt-secret") != std::string::npos);
+    }
+
+    TEST_CASE("config save joins the apply worker before ApplyManager is destroyed") {
+        for (int i = 0; i < 8; ++i) {
+            WebHarness harness;
+            REQUIRE(harness.api().Handle(harness.Request("POST", "/api/v1/config/core", CorePostBody())).status == 200);
+        }
     }
 }

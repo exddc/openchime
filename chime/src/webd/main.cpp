@@ -10,6 +10,7 @@
 
 #include "chime/build_version.h"
 #include "chime/webd_apply_manager.h"
+#include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
 #include "chime/webd_mdns.h"
 #include "chime/webd_web_server.h"
@@ -34,6 +35,7 @@ constexpr const char *kChimeRestartCommand = "/etc/init.d/S99chime restart >/dev
 constexpr const char *kObservedTopicsPath = "/var/lib/chime/observed_topics.txt";
 constexpr const char *kRingSoundsDir = "/var/lib/chime/ring_sounds";
 constexpr const char *kActiveRingSoundPath = "/usr/local/share/chime/ring.wav";
+constexpr const char *kAuthDir = "/var/lib/chime/auth";
 
 std::string EnvOrDefault(const char *key, const char *fallback) {
     const std::string value = oc::util::GetEnv(key);
@@ -116,6 +118,9 @@ void PrintUsage(const char *program) {
     std::cout << "  CHIME_WEBD_OBSERVED_TOPICS_PATH\n";
     std::cout << "  CHIME_WEBD_RING_SOUNDS_DIR\n";
     std::cout << "  CHIME_WEBD_ACTIVE_RING_SOUND\n";
+    std::cout << "  CHIME_WEBD_AUTH_DIR\n";
+    std::cout << "  CHIME_WEBD_BOOTSTRAP_PASSWORD\n";
+    std::cout << "  CHIME_WEBD_PAIRING_CODE\n";
 }
 
 } // namespace
@@ -154,6 +159,7 @@ int main(int argc, char *argv[]) {
     const std::string observed_topics_path = EnvOrDefault("CHIME_WEBD_OBSERVED_TOPICS_PATH", kObservedTopicsPath);
     const std::string ring_sounds_dir = EnvOrDefault("CHIME_WEBD_RING_SOUNDS_DIR", kRingSoundsDir);
     const std::string active_ring_sound_path = EnvOrDefault("CHIME_WEBD_ACTIVE_RING_SOUND", kActiveRingSoundPath);
+    const std::string auth_dir = EnvOrDefault("CHIME_WEBD_AUTH_DIR", kAuthDir);
     const std::string bind_address = EnvOrDefault("CHIME_WEBD_BIND_ADDRESS", kBindAddress);
     const int listen_port = EnvIntOrDefault("CHIME_WEBD_PORT", kListenPort);
     const std::string host_label = EnvOrDefault("CHIME_WEBD_HOST_LABEL", kHostLabel);
@@ -167,9 +173,19 @@ int main(int argc, char *argv[]) {
     chime::webd::ConfigStore config_store(logger, chime_config_path, wpa_supplicant_path);
     chime::webd::WifiScanner wifi_scanner(logger, wifi_interface);
     chime::webd::ApplyManager apply_manager(logger, network_restart_command, chime_restart_command);
-    chime::webd::WebServer web_server(logger, config_store, wifi_scanner, apply_manager, bind_address, listen_port,
-                                      tls_cert_path, tls_key_path, ui_dist_dir, observed_topics_path, ring_sounds_dir,
-                                      active_ring_sound_path);
+    chime::webd::AuthStoreOptions auth_options;
+    auth_options.auth_dir = auth_dir;
+    auth_options.bootstrap_password = oc::util::GetEnv("CHIME_WEBD_BOOTSTRAP_PASSWORD");
+    auth_options.pairing_code_override = oc::util::GetEnv("CHIME_WEBD_PAIRING_CODE");
+    chime::webd::AuthStore auth_store(logger, auth_options);
+    if (!auth_store.Ready()) {
+        logger.Error("webd", "failed to initialize authentication state");
+        return 1;
+    }
+    auth_store.AnnounceSetupSecret();
+    chime::webd::WebServer web_server(logger, config_store, wifi_scanner, apply_manager, auth_store, bind_address,
+                                      listen_port, tls_cert_path, tls_key_path, ui_dist_dir, observed_topics_path,
+                                      ring_sounds_dir, active_ring_sound_path);
     chime::webd::MdnsResponder mdns(logger, host_label, wifi_interface);
 
     if (!web_server.Start()) {

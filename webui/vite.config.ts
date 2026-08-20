@@ -10,6 +10,18 @@ export default defineConfig({
         target: "https://127.0.0.1:8443",
         changeOrigin: true,
         secure: false,
+        configure: (proxy) => {
+          proxy.on("proxyRes", (proxyRes) => {
+            const cookies = proxyRes.headers["set-cookie"];
+            if (!cookies) {
+              return;
+            }
+            const list = Array.isArray(cookies) ? cookies : [cookies];
+            proxyRes.headers["set-cookie"] = list.map((cookie) =>
+              cookie.replace(/;\s*Secure/gi, ""),
+            );
+          });
+        },
       },
     },
   },

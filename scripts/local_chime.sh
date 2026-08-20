@@ -25,6 +25,26 @@ APP_VERSION_FILE="$PROJECT_DIR/chime/VERSION"
 log() { echo "[local-chime] $*"; }
 error() { echo "[local-chime] ERROR: $*" >&2; exit 1; }
 
+apply_local_webd_auth_mode() {
+    if [ "${LOCAL_CHIME_UNPAIRED:-0}" = "1" ]; then
+        unset CHIME_WEBD_BOOTSTRAP_PASSWORD
+        return
+    fi
+    export CHIME_WEBD_BOOTSTRAP_PASSWORD="${CHIME_WEBD_BOOTSTRAP_PASSWORD:-openchime-local}"
+}
+
+log_local_webd_auth_mode() {
+    if [ "${LOCAL_CHIME_UNPAIRED:-0}" = "1" ]; then
+        log "Unpaired mode: no bootstrap password. Pairing code is printed on stdout, or set CHIME_WEBD_PAIRING_CODE."
+        return
+    fi
+    if [ -n "${CHIME_WEBD_BOOTSTRAP_PASSWORD:-}" ]; then
+        log "Local admin password: set from CHIME_WEBD_BOOTSTRAP_PASSWORD"
+    else
+        log "Local admin password: openchime-local"
+    fi
+}
+
 require_bun() {
     if ! command -v bun &>/dev/null; then
         error "bun is required for web UI commands. Install with:
@@ -323,6 +343,8 @@ run_webd_only() {
     ui_dist_dir="$(resolve_webui_dist_dir)"
 
     log "Starting chime-webd on https://$web_bind:$web_port"
+    log_local_webd_auth_mode
+    apply_local_webd_auth_mode
     if [ -n "$ui_dist_dir" ]; then
         log "Serving web UI from: $ui_dist_dir"
     else
@@ -338,6 +360,7 @@ run_webd_only() {
     CHIME_WEBD_MDNS_ENABLED="${CHIME_WEBD_MDNS_ENABLED:-false}" \
     CHIME_WEBD_NETWORK_RESTART_CMD="${CHIME_WEBD_NETWORK_RESTART_CMD:-true}" \
     CHIME_WEBD_CHIME_RESTART_CMD="${CHIME_WEBD_CHIME_RESTART_CMD:-true}" \
+    CHIME_WEBD_AUTH_DIR="${CHIME_WEBD_AUTH_DIR:-$RUNTIME_DIR/auth}" \
     "$WEBD_BIN"
 }
 
@@ -361,6 +384,7 @@ run_stack() {
     log "Starting local stack"
     log "  chime config: $RUNTIME_CHIME_CONFIG"
     log "  web URL: https://$web_bind:$web_port"
+    log_local_webd_auth_mode
     if [ -n "$ui_dist_dir" ]; then
         log "  web UI dist: $ui_dist_dir"
     else
@@ -387,6 +411,7 @@ run_stack() {
     chime_supervisor_pid=$!
 
     (
+        apply_local_webd_auth_mode
         while true; do
             set +e
             CHIME_WEBD_CHIME_CONFIG="$RUNTIME_CHIME_CONFIG" \
@@ -399,6 +424,7 @@ run_stack() {
             CHIME_WEBD_MDNS_ENABLED="${CHIME_WEBD_MDNS_ENABLED:-false}" \
             CHIME_WEBD_NETWORK_RESTART_CMD="${CHIME_WEBD_NETWORK_RESTART_CMD:-true}" \
             CHIME_WEBD_CHIME_RESTART_CMD="${CHIME_WEBD_CHIME_RESTART_CMD:-true}" \
+            CHIME_WEBD_AUTH_DIR="${CHIME_WEBD_AUTH_DIR:-$RUNTIME_DIR/auth}" \
             "$WEBD_BIN"
             rc=$?
             set -e
@@ -447,6 +473,21 @@ The image overlay copies mqtt_host= (not configured). Local ring playback
 needs a broker host in the runtime chime.conf (or a custom config path).
 Do not point a clean image at a developer LAN by default.
 
+Local chime-webd is already paired. Sign in with password `openchime-local`
+(or \$CHIME_WEBD_BOOTSTRAP_PASSWORD). Auth state lives under:
+  $RUNTIME_DIR/auth
+
+Deleting that directory is not enough by itself: the script supplies a
+bootstrap password again on the next start. Restore the unpaired pairing
+flow with:
+
+  rm -rf $RUNTIME_DIR/auth
+  LOCAL_CHIME_UNPAIRED=1 $0 run-webd
+
+That does not reset Wi-Fi or MQTT config. Optional fixed pairing code:
+
+  LOCAL_CHIME_UNPAIRED=1 CHIME_WEBD_PAIRING_CODE=ABCD2345 $0 run-webd
+
 Environment overrides:
   CHIME_MQTT_CLIENT_ID            MQTT client id for local chime run
   CHIME_MQTT_USERNAME             MQTT username override for local chime run
@@ -456,6 +497,10 @@ Environment overrides:
   CHIME_WEBD_UI_DIST_DIR          static UI dist directory (defaults to webui/dist)
   CHIME_WEBD_NETWORK_RESTART_CMD  apply command override (default: true locally)
   CHIME_WEBD_CHIME_RESTART_CMD    apply command override (default: true locally)
+  CHIME_WEBD_AUTH_DIR             admin verifier directory (default: runtime/auth)
+  CHIME_WEBD_BOOTSTRAP_PASSWORD   local admin password (default: openchime-local)
+  CHIME_WEBD_PAIRING_CODE         override first-boot pairing code (unpaired only)
+  LOCAL_CHIME_UNPAIRED=1          skip the bootstrap password; print a pairing code
   CMAKE_PREFIX_PATH               extra CMake prefix dirs (colon-separated)
   OPENSSL_ROOT_DIR                OpenSSL prefix for CMake discovery
   CMAKE_BUILD_TYPE                CMake build type (default: Release)
@@ -473,6 +518,7 @@ Examples:
   $0 webui-build
   $0 webui-dev
   $0 run-webd
+  LOCAL_CHIME_UNPAIRED=1 $0 run-webd
 EOF
 }
 
