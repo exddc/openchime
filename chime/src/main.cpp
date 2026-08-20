@@ -6,6 +6,7 @@
 #include "chime/build_version.h"
 #include "chime/chime_config.h"
 #include "chime/chime_service.h"
+#include "chime/config_migrate.h"
 #include "chime/wifi_monitor.h"
 #include "oc/logging/logger.h"
 #include "oc/runtime/signal_handler.h"
@@ -88,6 +89,18 @@ int main(int argc, char *argv[]) {
     const std::string config_env = oc::util::GetEnv("CHIME_CONFIG");
     const std::string config_path = config_env.empty() ? kDefaultConfigPath : config_env;
 
+    const auto migrated = chime::MigratePersistedConfig(config_path);
+    if (!migrated.success) {
+        if (chime::MigrateFailureBlocksStartup(migrated)) {
+            logger.Error("chime", migrated.error);
+            return chime::kConfigFatalExitCode;
+        }
+        logger.Warn("chime", "config migration did not rewrite " + config_path + ": " + migrated.error);
+    } else if (migrated.rewritten) {
+        logger.Info("chime", "migrated config schema from " + std::to_string(migrated.from_version) + " to " +
+                                 std::to_string(migrated.to_version));
+    }
+
     auto result = chime::LoadConfig(config_path);
     if (!result) {
         logger.Error("chime", result.error);
@@ -96,7 +109,7 @@ int main(int argc, char *argv[]) {
 
     const std::string client_id_override = oc::util::GetEnv("CHIME_MQTT_CLIENT_ID");
     if (!client_id_override.empty()) {
-        result.config.client_id = client_id_override;
+        result.config.mqtt_client_id = client_id_override;
         logger.Info("mqtt", "client_id override from CHIME_MQTT_CLIENT_ID");
     }
 

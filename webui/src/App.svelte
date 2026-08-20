@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { apiFetch, setAuthErrorHandler, type AuthStatusResponse } from "./api";
+  import {
+    CORE_CONFIG_DEFAULTS,
+    CORE_CONFIG_INT_BOUNDS,
+    type CoreConfigFields,
+  } from "./generated/config_schema";
 
   type ValidationError = {
     field: string;
@@ -15,26 +20,9 @@
     error?: string;
   };
 
-  type CoreConfigResponse = {
-    wifi_ssid?: string;
+  type CoreConfigResponse = Partial<CoreConfigFields> & {
     wifi_password_set?: boolean;
-    mqtt_host?: string;
-    mqtt_port?: number;
-    mqtt_client_id?: string;
-    mqtt_username?: string;
     mqtt_password_set?: boolean;
-    mqtt_tls_enabled?: boolean;
-    mqtt_tls_validate_certificate?: boolean;
-    mqtt_tls_ca_file?: string;
-    mqtt_tls_cert_file?: string;
-    mqtt_tls_key_file?: string;
-    mqtt_topics?: string[];
-    ring_topic?: string;
-    notification_success_sound_path?: string;
-    notification_failure_sound_path?: string;
-    volume_bell?: number;
-    volume_notifications?: number;
-    volume_other?: number;
     apply?: ApplyStatus;
     error?: string;
     message?: string;
@@ -77,25 +65,24 @@
     validation_errors?: ValidationError[];
   };
 
-  let wifiSsid = "";
+  let wifiSsid = CORE_CONFIG_DEFAULTS.wifi_ssid;
   let wifiPassword = "";
-  let mqttHost = "";
-  let mqttPort = 1883;
-  let mqttClientId = "chime";
-  let mqttUsername = "";
+  let mqttHost = CORE_CONFIG_DEFAULTS.mqtt_host;
+  let mqttPort = CORE_CONFIG_DEFAULTS.mqtt_port;
+  let mqttClientId = CORE_CONFIG_DEFAULTS.mqtt_client_id;
+  let mqttUsername = CORE_CONFIG_DEFAULTS.mqtt_username;
   let mqttPassword = "";
   let mqttPasswordSet = false;
-  let mqttTlsEnabled = false;
-  let mqttTlsValidateCertificate = true;
-  let mqttTlsCaFile = "";
-  let mqttTlsCertFile = "";
-  let mqttTlsKeyFile = "";
-  let ringTopic = "doorbell/ring";
-  let notificationSuccessSoundPath = "/usr/local/share/chime/test.wav";
-  let notificationFailureSoundPath = "/usr/local/share/chime/ring.wav";
-  let volumeBell = 80;
-  let volumeNotifications = 70;
-  let volumeOther = 70;
+  let mqttTlsEnabled = CORE_CONFIG_DEFAULTS.mqtt_tls_enabled;
+  let mqttTlsValidateCertificate = CORE_CONFIG_DEFAULTS.mqtt_tls_validate_certificate;
+  let mqttTlsCaFile = CORE_CONFIG_DEFAULTS.mqtt_tls_ca_file;
+  let mqttTlsCertFile = CORE_CONFIG_DEFAULTS.mqtt_tls_cert_file;
+  let mqttTlsKeyFile = CORE_CONFIG_DEFAULTS.mqtt_tls_key_file;
+  let ringTopic = CORE_CONFIG_DEFAULTS.ring_topic;
+  let notificationSuccessSoundPath = CORE_CONFIG_DEFAULTS.notification_success_sound_path ?? "";
+  let notificationFailureSoundPath = CORE_CONFIG_DEFAULTS.notification_failure_sound_path ?? "";
+  let volumeBell = CORE_CONFIG_DEFAULTS.volume_bell;
+  let volumeNotifications = CORE_CONFIG_DEFAULTS.volume_notifications;
   let mqttTopics = "";
   let ringSounds: string[] = [];
   let selectedRingSound = "";
@@ -166,25 +153,29 @@
       throw new Error(data.error ?? "Failed to load config");
     }
 
-    wifiSsid = data.wifi_ssid ?? "";
-    mqttHost = data.mqtt_host ?? "";
-    mqttPort = data.mqtt_port ?? 1883;
-    mqttClientId = data.mqtt_client_id ?? "chime";
-    mqttUsername = data.mqtt_username ?? "";
+    wifiSsid = data.wifi_ssid ?? CORE_CONFIG_DEFAULTS.wifi_ssid;
+    mqttHost = data.mqtt_host ?? CORE_CONFIG_DEFAULTS.mqtt_host;
+    mqttPort = data.mqtt_port ?? CORE_CONFIG_DEFAULTS.mqtt_port;
+    mqttClientId = data.mqtt_client_id ?? CORE_CONFIG_DEFAULTS.mqtt_client_id;
+    mqttUsername = data.mqtt_username ?? CORE_CONFIG_DEFAULTS.mqtt_username;
     mqttPasswordSet = data.mqtt_password_set ?? false;
-    mqttTlsEnabled = data.mqtt_tls_enabled ?? false;
-    mqttTlsValidateCertificate = data.mqtt_tls_validate_certificate ?? true;
-    mqttTlsCaFile = data.mqtt_tls_ca_file ?? "";
-    mqttTlsCertFile = data.mqtt_tls_cert_file ?? "";
-    mqttTlsKeyFile = data.mqtt_tls_key_file ?? "";
-    ringTopic = data.ring_topic ?? "doorbell/ring";
+    mqttTlsEnabled = data.mqtt_tls_enabled ?? CORE_CONFIG_DEFAULTS.mqtt_tls_enabled;
+    mqttTlsValidateCertificate =
+      data.mqtt_tls_validate_certificate ?? CORE_CONFIG_DEFAULTS.mqtt_tls_validate_certificate;
+    mqttTlsCaFile = data.mqtt_tls_ca_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_ca_file;
+    mqttTlsCertFile = data.mqtt_tls_cert_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_cert_file;
+    mqttTlsKeyFile = data.mqtt_tls_key_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_key_file;
+    ringTopic = data.ring_topic ?? CORE_CONFIG_DEFAULTS.ring_topic;
     notificationSuccessSoundPath =
-      data.notification_success_sound_path ?? "/usr/local/share/chime/test.wav";
+      data.notification_success_sound_path ??
+      CORE_CONFIG_DEFAULTS.notification_success_sound_path ??
+      "";
     notificationFailureSoundPath =
-      data.notification_failure_sound_path ?? "/usr/local/share/chime/ring.wav";
-    volumeBell = data.volume_bell ?? 80;
-    volumeNotifications = data.volume_notifications ?? 70;
-    volumeOther = data.volume_other ?? 70;
+      data.notification_failure_sound_path ??
+      CORE_CONFIG_DEFAULTS.notification_failure_sound_path ??
+      "";
+    volumeBell = data.volume_bell ?? CORE_CONFIG_DEFAULTS.volume_bell;
+    volumeNotifications = data.volume_notifications ?? CORE_CONFIG_DEFAULTS.volume_notifications;
     mqttTopics = (data.mqtt_topics ?? []).join(",");
 
     const wifiHint = data.wifi_password_set
@@ -393,13 +384,14 @@
     isSaving = true;
     setMessage("Saving and applying changes...", false);
 
-    const safeVolumeBell = clampVolumeValue(volumeBell, 80);
-    const safeVolumeNotifications = clampVolumeValue(volumeNotifications, 70);
-    const safeVolumeOther = clampVolumeValue(volumeOther, 70);
+    const safeVolumeBell = clampVolumeValue(volumeBell, CORE_CONFIG_DEFAULTS.volume_bell);
+    const safeVolumeNotifications = clampVolumeValue(
+      volumeNotifications,
+      CORE_CONFIG_DEFAULTS.volume_notifications,
+    );
 
     volumeBell = safeVolumeBell;
     volumeNotifications = safeVolumeNotifications;
-    volumeOther = safeVolumeOther;
 
     const payload: Record<string, unknown> = {
       wifi_ssid: wifiSsid.trim(),
@@ -418,7 +410,6 @@
       notification_failure_sound_path: notificationFailureSoundPath.trim(),
       volume_bell: safeVolumeBell,
       volume_notifications: safeVolumeNotifications,
-      volume_other: safeVolumeOther,
     };
     if (wifiPassword.length > 0) {
       payload.wifi_password = wifiPassword;
@@ -858,26 +849,26 @@
     <div class="row">
       <div>
         <label for="volume_bell">Bell (%)</label>
-        <input id="volume_bell" type="number" min="0" max="100" step="1" bind:value={volumeBell} />
+        <input
+          id="volume_bell"
+          type="number"
+          min={CORE_CONFIG_INT_BOUNDS.volume_bell.min}
+          max={CORE_CONFIG_INT_BOUNDS.volume_bell.max}
+          step="1"
+          bind:value={volumeBell}
+        />
       </div>
       <div>
         <label for="volume_notifications">Notifications (%)</label>
         <input
           id="volume_notifications"
           type="number"
-          min="0"
-          max="100"
+          min={CORE_CONFIG_INT_BOUNDS.volume_notifications.min}
+          max={CORE_CONFIG_INT_BOUNDS.volume_notifications.max}
           step="1"
           bind:value={volumeNotifications}
         />
       </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="volume_other">Other (%)</label>
-        <input id="volume_other" type="number" min="0" max="100" step="1" bind:value={volumeOther} />
-      </div>
-      <div></div>
     </div>
     <p class="hint">These are software volume levels (0-100) applied before playback.</p>
   </section>

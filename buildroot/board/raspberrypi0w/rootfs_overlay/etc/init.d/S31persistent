@@ -9,36 +9,44 @@ copy_if_missing() {
     fi
 }
 
-bind_file() {
-    SRC="$1"
-    DST="$2"
-    mkdir -p "$(dirname "$SRC")" "$(dirname "$DST")"
-    [ -e "$SRC" ] || : > "$SRC"
-    [ -e "$DST" ] || : > "$DST"
-    if ! grep -q " $DST " /proc/mounts; then
-        mount --bind "$SRC" "$DST"
-    fi
-}
-
 bind_dir() {
     SRC="$1"
     DST="$2"
     mkdir -p "$SRC" "$DST"
-    if ! grep -q " $DST " /proc/mounts; then
-        mount --bind "$SRC" "$DST"
+    if [ -f /proc/mounts ] && grep -q " $DST " /proc/mounts; then
+        return 0
     fi
+    mount --bind "$SRC" "$DST"
+}
+
+unmount_if_mounted() {
+    DST="$1"
+    if [ -f /proc/mounts ] && grep -q " $DST " /proc/mounts; then
+        umount "$DST" 2>/dev/null || true
+    fi
+}
+
+install_persistent_link() {
+    TARGET="$1"
+    LINK="$2"
+    mkdir -p "$(dirname "$LINK")"
+    unmount_if_mounted "$LINK"
+    rm -f "$LINK"
+    ln -s "$TARGET" "$LINK"
 }
 
 start() {
     printf "Starting persistent overlay: "
 
-    mkdir -p /data/etc /data/var/lib/chime /data/ota
+    mkdir -p /data/etc /data/var/lib/chime /data/ota /etc/persistent
     copy_if_missing /etc/chime.conf /data/etc/chime.conf
     copy_if_missing /etc/wpa_supplicant/wpa_supplicant.conf /data/etc/wpa_supplicant.conf
 
-    bind_file /data/etc/chime.conf /etc/chime.conf
-    bind_file /data/etc/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf
+    bind_dir /data/etc /etc/persistent
     bind_dir /data/var/lib/chime /var/lib/chime
+
+    install_persistent_link /etc/persistent/chime.conf /etc/chime.conf
+    install_persistent_link /etc/persistent/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf
 
     echo "OK"
 }

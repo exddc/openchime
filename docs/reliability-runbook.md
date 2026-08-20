@@ -112,13 +112,13 @@ Do not delete `/data/var/lib/chime/` as a whole; that directory also holds obser
 
 ## Persistent config
 
-`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, then bind-mounts them over the runtime paths:
+`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, bind-mounts `/data/etc` onto `/etc/persistent`, and installs symlinks so runtime paths see those files. `rename(2)` can then replace `chime.conf` atomically. File bind-mounts from older images are unmounted first.
 
 | Persistent path | Runtime path |
 | --- | --- |
-| `/data/etc/chime.conf` | `/etc/chime.conf` |
-| `/data/etc/wpa_supplicant.conf` | `/etc/wpa_supplicant/wpa_supplicant.conf` |
-| `/data/var/lib/chime/` | `/var/lib/chime/` (observed topics, uploaded ring sounds, `/auth` verifier) |
+| `/data/etc/chime.conf` | `/etc/chime.conf` → `/etc/persistent/chime.conf` |
+| `/data/etc/wpa_supplicant.conf` | `/etc/wpa_supplicant/wpa_supplicant.conf` → `/etc/persistent/wpa_supplicant.conf` |
+| `/data/var/lib/chime/` | `/var/lib/chime/` (observed topics, uploaded ring sounds, `/auth` verifier, `config.fatal`) |
 | `/data/ota/` | OTA pending/status (not bind-mounted) |
 
 WiFi credentials are **not** tracked in git. Image builds copy `wpa_supplicant.conf.example` locally to `wpa_supplicant.conf` (gitignored). SSH keys use `root/.ssh/authorized_keys.example` the same way.

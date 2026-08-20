@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "chime/generated/config_json.h"
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
@@ -216,28 +217,11 @@ JsonValue SerializeApplyStatus(const ApplyStatus &status) {
 }
 
 JsonValue SerializeCoreConfig(const CoreConfigSnapshot &snapshot, const ApplyStatus &apply) {
-    return JsonValue::Object({
-        {"wifi_ssid", JsonValue::String(snapshot.config.wifi_ssid)},
-        {"wifi_password_set", JsonValue::Bool(snapshot.wifi_password_set)},
-        {"mqtt_host", JsonValue::String(snapshot.config.mqtt_host)},
-        {"mqtt_port", JsonValue::Number(static_cast<double>(snapshot.config.mqtt_port))},
-        {"mqtt_client_id", JsonValue::String(snapshot.config.mqtt_client_id)},
-        {"mqtt_username", JsonValue::String(snapshot.config.mqtt_username)},
-        {"mqtt_password_set", JsonValue::Bool(snapshot.mqtt_password_set)},
-        {"mqtt_tls_enabled", JsonValue::Bool(snapshot.config.mqtt_tls_enabled)},
-        {"mqtt_tls_validate_certificate", JsonValue::Bool(snapshot.config.mqtt_tls_validate_certificate)},
-        {"mqtt_tls_ca_file", JsonValue::String(snapshot.config.mqtt_tls_ca_file)},
-        {"mqtt_tls_cert_file", JsonValue::String(snapshot.config.mqtt_tls_cert_file)},
-        {"mqtt_tls_key_file", JsonValue::String(snapshot.config.mqtt_tls_key_file)},
-        {"mqtt_topics", SerializeTopics(snapshot.config.mqtt_topics)},
-        {"ring_topic", JsonValue::String(snapshot.config.ring_topic)},
-        {"notification_success_sound_path", JsonValue::String(snapshot.config.notification_success_sound_path)},
-        {"notification_failure_sound_path", JsonValue::String(snapshot.config.notification_failure_sound_path)},
-        {"volume_bell", JsonValue::Number(static_cast<double>(snapshot.config.volume_bell))},
-        {"volume_notifications", JsonValue::Number(static_cast<double>(snapshot.config.volume_notifications))},
-        {"volume_other", JsonValue::Number(static_cast<double>(snapshot.config.volume_other))},
-        {"apply", SerializeApplyStatus(apply)},
-    });
+    auto fields = generated_config_json::CoreConfigFieldsToJson(snapshot.config);
+    fields["wifi_password_set"] = JsonValue::Bool(snapshot.wifi_password_set);
+    fields["mqtt_password_set"] = JsonValue::Bool(snapshot.mqtt_password_set);
+    fields["apply"] = SerializeApplyStatus(apply);
+    return JsonValue::Object(std::move(fields));
 }
 
 bool IsApiPath(const std::string &path) {
@@ -357,29 +341,7 @@ HttpResponse WebApi::HandlePostCoreConfig(const HttpRequest &request) {
 
     std::vector<ValidationError> parse_errors;
     SaveRequest save_request;
-
-    const auto wifi_ssid = ReadRequiredString(parsed.value, "wifi_ssid", &parse_errors);
-    const auto mqtt_host = ReadRequiredString(parsed.value, "mqtt_host", &parse_errors);
-    const auto mqtt_port = ReadRequiredInt(parsed.value, "mqtt_port", &parse_errors);
-    const auto mqtt_client_id = ReadRequiredString(parsed.value, "mqtt_client_id", &parse_errors);
-    const auto mqtt_username = ReadRequiredString(parsed.value, "mqtt_username", &parse_errors);
-    const auto mqtt_tls_enabled = ReadRequiredBool(parsed.value, "mqtt_tls_enabled", &parse_errors);
-    const auto mqtt_tls_validate_certificate =
-        ReadRequiredBool(parsed.value, "mqtt_tls_validate_certificate", &parse_errors);
-    const auto mqtt_tls_ca_file = ReadRequiredString(parsed.value, "mqtt_tls_ca_file", &parse_errors);
-    const auto mqtt_tls_cert_file = ReadRequiredString(parsed.value, "mqtt_tls_cert_file", &parse_errors);
-    const auto mqtt_tls_key_file = ReadRequiredString(parsed.value, "mqtt_tls_key_file", &parse_errors);
-    const auto mqtt_topics = ReadRequiredStringArray(parsed.value, "mqtt_topics", &parse_errors);
-    const auto ring_topic = ReadRequiredString(parsed.value, "ring_topic", &parse_errors);
-    const auto notification_success_sound_path =
-        ReadOptionalString(parsed.value, "notification_success_sound_path", &parse_errors);
-    const auto notification_failure_sound_path =
-        ReadOptionalString(parsed.value, "notification_failure_sound_path", &parse_errors);
-    const auto volume_bell = ReadRequiredInt(parsed.value, "volume_bell", &parse_errors);
-    const auto volume_notifications = ReadRequiredInt(parsed.value, "volume_notifications", &parse_errors);
-    const auto volume_other = ReadRequiredInt(parsed.value, "volume_other", &parse_errors);
-    const auto wifi_password = ReadOptionalString(parsed.value, "wifi_password", &parse_errors);
-    const auto mqtt_password = ReadOptionalString(parsed.value, "mqtt_password", &parse_errors);
+    generated_config_json::ReadSaveRequestFromJson(parsed.value, &save_request, &parse_errors);
 
     if (!parse_errors.empty()) {
         return JsonHttpBody(400, JsonValue::Object({
@@ -388,42 +350,22 @@ HttpResponse WebApi::HandlePostCoreConfig(const HttpRequest &request) {
                                  }));
     }
 
-    std::optional<CoreConfigSnapshot> existing_snapshot;
-    if (!notification_success_sound_path.has_value() || !notification_failure_sound_path.has_value()) {
+    const bool missing_success_sound = !GetObjectField(parsed.value, "notification_success_sound_path").has_value();
+    const bool missing_failure_sound = !GetObjectField(parsed.value, "notification_failure_sound_path").has_value();
+    if (missing_success_sound || missing_failure_sound) {
         const SaveResult loaded = config_store_.LoadCoreConfig();
         if (!loaded.success) {
             return JsonHttpError(500, "save_failed", loaded.error);
         }
-        existing_snapshot = loaded.snapshot;
+        if (missing_success_sound) {
+            save_request.config.notification_success_sound_path =
+                loaded.snapshot.config.notification_success_sound_path;
+        }
+        if (missing_failure_sound) {
+            save_request.config.notification_failure_sound_path =
+                loaded.snapshot.config.notification_failure_sound_path;
+        }
     }
-
-    save_request.config.wifi_ssid = *wifi_ssid;
-    save_request.config.mqtt_host = *mqtt_host;
-    save_request.config.mqtt_port = *mqtt_port;
-    save_request.config.mqtt_client_id = *mqtt_client_id;
-    save_request.config.mqtt_username = *mqtt_username;
-    save_request.config.mqtt_tls_enabled = *mqtt_tls_enabled;
-    save_request.config.mqtt_tls_validate_certificate = *mqtt_tls_validate_certificate;
-    save_request.config.mqtt_tls_ca_file = *mqtt_tls_ca_file;
-    save_request.config.mqtt_tls_cert_file = *mqtt_tls_cert_file;
-    save_request.config.mqtt_tls_key_file = *mqtt_tls_key_file;
-    save_request.config.mqtt_topics = *mqtt_topics;
-    save_request.config.ring_topic = *ring_topic;
-    if (notification_success_sound_path.has_value()) {
-        save_request.config.notification_success_sound_path = *notification_success_sound_path;
-    } else if (existing_snapshot.has_value()) {
-        save_request.config.notification_success_sound_path = existing_snapshot->config.notification_success_sound_path;
-    }
-    if (notification_failure_sound_path.has_value()) {
-        save_request.config.notification_failure_sound_path = *notification_failure_sound_path;
-    } else if (existing_snapshot.has_value()) {
-        save_request.config.notification_failure_sound_path = existing_snapshot->config.notification_failure_sound_path;
-    }
-    save_request.config.volume_bell = *volume_bell;
-    save_request.config.volume_notifications = *volume_notifications;
-    save_request.config.volume_other = *volume_other;
-    save_request.wifi_password = wifi_password;
-    save_request.mqtt_password = mqtt_password;
 
     const SaveResult saved = config_store_.SaveCoreConfig(save_request);
     if (!saved.validation_errors.empty()) {

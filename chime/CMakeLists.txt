@@ -19,14 +19,21 @@ set_target_properties(oc_cjson PROPERTIES C_STANDARD 99 C_STANDARD_REQUIRED ON)
 target_compile_options(oc_cjson PRIVATE -Wno-unused-parameter)
 
 add_library(
+  chime_config STATIC
+  src/config/chime_config.cpp
+  src/config/config_migrate.cpp)
+target_include_directories(chime_config PUBLIC include)
+target_compile_options(chime_config PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(chime_config PUBLIC oc_common oc_build_version)
+
+add_library(
   chime_core STATIC
   src/audio/aplay_audio_player.cpp
-  src/config/chime_config.cpp
   src/network/linux_wifi_monitor.cpp
   src/service/chime_service.cpp)
 target_include_directories(chime_core PUBLIC include)
 target_compile_options(chime_core PRIVATE -Wall -Wextra -Wpedantic)
-target_link_libraries(chime_core PUBLIC oc_common oc_build_version)
+target_link_libraries(chime_core PUBLIC chime_config oc_common oc_build_version)
 
 add_library(
   chime_webd_core STATIC
@@ -50,13 +57,18 @@ target_include_directories(chime_webd_core SYSTEM PRIVATE "${CMAKE_CURRENT_SOURC
 target_compile_options(chime_webd_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(
   chime_webd_core
-  PUBLIC oc_common oc_build_version oc_cjson OpenSSL::SSL OpenSSL::Crypto
-         Threads::Threads)
+  PUBLIC chime_config oc_common oc_build_version oc_cjson OpenSSL::SSL
+         OpenSSL::Crypto Threads::Threads)
 
 add_executable(chime src/main.cpp)
 target_include_directories(chime PRIVATE include)
 target_compile_options(chime PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(chime PRIVATE chime_core oc_common oc_build_version)
+
+add_executable(chime-migrate src/config/chime_migrate_main.cpp)
+target_include_directories(chime-migrate PRIVATE include)
+target_compile_options(chime-migrate PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(chime-migrate PRIVATE chime_config oc_common)
 
 add_executable(chime-webd src/webd/main.cpp)
 target_include_directories(chime-webd PRIVATE include)
@@ -66,7 +78,7 @@ target_link_libraries(
   PRIVATE chime_webd_core oc_common oc_build_version OpenSSL::SSL
           OpenSSL::Crypto Threads::Threads)
 
-install(TARGETS chime chime-webd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS chime chime-webd chime-migrate RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 if(OC_BUILD_TESTS)
   add_subdirectory(tests)

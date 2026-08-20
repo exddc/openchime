@@ -31,8 +31,7 @@ std::string CorePostBody() {
       "notification_success_sound_path": "/usr/local/share/chime/test.wav",
       "notification_failure_sound_path": "/usr/local/share/chime/ring.wav",
       "volume_bell": 40,
-      "volume_notifications": 30,
-      "volume_other": 20
+      "volume_notifications": 30
     })";
 }
 
@@ -96,6 +95,7 @@ TEST_SUITE("web_api") {
         CHECK(HasField(get_body, "wifi_ssid"));
         CHECK(HasField(get_body, "mqtt_host"));
         CHECK(HasField(get_body, "apply"));
+        CHECK_FALSE(HasField(get_body, "volume_other"));
 
         chime::webd::HttpRequest post;
         post.method = "POST";
@@ -163,6 +163,40 @@ TEST_SUITE("web_api") {
             CHECK(response.status == 400);
             CHECK(RequireError(response) == "validation_failed");
         }
+    }
+
+    TEST_CASE("rejects CR/LF in file-backed API values so extra assignments cannot be injected") {
+        WebHarness harness;
+        const auto conf = harness.path() / "chime.conf";
+        const std::string original = [](const std::filesystem::path &path) {
+            std::ifstream file(path);
+            REQUIRE(file.is_open());
+            return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        }(conf);
+
+        auto post_replaced = [&](const std::string &from, const std::string &to) {
+            std::string body = CorePostBody();
+            const auto pos = body.find(from);
+            REQUIRE(pos != std::string::npos);
+            body.replace(pos, from.size(), to);
+            return harness.api().Handle(harness.Request("POST", "/api/v1/config/core", body));
+        };
+
+        const auto client_id =
+            post_replaced("\"mqtt_client_id\": \"chime-lab\"", "\"mqtt_client_id\": \"x\\naudio_enabled=false\"");
+        CHECK(client_id.status == 400);
+        CHECK(RequireError(client_id) == "validation_failed");
+
+        const auto topics = post_replaced("\"mqtt_topics\": [\"doorbell/ring\"]",
+                                          "\"mqtt_topics\": [\"doorbell/ring\\naudio_enabled=false\"]");
+        CHECK(topics.status == 400);
+        CHECK(RequireError(topics) == "validation_failed");
+
+        std::ifstream file(conf);
+        REQUIRE(file.is_open());
+        const std::string after((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        CHECK(after == original);
+        CHECK(after.find("audio_enabled=false") == std::string::npos);
     }
 
     TEST_CASE("uploads a WAV, rejects bad names and magic, and selects a sound") {

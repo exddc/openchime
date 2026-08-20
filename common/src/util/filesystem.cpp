@@ -13,6 +13,34 @@
 #include "oc/config/kv_config.h"
 
 namespace oc::util {
+namespace {
+
+std::filesystem::path ResolveAtomicWritePath(const std::string &path) {
+    const std::filesystem::path input(path);
+    std::error_code ec;
+    if (!std::filesystem::is_symlink(input, ec) || ec) {
+        return input;
+    }
+    std::filesystem::path target = std::filesystem::read_symlink(input, ec);
+    if (ec) {
+        return input;
+    }
+    if (target.is_relative()) {
+        target = input.parent_path() / target;
+    }
+    return target.lexically_normal();
+}
+
+void FsyncDirectory(const std::filesystem::path &directory) {
+    const int dir_fd = open(directory.c_str(), O_RDONLY | O_DIRECTORY);
+    if (dir_fd < 0) {
+        return;
+    }
+    fsync(dir_fd);
+    close(dir_fd);
+}
+
+} // namespace
 
 bool FileExists(const std::string &path) {
     std::ifstream file(path);
@@ -34,8 +62,9 @@ bool AtomicWriteFile(const std::string &path, const std::string &content, mode_t
         return false;
     }
 
-    std::filesystem::path target(path);
-    const std::filesystem::path directory = target.parent_path();
+    const std::filesystem::path target = ResolveAtomicWritePath(path);
+    const std::filesystem::path directory =
+        target.parent_path().empty() ? std::filesystem::path(".") : target.parent_path();
     std::error_code ec;
     std::filesystem::create_directories(directory, ec);
     if (ec) {
@@ -49,7 +78,7 @@ bool AtomicWriteFile(const std::string &path, const std::string &content, mode_t
 
     const int fd = mkstemp(buffer.data());
     if (fd < 0) {
-        *error = "mkstemp failed for '" + path + "': " + std::strerror(errno);
+        *error = "mkstemp failed for '" + target.string() + "': " + std::strerror(errno);
         return false;
     }
 
@@ -88,12 +117,13 @@ bool AtomicWriteFile(const std::string &path, const std::string &content, mode_t
         return false;
     }
 
-    if (rename(buffer.data(), path.c_str()) != 0) {
-        *error = "rename failed for '" + path + "': " + std::strerror(errno);
+    if (rename(buffer.data(), target.c_str()) != 0) {
+        *error = "rename failed for '" + target.string() + "': " + std::strerror(errno);
         std::remove(buffer.data());
         return false;
     }
 
+    FsyncDirectory(directory);
     return true;
 }
 

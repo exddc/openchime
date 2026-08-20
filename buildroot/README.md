@@ -36,8 +36,8 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.7
-CHIME_CONFIG_VERSION=4
+OPENCHIME_OS_VERSION=0.2.8
+CHIME_CONFIG_VERSION=5
 ```
 
 `chime/VERSION`
@@ -46,7 +46,7 @@ CHIME_CONFIG_VERSION=4
 ```
 
 - `OPENCHIME_OS_VERSION`: bump when you build/flash a new OS image.
-- `CHIME_CONFIG_VERSION`: bump when default `chime.conf` semantics or format changes.
+- `CHIME_CONFIG_VERSION`: bump when default `chime.conf` semantics or the product schema in `schema/chime_config.json` change.
 - `chime/VERSION`: bump when `chime` binary behavior changes.
 
 During image builds, `post_build.sh` writes `/etc/openchime-release` on the target rootfs.
@@ -178,7 +178,8 @@ SKIP_IMAGE_BUILD=1 ./scripts/docker_build.sh
 | Path | Purpose |
 |------|---------|
 | `etc/init.d/S30modules` | Decompresses WiFi modules, runs depmod, loads brcmfmac |
-| `etc/init.d/S31persistent` | Binds persisted config/data from `/data` into runtime paths |
+| `etc/init.d/S31persistent` | Bind-mounts `/data/etc` onto `/etc/persistent` and symlinks runtime config paths |
+| `etc/init.d/S32config-migrate` | Rewrites `/etc/chime.conf` to the current schema before daemons start |
 | `etc/init.d/S40network` | Starts wpa_supplicant and DHCP |
 | `etc/init.d/S42otaguard` | Tracks pending OTA boot attempts and triggers rollback when exhausted |
 | `etc/init.d/S45webd` | Chime HTTPS web daemon supervisor (`chime-webd`) |

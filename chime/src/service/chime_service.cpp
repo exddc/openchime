@@ -77,15 +77,15 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
         return 0;
     }
 
-    logger_.Info("mqtt",
-                 "broker=" + config_.host + ":" + std::to_string(config_.port) + " client_id=" + config_.client_id);
+    logger_.Info("mqtt", "broker=" + config_.mqtt_host + ":" + std::to_string(config_.mqtt_port) +
+                             " client_id=" + config_.mqtt_client_id);
     logger_.Info("mqtt", "auth username=" + (config_.mqtt_username.empty() ? "<none>" : config_.mqtt_username) +
                              " password_set=" + oc::util::BoolToString(!config_.mqtt_password.empty()));
     logger_.Info("mqtt",
                  "tls enabled=" + oc::util::BoolToString(config_.mqtt_tls_enabled) +
                      " validate_cert=" + oc::util::BoolToString(config_.mqtt_tls_validate_certificate) +
                      " ca_file=" + (config_.mqtt_tls_ca_file.empty() ? "<default/system>" : config_.mqtt_tls_ca_file));
-    logger_.Info("mqtt", "subscribe topics=" + oc::util::Join(config_.topics, ",") +
+    logger_.Info("mqtt", "subscribe topics=" + oc::util::Join(config_.mqtt_topics, ",") +
                              " qos=" + std::to_string(config_.mqtt_subscribe_qos));
     logger_.Info("mqtt", "heartbeat interval=" + std::to_string(config_.heartbeat_interval) +
                              "s topic=" + config_.heartbeat_topic);
@@ -109,7 +109,7 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
     }
 
     oc::mqtt::ConnectOptions options;
-    options.client_id = config_.client_id;
+    options.client_id = config_.mqtt_client_id;
     options.username = config_.mqtt_username;
     options.password = config_.mqtt_password;
     options.tls_enabled = config_.mqtt_tls_enabled;
@@ -123,7 +123,7 @@ int ChimeService::Run(oc::runtime::SignalHandler &signal_handler) {
     options.reconnect_exponential_backoff = true;
 
     logger_.Info("mqtt", "connecting to broker");
-    if (!mqtt_client_.Connect(config_.host, config_.port, options)) {
+    if (!mqtt_client_.Connect(config_.mqtt_host, config_.mqtt_port, options)) {
         logger_.Error("mqtt", mqtt_client_.LastError());
         return 1;
     }
@@ -288,7 +288,7 @@ void ChimeService::OnConnect(int rc) {
 
     mqtt_connected_ = true;
     logger_.Info("mqtt", "connected");
-    for (const auto &topic : config_.topics) {
+    for (const auto &topic : config_.mqtt_topics) {
         if (mqtt_client_.Subscribe(topic, config_.mqtt_subscribe_qos)) {
             logger_.Info("mqtt", "subscribed topic='" + topic + "' qos=" + std::to_string(config_.mqtt_subscribe_qos));
         } else {

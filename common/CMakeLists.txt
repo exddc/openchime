@@ -37,6 +37,7 @@ endif()
 
 add_library(
   oc_common STATIC
+  src/config/kv_document.cpp
   src/logging/logger.cpp
   ${OC_MQTT_CLIENT_SOURCE}
   src/runtime/signal_handler.cpp

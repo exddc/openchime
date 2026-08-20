@@ -237,13 +237,16 @@ while IFS= read -r file; do
     fi
 
     case "$file" in
-        buildroot/board/*/rootfs_overlay/etc/chime.conf)
+        schema/*|buildroot/board/*/rootfs_overlay/etc/chime.conf|chime/include/chime/generated/config_types.h|chime/include/chime/generated/config_json.h|webui/src/generated/config_schema.ts)
             REQUIRES_CONFIG_VERSION_BUMP=1
+            # version.env is the release-level schema gate, including schema-only
+            # changes that do not touch other buildroot files.
+            REQUIRES_OS_CONFIG_VERSION_BUMP=1
             ;;
     esac
 done <<< "$CHANGED_FILES"
 
-if [ "$REQUIRES_APP_VERSION_BUMP" -eq 0 ] && [ "$REQUIRES_OS_CONFIG_VERSION_BUMP" -eq 0 ]; then
+if [ "$REQUIRES_APP_VERSION_BUMP" -eq 0 ] && [ "$REQUIRES_OS_CONFIG_VERSION_BUMP" -eq 0 ] && [ "$REQUIRES_CONFIG_VERSION_BUMP" -eq 0 ]; then
     log "No OS/app/config-impacting changes detected"
     exit 0
 fi
@@ -288,7 +291,7 @@ if [ "$REQUIRES_OS_CONFIG_VERSION_BUMP" -eq 1 ]; then
     fi
 
     if [ "$REQUIRES_CONFIG_VERSION_BUMP" -eq 1 ] && [ "$TARGET_CONFIG_VERSION" -le "$BASE_CONFIG_VERSION" ]; then
-        error "CHIME_CONFIG_VERSION must increase when chime.conf defaults/semantics change: base=$BASE_CONFIG_VERSION target=$TARGET_CONFIG_VERSION"
+        error "CHIME_CONFIG_VERSION must increase when chime.conf defaults/semantics or the product schema change: base=$BASE_CONFIG_VERSION target=$TARGET_CONFIG_VERSION"
     fi
 fi
 

@@ -9,6 +9,8 @@
 #include <utility>
 
 #include "chime/build_version.h"
+#include "chime/chime_config.h"
+#include "chime/config_migrate.h"
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
@@ -79,9 +81,10 @@ bool EnvBoolOrDefault(const char *key, bool fallback) {
 }
 
 std::string ReadWifiInterfaceOrDefault(const std::string &path) {
+    const std::string fallback = chime::ChimeConfig{}.wifi_interface;
     std::ifstream file(path);
     if (!file.is_open()) {
-        return "wlan0";
+        return fallback;
     }
 
     std::string line;
@@ -97,7 +100,7 @@ std::string ReadWifiInterfaceOrDefault(const std::string &path) {
             }
         }
     }
-    return "wlan0";
+    return fallback;
 }
 
 void PrintUsage(const char *program) {
@@ -152,6 +155,18 @@ int main(int argc, char *argv[]) {
 #endif
 
     const std::string chime_config_path = EnvOrDefault("CHIME_WEBD_CHIME_CONFIG", kChimeConfigPath);
+    const auto migrated = chime::MigratePersistedConfig(chime_config_path);
+    if (!migrated.success) {
+        if (chime::MigrateFailureBlocksStartup(migrated)) {
+            logger.Error("webd", migrated.error);
+            return chime::kConfigFatalExitCode;
+        }
+        logger.Warn("webd", "config migration did not rewrite " + chime_config_path + ": " + migrated.error);
+    } else if (migrated.rewritten) {
+        logger.Info("webd", "migrated config schema from " + std::to_string(migrated.from_version) + " to " +
+                                std::to_string(migrated.to_version));
+    }
+
     const std::string wpa_supplicant_path = EnvOrDefault("CHIME_WEBD_WPA_SUPPLICANT", kWpaSupplicantPath);
     const std::string tls_cert_path = EnvOrDefault("CHIME_WEBD_TLS_CERT", kTlsCertPath);
     const std::string tls_key_path = EnvOrDefault("CHIME_WEBD_TLS_KEY", kTlsKeyPath);

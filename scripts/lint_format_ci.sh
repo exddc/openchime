@@ -96,6 +96,8 @@ is_cxx_file() {
   local path="$1"
   case "$path" in
     chime/third_party/*) return 1 ;;
+    chime/include/chime/generated/*) return 1 ;;
+    chime/tests/config_schema_contract_test.cpp) return 1 ;;
     chime/*|common/*) ;;
     *) return 1 ;;
   esac
@@ -114,7 +116,7 @@ is_webui_file() {
   esac
 
   case "$path" in
-    webui/node_modules/*|webui/dist/*) return 1 ;;
+    webui/node_modules/*|webui/dist/*|webui/src/generated/*) return 1 ;;
   esac
 
   case "$path" in
@@ -315,6 +317,9 @@ main() {
   run_clang_format
   run_biome
   run_shellcheck
+
+  require_tool python3
+  bash "$PROJECT_DIR/scripts/check_config_schema.sh"
 
   log "All requested checks passed"
 }

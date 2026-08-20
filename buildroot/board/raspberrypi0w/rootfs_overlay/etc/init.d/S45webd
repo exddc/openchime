@@ -6,6 +6,9 @@ LOGFILE="/var/log/chime-web.log"
 SUPERVISOR_PIDFILE="/var/run/chime-webd_supervisor.pid"
 RESTART_DELAY_SECONDS=2
 
+# shellcheck disable=SC1091,SC2154
+. /usr/local/sbin/chime-supervisor-policy.sh
+
 log_line() {
     echo "[$(date)] $*" >> "$LOGFILE"
 }
@@ -19,6 +22,11 @@ supervisor_loop() {
         wait "$CHILD_PID"
         EXIT_CODE=$?
 
+        if ! chime_supervisor_should_restart "$EXIT_CODE"; then
+            log_line "$DAEMON exited with code $EXIT_CODE (permanent config error); not restarting"
+            break
+        fi
+
         log_line "$DAEMON exited with code $EXIT_CODE, restarting in ${RESTART_DELAY_SECONDS}s"
         sleep "$RESTART_DELAY_SECONDS"
     done
@@ -26,6 +34,11 @@ supervisor_loop() {
 
 start() {
     printf "Starting %s: " "$DAEMON"
+
+    if chime_config_fatal_present; then
+        echo "FAIL (permanent config error)"
+        return 0
+    fi
 
     if [ -f "$SUPERVISOR_PIDFILE" ] && kill -0 "$(cat "$SUPERVISOR_PIDFILE")" 2>/dev/null; then
         echo "OK (already running)"

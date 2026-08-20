@@ -9,10 +9,13 @@ CONFIG_FILE="/etc/chime.conf"
 SUPERVISOR_PIDFILE="/var/run/chime_supervisor.pid"
 RESTART_DELAY_SECONDS=2
 
-# Log rotation defaults (overridable in /etc/chime.conf)
+# Log rotation defaults (overridable in /etc/chime.conf; init-only, not daemon fields)
 LOG_MAX_BYTES_DEFAULT=262144
 LOG_ROTATE_KEEP_DEFAULT=5
 LOG_ROTATE_CHECK_INTERVAL_DEFAULT=30
+
+# shellcheck disable=SC1091,SC2154
+. /usr/local/sbin/chime-supervisor-policy.sh
 
 get_config_value() {
     KEY="$1"
@@ -93,6 +96,10 @@ supervisor_loop() {
 
         wait "$CHIME_PID"
         EXIT_CODE=$?
+        if ! chime_supervisor_should_restart "$EXIT_CODE"; then
+            log_line "Chime exited with code $EXIT_CODE (permanent config error); not restarting"
+            break
+        fi
         log_line "Chime exited with code $EXIT_CODE, restarting in ${RESTART_DELAY_SECONDS} seconds..."
         sleep "$RESTART_DELAY_SECONDS"
     done
@@ -100,6 +107,11 @@ supervisor_loop() {
 
 start() {
     printf "Starting %s: " "$DAEMON"
+
+    if chime_config_fatal_present; then
+        echo "FAIL (permanent config error)"
+        return 0
+    fi
 
     if [ -f "$SUPERVISOR_PIDFILE" ] && kill -0 "$(cat "$SUPERVISOR_PIDFILE")" 2>/dev/null; then
         echo "OK (already running)"
