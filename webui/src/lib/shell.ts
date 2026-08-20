@@ -14,13 +14,6 @@ export function screenFromAuthStatus(
   return "app";
 }
 
-export function screenAfterProductLoadFailure(
-  _error: unknown,
-  current: AppScreen,
-): AppScreen {
-  return current;
-}
-
 export function resolveProduct<T extends { id: string }>(
   products: T[],
   id: string,

@@ -21,6 +21,8 @@
   export let observedTopics: string[];
   export let onRefreshTopics: () => Promise<void>;
   export let onSave: () => Promise<void>;
+  export let showRetry = false;
+  export let onRetry: () => void = () => {};
 </script>
 
 <section class="card">
@@ -121,6 +123,9 @@
   <input id="mqtt_topics" bind:value={mqttTopics} placeholder="doorbell/ring,doorbell/status" />
 
   <div class="button-row">
+    {#if showRetry}
+      <button class="secondary" type="button" on:click={onRetry}>Retry</button>
+    {/if}
     <button
       type="button"
       disabled={saveDisabled}

@@ -9,6 +9,7 @@
     saveCoreConfig,
     scanWifi,
     selectRingSound,
+    sleep,
     uploadRingSound,
     waitForApplyCompletion,
     type WifiNetwork,
@@ -25,6 +26,7 @@
   export let messageIsError: boolean;
   export let setMessage: (text: string, isError?: boolean) => void;
   export let onLoadFailed: (error: unknown) => void;
+  export let loadRetryDelayMs = 800;
 
   let wifiSsid = "";
   let wifiPassword = "";
@@ -53,7 +55,9 @@
   let isSaving = false;
   let isUploadingRingSound = false;
   let configHydrated = false;
+  let loadFailed = false;
   let applyAbort: AbortController | undefined;
+  let retryDelayAbort: AbortController | undefined;
 
   function requestInit(): RequestInit {
     return { signal: applyAbort?.signal };
@@ -126,7 +130,49 @@
   async function loadConsole(): Promise<void> {
     await loadConfig();
     configHydrated = true;
+    loadFailed = false;
     await Promise.all([loadObservedTopicState(), loadRingSoundState()]);
+  }
+
+  function retryLoad(): void {
+    retryDelayAbort?.abort();
+  }
+
+  async function waitForRetryDelay(): Promise<void> {
+    retryDelayAbort = new AbortController();
+    try {
+      await sleep(loadRetryDelayMs, retryDelayAbort.signal);
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        if (applyAbort?.signal.aborted) {
+          throw error;
+        }
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async function loadConsoleUntilHydrated(): Promise<void> {
+    while (!configHydrated) {
+      if (applyAbort?.signal.aborted) {
+        return;
+      }
+      try {
+        loadFailed = false;
+        await loadConsole();
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        onLoadFailed(error);
+        if (configHydrated) {
+          return;
+        }
+        loadFailed = true;
+        await waitForRetryDelay();
+      }
+    }
   }
 
   async function scanNetworks(): Promise<void> {
@@ -241,14 +287,10 @@
 
   onMount(() => {
     applyAbort = new AbortController();
-    loadConsole().catch((error: unknown) => {
-      if (error instanceof Error && error.name === "AbortError") {
-        return;
-      }
-      onLoadFailed(error);
-    });
+    void loadConsoleUntilHydrated();
     return () => {
       applyAbort?.abort();
+      retryDelayAbort?.abort();
     };
   });
 </script>
@@ -298,4 +340,6 @@
   {messageIsError}
   onRefreshTopics={() => runAction(refreshObservedTopics)}
   onSave={() => runAction(saveConfig)}
+  showRetry={loadFailed && !configHydrated}
+  onRetry={retryLoad}
 />

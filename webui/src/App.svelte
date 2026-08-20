@@ -11,11 +11,7 @@
     pairDevice,
     setAuthErrorHandler,
   } from "./lib/api";
-  import {
-    screenAfterProductLoadFailure,
-    screenFromAuthStatus,
-    type AppScreen,
-  } from "./lib/shell";
+  import { screenFromAuthStatus, type AppScreen } from "./lib/shell";
   import { getActiveProduct } from "./products";
 
   const activeProduct = getActiveProduct();
@@ -112,7 +108,6 @@
 
   function onProductLoadFailed(error: unknown): void {
     setMessage(errorMessage(error), true);
-    screen = screenAfterProductLoadFailure(error, screen);
   }
 
   onMount(() => {

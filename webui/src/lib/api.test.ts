@@ -318,6 +318,24 @@ describe("waitForApplyCompletion", () => {
     expect(calls).toBe(5);
   });
 
+  test("rejects immediately on a terminal apply failure", async () => {
+    let calls = 0;
+    mockFetch(() => {
+      calls += 1;
+      return jsonResponse({
+        apply: { job_id: 4, state: "failed", error: "wpa failed" },
+      });
+    });
+    await expect(
+      waitForApplyCompletion(4, {
+        pollMs: 0,
+        timeoutMs: 1000,
+        sleep: async () => {},
+      }),
+    ).rejects.toMatchObject({ message: "wpa failed" });
+    expect(calls).toBe(1);
+  });
+
   test("times out when the job never finishes", async () => {
     let now = 0;
     mockFetch(() => jsonResponse({ apply: { job_id: 1, state: "running" } }));

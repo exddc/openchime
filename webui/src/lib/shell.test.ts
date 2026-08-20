@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ApiError } from "./api";
-import {
-  resolveProduct,
-  screenAfterProductLoadFailure,
-  screenFromAuthStatus,
-} from "./shell";
+import { resolveProduct, screenFromAuthStatus } from "./shell";
 
 describe("screenFromAuthStatus", () => {
   test("maps pairing and session state", () => {
@@ -15,17 +10,6 @@ describe("screenFromAuthStatus", () => {
     expect(screenFromAuthStatus({ paired: true, authenticated: true })).toBe(
       "app",
     );
-  });
-});
-
-describe("screenAfterProductLoadFailure", () => {
-  test("keeps the authenticated product screen for data failures", () => {
-    expect(
-      screenAfterProductLoadFailure(new Error("topics failed"), "app"),
-    ).toBe("app");
-    expect(
-      screenAfterProductLoadFailure(new ApiError("Scan failed", 500), "app"),
-    ).toBe("app");
   });
 });
 

@@ -203,7 +203,7 @@ function abortError(signal?: AbortSignal): Error {
   return error;
 }
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(abortError(signal));
@@ -387,16 +387,9 @@ export async function waitForApplyCompletion(
 
   while (now() - startedAt < timeoutMs) {
     throwIfAborted(options.signal);
+    let apply: ApplyStatus | undefined;
     try {
-      const apply = (await getCoreConfig({ signal: options.signal })).apply;
-      if (apply && apply.job_id === jobId) {
-        if (apply.state === "succeeded") {
-          return;
-        }
-        if (apply.state === "failed") {
-          throw new Error(apply.error || "Apply failed");
-        }
-      }
+      apply = (await getCoreConfig({ signal: options.signal })).apply;
     } catch (error) {
       if (isAbortError(error)) {
         throw error;
@@ -404,6 +397,16 @@ export async function waitForApplyCompletion(
       transientErrors += 1;
       if (transientErrors >= 5) {
         throw error;
+      }
+      await sleepFn(pollMs, options.signal);
+      continue;
+    }
+    if (apply && apply.job_id === jobId) {
+      if (apply.state === "succeeded") {
+        return;
+      }
+      if (apply.state === "failed") {
+        throw new Error(apply.error || "Apply failed");
       }
     }
     await sleepFn(pollMs, options.signal);
