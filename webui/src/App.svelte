@@ -1,124 +1,37 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { apiFetch, setAuthErrorHandler, type AuthStatusResponse } from "./api";
+  import AuthLoginForm from "./components/AuthLoginForm.svelte";
+  import AuthPairForm from "./components/AuthPairForm.svelte";
+  import VersionFooter from "./components/VersionFooter.svelte";
+  import {
+    errorMessage,
+    getAuthStatus,
+    login,
+    logout,
+    pairDevice,
+    setAuthErrorHandler,
+  } from "./lib/api";
+  import {
+    screenAfterProductLoadFailure,
+    screenFromAuthStatus,
+    type AppScreen,
+  } from "./lib/shell";
+  import { getActiveProduct } from "./products";
 
-  type ValidationError = {
-    field: string;
-    message: string;
-  };
-
-  type ApplyStatus = {
-    job_id: number;
-    state: string;
-    started_at_utc?: string;
-    finished_at_utc?: string;
-    error?: string;
-  };
-
-  type CoreConfigResponse = {
-    wifi_ssid?: string;
-    wifi_password_set?: boolean;
-    mqtt_host?: string;
-    mqtt_port?: number;
-    mqtt_client_id?: string;
-    mqtt_username?: string;
-    mqtt_password_set?: boolean;
-    mqtt_tls_enabled?: boolean;
-    mqtt_tls_validate_certificate?: boolean;
-    mqtt_tls_ca_file?: string;
-    mqtt_tls_cert_file?: string;
-    mqtt_tls_key_file?: string;
-    mqtt_topics?: string[];
-    ring_topic?: string;
-    notification_success_sound_path?: string;
-    notification_failure_sound_path?: string;
-    volume_bell?: number;
-    volume_notifications?: number;
-    volume_other?: number;
-    apply?: ApplyStatus;
-    error?: string;
-    message?: string;
-  };
-
-  type RingSoundsResponse = {
-    sounds?: string[];
-    selected_sound?: string;
-    error?: string;
-    message?: string;
-  };
-
-  type WifiNetwork = {
-    ssid: string;
-    signal_dbm: number;
-    security: string;
-  };
-
-  type WifiScanResponse = {
-    networks?: WifiNetwork[];
-    error?: string;
-    message?: string;
-  };
-
-  type ObservedTopicsResponse = {
-    topics?: string[];
-    error?: string;
-    message?: string;
-  };
-
-  type SystemVersionResponse = {
-    chime_version?: string;
-    os_version?: string;
-    config_version?: string;
-    error?: string;
-    message?: string;
-  };
-
-  type SaveResponse = CoreConfigResponse & {
-    validation_errors?: ValidationError[];
-  };
-
-  let wifiSsid = "";
-  let wifiPassword = "";
-  let mqttHost = "";
-  let mqttPort = 1883;
-  let mqttClientId = "chime";
-  let mqttUsername = "";
-  let mqttPassword = "";
-  let mqttPasswordSet = false;
-  let mqttTlsEnabled = false;
-  let mqttTlsValidateCertificate = true;
-  let mqttTlsCaFile = "";
-  let mqttTlsCertFile = "";
-  let mqttTlsKeyFile = "";
-  let ringTopic = "doorbell/ring";
-  let notificationSuccessSoundPath = "/usr/local/share/chime/test.wav";
-  let notificationFailureSoundPath = "/usr/local/share/chime/ring.wav";
-  let volumeBell = 80;
-  let volumeNotifications = 70;
-  let volumeOther = 70;
-  let mqttTopics = "";
-  let ringSounds: string[] = [];
-  let selectedRingSound = "";
-  let ringSoundUpload: File | null = null;
-  let preparedUploadName = "";
-  let isUploadingRingSound = false;
-
-  let scanResults: WifiNetwork[] = [];
-  let selectedScanSsid = "";
-  let observedTopics: string[] = [];
-  let chimeVersion = "unknown";
-  let osVersion = "unknown";
-  let configVersion = "unknown";
+  const activeProduct = getActiveProduct();
+  const ProductPage = activeProduct.page;
 
   let messageText = "";
   let messageIsError = false;
-  let isSaving = false;
-  let screen: "loading" | "pair" | "login" | "app" = "loading";
+  let screen: AppScreen = "loading";
   let pairingCode = "";
   let setupPassword = "";
   let setupPasswordConfirm = "";
   let loginPassword = "";
   let authBusy = false;
+  let productVersion = "unknown";
+  let osVersion = "unknown";
+  let configVersion = "unknown";
 
   setAuthErrorHandler((kind) => {
     if (kind === "pair") {
@@ -134,372 +47,26 @@
     messageIsError = isError;
   }
 
-  function parseTopics(csv: string): string[] {
-    return csv
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-  }
-
-  function clampVolumeValue(value: unknown, fallback: number): number {
-    if (value == null) {
-      return fallback;
-    }
-
-    if (typeof value === "string" && value.trim().length === 0) {
-      return fallback;
-    }
-
-    const parsed = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(parsed)) {
-      return fallback;
-    }
-
-    return Math.min(100, Math.max(0, Math.round(parsed)));
-  }
-
-  async function loadConfig(): Promise<void> {
-    const response = await apiFetch("/api/v1/config/core");
-    const data = (await response.json()) as CoreConfigResponse;
-
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to load config");
-    }
-
-    wifiSsid = data.wifi_ssid ?? "";
-    mqttHost = data.mqtt_host ?? "";
-    mqttPort = data.mqtt_port ?? 1883;
-    mqttClientId = data.mqtt_client_id ?? "chime";
-    mqttUsername = data.mqtt_username ?? "";
-    mqttPasswordSet = data.mqtt_password_set ?? false;
-    mqttTlsEnabled = data.mqtt_tls_enabled ?? false;
-    mqttTlsValidateCertificate = data.mqtt_tls_validate_certificate ?? true;
-    mqttTlsCaFile = data.mqtt_tls_ca_file ?? "";
-    mqttTlsCertFile = data.mqtt_tls_cert_file ?? "";
-    mqttTlsKeyFile = data.mqtt_tls_key_file ?? "";
-    ringTopic = data.ring_topic ?? "doorbell/ring";
-    notificationSuccessSoundPath =
-      data.notification_success_sound_path ?? "/usr/local/share/chime/test.wav";
-    notificationFailureSoundPath =
-      data.notification_failure_sound_path ?? "/usr/local/share/chime/ring.wav";
-    volumeBell = data.volume_bell ?? 80;
-    volumeNotifications = data.volume_notifications ?? 70;
-    volumeOther = data.volume_other ?? 70;
-    mqttTopics = (data.mqtt_topics ?? []).join(",");
-
-    const wifiHint = data.wifi_password_set
-      ? "Password is set. Leave blank to keep it unchanged."
-      : "No saved password yet. Enter one before saving.";
-    setMessage(wifiHint, false);
-  }
-
-  function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function loadApplyStatus(): Promise<ApplyStatus | undefined> {
-    const response = await apiFetch("/api/v1/config/core");
-    const data = (await response.json()) as CoreConfigResponse;
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to load apply status");
-    }
-    return data.apply;
-  }
-
-  async function waitForApplyCompletion(jobId: number): Promise<void> {
-    const timeoutMs = 90_000;
-    const pollMs = 800;
-    const startedAt = Date.now();
-    let transientErrors = 0;
-
-    while (Date.now() - startedAt < timeoutMs) {
-      try {
-        const apply = await loadApplyStatus();
-        if (apply && apply.job_id === jobId) {
-          if (apply.state === "succeeded") {
-            return;
-          }
-          if (apply.state === "failed") {
-            throw new Error(apply.error || "Apply failed");
-          }
-        }
-      } catch (error) {
-        transientErrors += 1;
-        if (transientErrors >= 5) {
-          throw error;
-        }
-      }
-      await sleep(pollMs);
-    }
-
-    throw new Error("Timed out waiting for apply to complete.");
-  }
-
-  async function scanNetworks(): Promise<void> {
-    const response = await apiFetch("/api/v1/wifi/scan");
-    const data = (await response.json()) as WifiScanResponse;
-
-    if (!response.ok) {
-      throw new Error(data.error ?? "Scan failed");
-    }
-
-    scanResults = data.networks ?? [];
-    if (scanResults.length === 0) {
-      setMessage("No networks found.", false);
-    }
-  }
-
-  async function loadObservedTopics(): Promise<void> {
-    const response = await apiFetch("/api/v1/mqtt/topics");
-    const data = (await response.json()) as ObservedTopicsResponse;
-
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to load observed topics");
-    }
-
-    observedTopics = data.topics ?? [];
+  function clearVersion(): void {
+    productVersion = "unknown";
+    osVersion = "unknown";
+    configVersion = "unknown";
   }
 
   async function loadSystemVersion(): Promise<void> {
-    const response = await apiFetch("/api/v1/system/version");
-    const data = (await response.json()) as SystemVersionResponse;
-
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to load system version");
-    }
-
-    chimeVersion = data.chime_version?.trim() || "unknown";
-    osVersion = data.os_version?.trim() || "unknown";
-    configVersion = data.config_version?.trim() || "unknown";
-  }
-
-  async function loadRingSounds(): Promise<void> {
-    const response = await apiFetch("/api/v1/ring/sounds");
-    const data = (await response.json()) as RingSoundsResponse;
-
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to load ring sounds");
-    }
-
-    ringSounds = data.sounds ?? [];
-    selectedRingSound = data.selected_sound ?? "";
-  }
-
-
-  function buildUploadSoundName(originalName: string): string {
-    const lower = originalName.toLowerCase();
-    const normalized = lower
-      .replace(/[^a-z0-9_.-]+/g, "-")
-      .replace(/[-._]{2,}/g, "-")
-      .replace(/^[._-]+/, "")
-      .replace(/[._-]+$/, "");
-
-    const withExtension = normalized.endsWith(".wav")
-      ? normalized
-      : `${normalized}.wav`;
-
-    const withoutPrefix = withExtension.replace(/^ring-/, "");
-    const candidate = `ring-${withoutPrefix}`;
-
-    const cleaned = candidate
-      .replace(/[^a-z0-9_.-]+/g, "-")
-      .replace(/[-._]{2,}/g, "-")
-      .replace(/^[-._]+/, "")
-      .replace(/[-._]+$/, "");
-
-    if (!cleaned || cleaned === "ring" || cleaned === "ring.wav") {
-      return "ring-custom.wav";
-    }
-
-    if (!cleaned.endsWith(".wav")) {
-      return `${cleaned}.wav`;
-    }
-
-    return cleaned;
-  }
-
-  async function uploadRingSound(): Promise<void> {
-    if (!ringSoundUpload) {
-      throw new Error("Choose a .wav file to upload.");
-    }
-
-    const fileNameLower = ringSoundUpload.name.toLowerCase();
-    const hasWavExtension = fileNameLower.endsWith(".wav");
-    const hasWavMimeType =
-      ringSoundUpload.type === "audio/wav" || ringSoundUpload.type === "audio/x-wav";
-    if (!hasWavExtension && !hasWavMimeType) {
-      isUploadingRingSound = false;
-      throw new Error("Please select a .wav file.");
-    }
-    if (ringSoundUpload.size > 2 * 1024 * 1024) {
-      isUploadingRingSound = false;
-      throw new Error("File must be <= 2MB.");
-    }
-
-    const uploadName = buildUploadSoundName(ringSoundUpload.name);
-
-    isUploadingRingSound = true;
     try {
-      const response = await apiFetch(`/api/v1/ring/sounds/${encodeURIComponent(uploadName)}`, {
-        method: "PUT",
-        body: await ringSoundUpload.arrayBuffer(),
-      });
-      const data = (await response.json()) as { error?: string; message?: string };
-
-      if (!response.ok) {
-        throw new Error(data.message ?? data.error ?? "Upload failed");
-      }
-
-      await loadRingSounds();
-      selectedRingSound = uploadName;
-      setMessage(`Uploaded ${uploadName}. Select it below to activate.`, false);
-    } finally {
-      isUploadingRingSound = false;
+      const data = await activeProduct.loadVersion();
+      productVersion = data.product;
+      osVersion = data.os;
+      configVersion = data.config;
+    } catch (error: unknown) {
+      console.warn("loadSystemVersion failed", error);
+      clearVersion();
     }
-  }
-
-  async function activateRingSound(): Promise<void> {
-    if (!selectedRingSound) {
-      throw new Error("Select a ring sound to activate.");
-    }
-
-    const response = await apiFetch("/api/v1/ring/sounds/select", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: selectedRingSound }),
-    });
-    const data = (await response.json()) as {
-      error?: string;
-      message?: string;
-      selection_persisted?: boolean;
-    };
-
-    if (!response.ok) {
-      throw new Error(data.message ?? data.error ?? "Failed to activate sound");
-    }
-
-    if (data.selection_persisted === false) {
-      setMessage(
-        "Ring sound activated, but selected-sound metadata could not be persisted.",
-        true,
-      );
-      return;
-    }
-
-    setMessage("Ring sound updated. New rings use this sound immediately.", false);
-  }
-
-  async function saveConfig(): Promise<void> {
-    isSaving = true;
-    setMessage("Saving and applying changes...", false);
-
-    const safeVolumeBell = clampVolumeValue(volumeBell, 80);
-    const safeVolumeNotifications = clampVolumeValue(volumeNotifications, 70);
-    const safeVolumeOther = clampVolumeValue(volumeOther, 70);
-
-    volumeBell = safeVolumeBell;
-    volumeNotifications = safeVolumeNotifications;
-    volumeOther = safeVolumeOther;
-
-    const payload: Record<string, unknown> = {
-      wifi_ssid: wifiSsid.trim(),
-      mqtt_host: mqttHost.trim(),
-      mqtt_port: Number(mqttPort),
-      mqtt_client_id: mqttClientId.trim(),
-      mqtt_username: mqttUsername.trim(),
-      mqtt_tls_enabled: mqttTlsEnabled,
-      mqtt_tls_validate_certificate: mqttTlsValidateCertificate,
-      mqtt_tls_ca_file: mqttTlsCaFile.trim(),
-      mqtt_tls_cert_file: mqttTlsCertFile.trim(),
-      mqtt_tls_key_file: mqttTlsKeyFile.trim(),
-      mqtt_topics: parseTopics(mqttTopics),
-      ring_topic: ringTopic.trim(),
-      notification_success_sound_path: notificationSuccessSoundPath.trim(),
-      notification_failure_sound_path: notificationFailureSoundPath.trim(),
-      volume_bell: safeVolumeBell,
-      volume_notifications: safeVolumeNotifications,
-      volume_other: safeVolumeOther,
-    };
-    if (wifiPassword.length > 0) {
-      payload.wifi_password = wifiPassword;
-    }
-    if (mqttPassword.length > 0) {
-      payload.mqtt_password = mqttPassword;
-    }
-
-    try {
-      const response = await apiFetch("/api/v1/config/core", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = (await response.json()) as SaveResponse;
-
-      if (!response.ok) {
-        if (data.validation_errors && data.validation_errors.length > 0) {
-          const details = data.validation_errors
-            .map((entry) => `${entry.field}: ${entry.message}`)
-            .join("\n");
-          throw new Error(details);
-        }
-        throw new Error(data.error ?? "Save failed");
-      }
-
-      wifiPassword = "";
-      mqttPassword = "";
-      mqttPasswordSet = data.mqtt_password_set ?? mqttPasswordSet;
-
-      const apply = data.apply;
-      if (!apply || apply.state === "succeeded") {
-        setMessage("Saved and applied.", false);
-        return;
-      }
-
-      await waitForApplyCompletion(apply.job_id);
-      setMessage("Saved and applied.", false);
-    } finally {
-      isSaving = false;
-    }
-  }
-
-  function onScanSelectionChanged(event: Event): void {
-    const target = event.currentTarget as HTMLSelectElement;
-    selectedScanSsid = target.value;
-    if (selectedScanSsid) {
-      wifiSsid = selectedScanSsid;
-    }
-  }
-
-  async function loadConsole(): Promise<void> {
-    await loadConfig();
-    await Promise.all([
-      loadObservedTopics(),
-      loadRingSounds(),
-      loadSystemVersion().catch((error: unknown) => {
-        console.warn("loadSystemVersion failed", error);
-        chimeVersion = "unknown";
-        osVersion = "unknown";
-        configVersion = "unknown";
-      }),
-    ]);
   }
 
   async function refreshAuth(): Promise<void> {
-    const response = await apiFetch("/api/v1/auth/status");
-    const data = (await response.json()) as AuthStatusResponse;
-    if (!response.ok) {
-      throw new Error(data.error ?? "Failed to read authentication status");
-    }
-    if (!data.paired) {
-      screen = "pair";
-      return;
-    }
-    if (!data.authenticated) {
-      screen = "login";
-      return;
-    }
-    screen = "app";
-    await loadConsole();
+    screen = screenFromAuthStatus(await getAuthStatus());
   }
 
   async function submitPairing(): Promise<void> {
@@ -508,24 +75,12 @@
     }
     authBusy = true;
     try {
-      const response = await apiFetch("/api/v1/auth/pair", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pairing_code: pairingCode.trim(),
-          password: setupPassword,
-        }),
-      });
-      const data = (await response.json()) as AuthStatusResponse;
-      if (!response.ok) {
-        throw new Error(data.message ?? data.error ?? "Pairing failed");
-      }
+      await pairDevice(pairingCode.trim(), setupPassword);
       pairingCode = "";
       setupPassword = "";
       setupPasswordConfirm = "";
       screen = "app";
       setMessage("Device paired. You are signed in.", false);
-      await loadConsole();
     } finally {
       authBusy = false;
     }
@@ -534,19 +89,10 @@
   async function submitLogin(): Promise<void> {
     authBusy = true;
     try {
-      const response = await apiFetch("/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: loginPassword }),
-      });
-      const data = (await response.json()) as AuthStatusResponse;
-      if (!response.ok) {
-        throw new Error(data.message ?? data.error ?? "Login failed");
-      }
+      await login(loginPassword);
       loginPassword = "";
       screen = "app";
       setMessage("", false);
-      await loadConsole();
     } finally {
       authBusy = false;
     }
@@ -555,11 +101,7 @@
   async function submitLogout(): Promise<void> {
     authBusy = true;
     try {
-      const response = await apiFetch("/api/v1/auth/logout", { method: "POST" });
-      const data = (await response.json()) as AuthStatusResponse;
-      if (!response.ok) {
-        throw new Error(data.message ?? data.error ?? "Logout failed");
-      }
+      await logout();
       loginPassword = "";
       screen = "login";
       setMessage("Signed out.", false);
@@ -568,22 +110,18 @@
     }
   }
 
+  function onProductLoadFailed(error: unknown): void {
+    setMessage(errorMessage(error), true);
+    screen = screenAfterProductLoadFailure(error, screen);
+  }
+
   onMount(() => {
     refreshAuth()
       .then(async () => {
-        if (screen === "app") {
-          return;
-        }
-        await loadSystemVersion().catch((error: unknown) => {
-          console.warn("loadSystemVersion failed", error);
-          chimeVersion = "unknown";
-          osVersion = "unknown";
-          configVersion = "unknown";
-        });
+        await loadSystemVersion();
       })
       .catch((error: unknown) => {
-        const text = error instanceof Error ? error.message : String(error);
-        setMessage(text, true);
+        setMessage(errorMessage(error), true);
         screen = "login";
       });
   });
@@ -592,432 +130,73 @@
 <div class="wrap">
   {#if screen === "loading"}
     <section class="card">
-      <h1>Chime Web Console</h1>
-      <p>Checking device setup…</p>
+      <h1>{activeProduct.loadingTitle}</h1>
+      <p>{activeProduct.loadingMessage}</p>
     </section>
   {:else if screen === "pair"}
-    <section class="card">
-      <h1>Set up this Chime</h1>
-      <p>
-        Enter the pairing code from the serial console, then choose an admin password. Pairing
-        closes after this step.
-      </p>
-      <form
-        on:submit|preventDefault={async () => {
-          try {
-            await submitPairing();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        <label for="pairing_code">Pairing code</label>
-        <input
-          id="pairing_code"
-          bind:value={pairingCode}
-          autocomplete="one-time-code"
-          autocapitalize="characters"
-          spellcheck="false"
-          required
-        />
-        <label for="setup_password">Admin password</label>
-        <input
-          id="setup_password"
-          type="password"
-          bind:value={setupPassword}
-          autocomplete="new-password"
-          minlength="8"
-          maxlength="128"
-          required
-        />
-        <label for="setup_password_confirm">Confirm password</label>
-        <input
-          id="setup_password_confirm"
-          type="password"
-          bind:value={setupPasswordConfirm}
-          autocomplete="new-password"
-          minlength="8"
-          maxlength="128"
-          required
-        />
-        <div class="button-row">
-          <button type="submit" disabled={authBusy}>Pair device</button>
-        </div>
-      </form>
-      {#if messageText}
-        <div class:error={messageIsError} class="message">{messageText}</div>
-      {/if}
-      <p class="hint">The pairing code is printed once on the device console while unpaired.</p>
-    </section>
+    <AuthPairForm
+      title={activeProduct.pairTitle}
+      description={activeProduct.pairDescription}
+      hint={activeProduct.pairHint}
+      bind:pairingCode
+      bind:setupPassword
+      bind:setupPasswordConfirm
+      {authBusy}
+      {messageText}
+      {messageIsError}
+      onSubmit={async () => {
+        try {
+          await submitPairing();
+        } catch (error) {
+          setMessage(errorMessage(error), true);
+        }
+      }}
+    />
   {:else if screen === "login"}
-    <section class="card">
-      <h1>Sign in</h1>
-      <p>This administration API requires the device password.</p>
-      <form
-        on:submit|preventDefault={async () => {
-          try {
-            await submitLogin();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        <label for="login_password">Admin password</label>
-        <input
-          id="login_password"
-          type="password"
-          bind:value={loginPassword}
-          autocomplete="current-password"
-          required
-        />
-        <div class="button-row">
-          <button type="submit" disabled={authBusy}>Sign in</button>
-        </div>
-      </form>
-      {#if messageText}
-        <div class:error={messageIsError} class="message">{messageText}</div>
-      {/if}
-    </section>
+    <AuthLoginForm
+      bind:loginPassword
+      {authBusy}
+      {messageText}
+      {messageIsError}
+      onSubmit={async () => {
+        try {
+          await submitLogin();
+        } catch (error) {
+          setMessage(errorMessage(error), true);
+        }
+      }}
+    />
   {:else}
-  <section class="card">
-    <div class="console-header">
-      <div>
-        <h1>Chime Web Console</h1>
-        <p>Configure Wi-Fi and MQTT. Changes are applied automatically.</p>
-      </div>
-      <button
-        class="secondary"
-        type="button"
-        disabled={authBusy}
-        on:click={async () => {
-          try {
-            await submitLogout();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Sign out
-      </button>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Wi-Fi</h2>
-    <div class="row">
-      <div>
-        <label for="wifi_ssid">SSID</label>
-        <input id="wifi_ssid" bind:value={wifiSsid} placeholder="Network name" />
-      </div>
-      <div>
-        <label for="wifi_password">Password</label>
-        <input
-          id="wifi_password"
-          type="password"
-          bind:value={wifiPassword}
-          placeholder="Leave blank to keep current"
-        />
-      </div>
-    </div>
-
-    <div class="button-row">
-      <button
-        class="secondary"
-        type="button"
-        disabled={isSaving}
-        on:click={async () => {
-          try {
-            await scanNetworks();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Scan Networks
-      </button>
-    </div>
-
-    <label for="scan_results">Scan Results</label>
-    <select id="scan_results" bind:value={selectedScanSsid} on:change={onScanSelectionChanged}>
-      <option value="">Select SSID</option>
-      {#if scanResults.length === 0}
-        <option value="" disabled>No scan results yet</option>
-      {/if}
-      {#each scanResults as network}
-        <option value={network.ssid}>
-          {network.ssid} ({network.signal_dbm} dBm, {network.security})
-        </option>
-      {/each}
-    </select>
-    <p class="hint">Selecting an SSID fills the field above.</p>
-  </section>
-
-  <section class="card">
-    <h2>Ring Sound</h2>
-    <div class="row">
-      <div>
-        <label for="ring_sound_upload">Upload WAV</label>
-        <input
-          id="ring_sound_upload"
-          type="file"
-          accept=".wav,audio/wav"
-          on:change={(event) => {
-            const target = event.currentTarget as HTMLInputElement;
-            ringSoundUpload = target.files && target.files.length > 0 ? target.files[0] : null;
-            preparedUploadName = ringSoundUpload ? buildUploadSoundName(ringSoundUpload.name) : "";
+    <section class="card">
+      <div class="console-header">
+        <div>
+          <h1>{activeProduct.title}</h1>
+          <p>{activeProduct.subtitle}</p>
+        </div>
+        <button
+          class="secondary"
+          type="button"
+          disabled={authBusy}
+          on:click={async () => {
+            try {
+              await submitLogout();
+            } catch (error) {
+              setMessage(errorMessage(error), true);
+            }
           }}
-        />
+        >
+          Sign out
+        </button>
       </div>
-      <div>
-        <label for="ring_sound_select">Available Sounds</label>
-        <select id="ring_sound_select" bind:value={selectedRingSound}>
-          <option value="">Select sound</option>
-          {#each ringSounds as sound}
-            <option value={sound}>{sound}</option>
-          {/each}
-        </select>
-      </div>
-    </div>
-    {#if preparedUploadName}
-      <p class="hint">Upload filename: <code>{preparedUploadName}</code></p>
-    {/if}
-    <div class="button-row">
-      <button
-        class="secondary"
-        type="button"
-        disabled={isUploadingRingSound || !ringSoundUpload}
-        on:click={async () => {
-          try {
-            await uploadRingSound();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Upload Sound
-      </button>
-      <button
-        type="button"
-        disabled={isUploadingRingSound || !selectedRingSound}
-        on:click={async () => {
-          try {
-            await activateRingSound();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Activate Selected Sound
-      </button>
-      <button
-        class="secondary"
-        type="button"
-        on:click={async () => {
-          try {
-            await loadRingSounds();
-            setMessage("Ring sounds refreshed.", false);
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Refresh Sounds
-      </button>
-    </div>
-    <p class="hint">Upload a file and activate it. The chime daemon will use it for new rings without a restart.</p>
-  </section>
+    </section>
 
-
-  <section class="card">
-    <h2>Notifications</h2>
-    <div class="row">
-      <div>
-        <label for="notification_success_sound_path">Success Sound Path</label>
-        <input
-          id="notification_success_sound_path"
-          bind:value={notificationSuccessSoundPath}
-          maxlength="256"
-          placeholder="/usr/local/share/chime/test.wav"
-        />
-      </div>
-      <div>
-        <label for="notification_failure_sound_path">Failure Sound Path</label>
-        <input
-          id="notification_failure_sound_path"
-          bind:value={notificationFailureSoundPath}
-          maxlength="256"
-          placeholder="/usr/local/share/chime/ring.wav"
-        />
-      </div>
-    </div>
-    <p class="hint">Used for startup and other system notification beeps.</p>
-  </section>
-
-  <section class="card">
-    <h2>Volume</h2>
-    <div class="row">
-      <div>
-        <label for="volume_bell">Bell (%)</label>
-        <input id="volume_bell" type="number" min="0" max="100" step="1" bind:value={volumeBell} />
-      </div>
-      <div>
-        <label for="volume_notifications">Notifications (%)</label>
-        <input
-          id="volume_notifications"
-          type="number"
-          min="0"
-          max="100"
-          step="1"
-          bind:value={volumeNotifications}
-        />
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="volume_other">Other (%)</label>
-        <input id="volume_other" type="number" min="0" max="100" step="1" bind:value={volumeOther} />
-      </div>
-      <div></div>
-    </div>
-    <p class="hint">These are software volume levels (0-100) applied before playback.</p>
-  </section>
-
-  <section class="card">
-    <h2>MQTT</h2>
-    <div class="row">
-      <div>
-        <label for="mqtt_host">Host</label>
-        <input id="mqtt_host" bind:value={mqttHost} placeholder="broker.local" />
-      </div>
-      <div>
-        <label for="mqtt_port">Port</label>
-        <input id="mqtt_port" type="number" min="1" max="65535" bind:value={mqttPort} />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label for="mqtt_client_id">Client ID</label>
-        <input id="mqtt_client_id" bind:value={mqttClientId} />
-      </div>
-      <div>
-        <label for="mqtt_username">Username</label>
-        <input id="mqtt_username" bind:value={mqttUsername} placeholder="Optional" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label for="mqtt_password">Password</label>
-        <input
-          id="mqtt_password"
-          type="password"
-          bind:value={mqttPassword}
-          placeholder="Leave blank to keep current"
-        />
-      </div>
-      <div>
-        <label for="ring_topic">Ring Topic</label>
-        <input id="ring_topic" bind:value={ringTopic} list="observed_topics" placeholder="doorbell/ring" />
-        <datalist id="observed_topics">
-          {#each observedTopics as topic}
-            <option value={topic}></option>
-          {/each}
-        </datalist>
-      </div>
-    </div>
-    <div class="button-row">
-      <button
-        class="secondary"
-        type="button"
-        on:click={async () => {
-          try {
-            await loadObservedTopics();
-            setMessage("Observed topics refreshed.");
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Refresh Observed Topics
-      </button>
-    </div>
-    <p class="hint">Use suggestions or enter a topic manually.</p>
-    <p class="hint">
-      {mqttPasswordSet
-        ? "MQTT password is set. Leave blank to keep it unchanged."
-        : "No MQTT password saved yet."}
-    </p>
-    <div class="row">
-      <div>
-        <label for="mqtt_tls_enabled">TLS Enabled</label>
-        <input id="mqtt_tls_enabled" type="checkbox" bind:checked={mqttTlsEnabled} />
-      </div>
-      <div>
-        <label for="mqtt_tls_validate_certificate">Validate Certificate</label>
-        <input
-          id="mqtt_tls_validate_certificate"
-          type="checkbox"
-          bind:checked={mqttTlsValidateCertificate}
-        />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label for="mqtt_tls_ca_file">CA File</label>
-        <input id="mqtt_tls_ca_file" bind:value={mqttTlsCaFile} placeholder="/etc/ssl/certs/ca.pem" />
-      </div>
-      <div>
-        <label for="mqtt_tls_cert_file">Client Cert File</label>
-        <input id="mqtt_tls_cert_file" bind:value={mqttTlsCertFile} placeholder="/etc/chime/client.crt" />
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label for="mqtt_tls_key_file">Client Key File</label>
-        <input id="mqtt_tls_key_file" bind:value={mqttTlsKeyFile} placeholder="/etc/chime/client.key" />
-      </div>
-      <div></div>
-    </div>
-    <p class="hint">Client cert/key are optional, but must be provided together.</p>
-
-    <label for="mqtt_topics">Subscribe Topics (comma-separated)</label>
-    <input id="mqtt_topics" bind:value={mqttTopics} placeholder="doorbell/ring,doorbell/status" />
-
-    <div class="button-row">
-      <button
-        type="button"
-        disabled={isSaving}
-        on:click={async () => {
-          try {
-            await saveConfig();
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : String(error), true);
-          }
-        }}
-      >
-        Save &amp; Apply
-      </button>
-    </div>
-
-    {#if messageText}
-      <div class:error={messageIsError} class="message">
-        {#if isSaving}
-          <span class="spinner" aria-hidden="true"></span>
-        {/if}
-        {messageText}
-      </div>
-    {/if}
-  </section>
+    <ProductPage {messageText} {messageIsError} {setMessage} onLoadFailed={onProductLoadFailed} />
   {/if}
 
-  <section class="version-strip">
-    <span>Chime {chimeVersion}</span>
-    <span class="dot">•</span>
-    <span>OS {osVersion}</span>
-    <span class="dot">•</span>
-    <span>Config {configVersion}</span>
-  </section>
+  <VersionFooter
+    productLabel={activeProduct.versionLabel}
+    {productVersion}
+    {osVersion}
+    {configVersion}
+  />
 </div>
