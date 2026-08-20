@@ -50,19 +50,37 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      # Official Kitware tarball instead of a JS action: setup-cmake still
+      # calls url.parse() and warns under Node 24 (DEP0169).
       - name: Set up CMake 4.x
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: "4.0.0"
+        run: |
+          set -euo pipefail
+          cmake_ver="4.0.0"
+          cmake_sha256="a06e6e32da747e569162bc0442a3fd400fadd9db7d4f185c9e4464ab299a294b"
+          curl -fsSL -o /tmp/cmake.tar.gz \
+            "https://github.com/Kitware/CMake/releases/download/v${cmake_ver}/cmake-${cmake_ver}-linux-x86_64.tar.gz"
+          echo "${cmake_sha256}  /tmp/cmake.tar.gz" | sha256sum -c
+          mkdir -p "${HOME}/cmake"
+          tar -xzf /tmp/cmake.tar.gz -C "${HOME}/cmake" --strip-components=1
+          echo "${HOME}/cmake/bin" >> "${GITHUB_PATH}"
+          export PATH="${HOME}/cmake/bin:${PATH}"
+          cmake --version
+
+      # setup-bun only parses .bun-version / package.json / .tool-versions, not
+      # buildroot/bun-version. Pass the pin explicitly so CI does not fall back
+      # to "latest".
+      - name: Read pinned Bun version
+        id: bun-version
+        run: echo "version=$(tr -d '[:space:]' < buildroot/bun-version)" >> "${GITHUB_OUTPUT}"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version-file: buildroot/bun-version
+          bun-version: ${{ steps.bun-version.outputs.version }}
 
       - name: Install deps
         run: |
@@ -148,10 +166,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Cache Buildroot toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/openchime-buildroot
           # Exact defconfig key only. A restore-keys prefix can reuse gcc from
