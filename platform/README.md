@@ -18,7 +18,7 @@ platform (oc_platform, oc_platform_http)    # no chime/ includes or links
 - `oc_platform_http` — HTTP parser/router, JSON adapter, TLS server, static UI files, Wi-Fi scan, mDNS. Linked by configuration daemons only, so the ring binary does not take OpenSSL.
 - CMake fails configure if any file under `platform/include`, `platform/src`, or `platform/tests` includes `chime/`, or if `oc_platform` / `oc_platform_http` link a `chime*` target.
 - Product binaries stay `chime` (ring) and `chime-webd` (configuration). They remain separate processes.
-- A platform-only graph is `cmake -DOC_BUILD_CHIME=OFF`. Native CI runs `./scripts/platform_only_ci.sh`, which configures, builds, and tests a staged tree that does not contain `chime/`.
+- A platform-only graph is `cmake -DOC_BUILD_CHIME=OFF`. Native CI runs `./scripts/platform_only_ci.sh`, which configures, builds, and tests a staged tree that does not contain `chime/`. `./scripts/test_platform_link_guard.sh` checks that a Chime target added after `platform/` still fails configure.
 
 Board-specific work (kernel, device tree, rootfs overlay, Pi quirks) stays in `buildroot/` until TW-356 documents that boundary. Do not add Bell here.
 

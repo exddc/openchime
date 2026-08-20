@@ -163,6 +163,7 @@ jobs:
           BUILD_TYPE: ${{ matrix.build_type }}
         run: |
           bash ./scripts/platform_only_ci.sh
+          bash ./scripts/test_platform_link_guard.sh
 
       - name: Assert checkout is clean
         run: |
