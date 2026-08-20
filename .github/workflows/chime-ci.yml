@@ -158,6 +158,12 @@ jobs:
         run: |
           bash ./scripts/chime_ci.sh
 
+      - name: Run platform-only tests
+        env:
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: |
+          bash ./scripts/platform_only_ci.sh
+
       - name: Assert checkout is clean
         run: |
           test -z "$(git status --porcelain)"

@@ -15,7 +15,7 @@ Run the same checks as GitHub chime CI from the repo root:
 
 This configures the native CMake build with `-DOC_BUILD_TESTS=ON`, builds, and runs `ctest --output-on-failure`. A plain `cmake -S .` leaves tests off, so production and offline configures do not download doctest.
 
-CMake is the single build graph for `oc_platform`, `oc_platform_http`, `chime_core`, `chime_webd_core`, `chime`, and `chime-webd`. Native CI, `scripts/local_chime.sh`, and the Buildroot `chime` package all consume that graph—add a source to a CMake target and it is included everywhere. Platform code cannot include `chime/` headers; see [platform/README.md](../platform/README.md).
+CMake is the single build graph for `oc_platform`, `oc_platform_http`, `chime_core`, `chime_webd_core`, `chime`, and `chime-webd`. Native CI, `scripts/local_chime.sh`, and the Buildroot `chime` package all consume that graph—add a source to a CMake target and it is included everywhere. Platform code cannot include `chime/` headers or link Chime targets; `./scripts/platform_only_ci.sh` builds and tests `platform/` with `chime/` absent. See [platform/README.md](../platform/README.md).
 
 Useful options:
 - `./scripts/chime_ci.sh --fix-format` to apply `clang-format` to the checked files.
