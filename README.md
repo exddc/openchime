@@ -43,7 +43,7 @@ A future product.
 ## Repository Structure
 
 ```
-├── common/             # Shared C++ library (config, MQTT, logging, runtime)
+├── platform/           # Product-agnostic C++ platform (`oc::`; see platform/README.md)
 ├── chime/              # Chime ring service and HTTPS setup daemon (`src/webd/`)
 ├── webui/              # Svelte configuration UI served by chime-webd
 ├── buildroot/          # Raspberry Pi Zero W image, overlays, and OTA tooling
@@ -57,6 +57,7 @@ A future product.
 
 ## Documentation
 
+- [Platform README](platform/README.md) — product-agnostic library, dependency direction, adding a route
 - [Chime README](chime/README.md) — Chime runtime, webd, and config keys
 - [Buildroot README](buildroot/README.md) — Image build, flash, and deploy
 - [Reliability runbook](docs/reliability-runbook.md) — On-device logs, MQTT, webd/TLS, persistent data, OTA, recovery

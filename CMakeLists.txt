@@ -83,7 +83,16 @@ message(STATUS "CHIME_BUILD_ID=${CHIME_BUILD_ID}")
 
 if(OC_BUILD_TESTS)
   include(CTest)
+  include(FetchContent)
+  FetchContent_Declare(
+    doctest
+    URL https://github.com/doctest/doctest/archive/refs/tags/v2.5.3.tar.gz
+    URL_HASH SHA256=174ebc4e769928959614789c5b4e9c3d0a0f81a62bb608756b127bfebfb21331
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+  set(DOCTEST_WITH_TESTS OFF CACHE BOOL "" FORCE)
+  set(DOCTEST_NO_INSTALL ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(doctest)
 endif()
 
-add_subdirectory(common)
+add_subdirectory(platform)
 add_subdirectory(chime)

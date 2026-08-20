@@ -227,7 +227,7 @@ REQUIRES_OS_CONFIG_VERSION_BUMP=0
 REQUIRES_CONFIG_VERSION_BUMP=0
 while IFS= read -r file; do
     case "$file" in
-        chime/*|common/*|buildroot/package/chime/*)
+        chime/*|platform/*|buildroot/package/chime/*)
             REQUIRES_APP_VERSION_BUMP=1
             ;;
     esac
@@ -237,10 +237,11 @@ while IFS= read -r file; do
     fi
 
     case "$file" in
-        schema/*|buildroot/board/*/rootfs_overlay/etc/chime.conf|chime/include/chime/generated/config_types.h|chime/include/chime/generated/config_json.h|webui/src/generated/config_schema.ts)
+        schema/*|buildroot/board/*/rootfs_overlay/etc/chime.conf|chime/include/chime/generated/config_types.h|webui/src/generated/config_schema.ts)
             REQUIRES_CONFIG_VERSION_BUMP=1
             # version.env is the release-level schema gate, including schema-only
-            # changes that do not touch other buildroot files.
+            # changes that do not touch other buildroot files. Generated
+            # config_json.h is adapter code (includes/usings), not a schema source.
             REQUIRES_OS_CONFIG_VERSION_BUMP=1
             ;;
     esac
@@ -258,7 +259,7 @@ TARGET_APP_VERSION="$(read_file_from_target "$APP_VERSION_FILE" | head -n 1 | tr
 
 if [ "$REQUIRES_APP_VERSION_BUMP" -eq 1 ]; then
     if ! printf '%s\n' "$CHANGED_FILES" | grep -qx "$APP_VERSION_FILE"; then
-        error "App version bump required: update $APP_VERSION_FILE when changing chime/common/package files"
+        error "App version bump required: update $APP_VERSION_FILE when changing chime/platform/package files"
     fi
 
     if ! is_semver "$BASE_APP_VERSION" || ! is_semver "$TARGET_APP_VERSION"; then

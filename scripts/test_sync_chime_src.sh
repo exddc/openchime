@@ -27,7 +27,7 @@ main() {
     source="$tmp/repo"
     destination="$tmp/chime-src"
 
-    mkdir -p "$source/chime" "$source/common" "$source/cmake" "$destination/cmake" "$destination/stale-root"
+    mkdir -p "$source/chime" "$source/platform" "$source/cmake" "$destination/cmake" "$destination/stale-root"
     printf 'cmake_minimum_required(VERSION 3.27)\nproject(sync_test)\n' > "$source/CMakeLists.txt"
     printf 'keep\n' > "$source/cmake/keep.cmake"
     printf 'gone\n' > "$destination/cmake/deleted.cmake"

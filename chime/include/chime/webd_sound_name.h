@@ -4,7 +4,7 @@
 #include <cctype>
 #include <string>
 
-#include "chime/webd_string_utils.h"
+#include "oc/util/strings.h"
 
 namespace chime::webd {
 
@@ -18,7 +18,7 @@ inline bool IsSafeSoundName(const std::string &file_name) {
     if (file_name.find("..") != std::string::npos) {
         return false;
     }
-    const std::string lowered = ToLower(file_name);
+    const std::string lowered = oc::util::ToLower(file_name);
     const bool has_prefix = lowered.size() >= 5 && lowered.compare(0, 5, "ring-") == 0;
     if (!has_prefix || lowered.rfind(".wav") != lowered.size() - 4) {
         return false;

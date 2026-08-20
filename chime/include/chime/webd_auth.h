@@ -8,13 +8,16 @@
 #include <optional>
 #include <string>
 
-#include "chime/webd_http.h"
+#include "oc/http/http.h"
 
 namespace oc::logging {
 class Logger;
 }
 
 namespace chime::webd {
+
+using oc::http::HttpRequest;
+using oc::http::HttpResponse;
 
 constexpr const char *kSessionCookieName = "chime_session";
 constexpr const char *kCsrfCookieName = "chime_csrf";

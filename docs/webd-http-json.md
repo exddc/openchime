@@ -4,9 +4,9 @@ For contributors who add administration endpoints or change `chime-webd` depende
 
 ## Decision
 
-`chime-webd` now parses and emits JSON through cJSON 1.7.19 (MIT), vendored at `chime/third_party/cJSON/` and compiled by the same CMake graph used for native CI and Buildroot. `chime/src/webd/json.cpp` is a cJSON adapter only. It no longer contains a project-owned JSON grammar, and handlers no longer concatenate JSON strings. HTTP JSON response helpers live in `json_http.cpp`. Product field readers live in `json_validate.cpp`.
+`chime-webd` now parses and emits JSON through cJSON 1.7.19 (MIT), vendored at `platform/third_party/cJSON/` and compiled by the same CMake graph used for native CI and Buildroot. `platform/src/json/json.cpp` is a cJSON adapter only. It no longer contains a project-owned JSON grammar, and handlers no longer concatenate JSON strings. HTTP JSON response helpers live in `platform/src/http/json_http.cpp`. Product field readers live in `platform/src/json/validate.cpp`.
 
-The HTTP server stays in-tree, split into parser, router, static-file serving, and product handlers. TLS accept, certificate generation, and `SSL_shutdown` on connection close remain in `web_server.cpp`. That split is the fallback the ticket allowed. The measurements below are why a third-party HTTP library was not a fit.
+The HTTP server stays in-tree, split into parser, router, static-file serving, and product handlers. TLS accept, certificate generation, and `SSL_shutdown` on connection close live in `platform/src/http/tls_server.cpp`. Product routes register through `oc::http::ProductRoutes` (see [platform/README.md](../platform/README.md)). That split is the fallback TW-351 allowed. The measurements below are why a third-party HTTP library was not a fit.
 
 ## Measurements
 
@@ -60,21 +60,21 @@ Number spellings are slightly looser than RFC 8259: `01` and `1.` parse as `1`. 
 
 | Piece | Role |
 | --- | --- |
-| `http_parse.cpp` | Request-line, headers, `Content-Length`, body limits |
-| `http_router.cpp` | Method/path table used by TW-350-style registration |
-| `json.cpp` | cJSON adapter (`ParseJson` / `DumpJson` / object field lookup) |
-| `json_http.cpp` | `JsonHttpBody` / `JsonHttpError` |
-| `json_validate.cpp` | Required/optional field readers for product payloads |
-| `static_files.cpp` | UI dist serving with path containment |
-| `api_handlers.cpp` | Product endpoints |
-| `web_server.cpp` | TLS listen, accept, `SSL_shutdown`, process shutdown |
+| `platform/src/http/parse.cpp` | Request-line, headers, `Content-Length`, body limits |
+| `platform/src/http/router.cpp` | Method/path table used by product `Register()` |
+| `platform/src/json/json.cpp` | cJSON adapter (`ParseJson` / `DumpJson` / object field lookup) |
+| `platform/src/http/json_http.cpp` | `JsonHttpBody` / `JsonHttpError` |
+| `platform/src/json/validate.cpp` | Required/optional field readers for product payloads |
+| `platform/src/http/static_files.cpp` | UI dist serving with path containment |
+| `platform/src/http/tls_server.cpp` | TLS listen, accept, `SSL_shutdown`, process shutdown |
+| `chime/src/webd/api_handlers.cpp` | Chime product endpoints |
 
 Supported methods are GET, POST, and PUT. Anything else returns 405. Request-line limit is 8192 bytes, header block 64 KiB, header count 100, body 2 MiB. JSON POST bodies on `/api/v1/config/core` and `/api/v1/ring/sounds/select` are rejected above 64 KiB; WAV upload still uses the 2 MiB HTTP cap. Any `Transfer-Encoding` header is rejected; this server does not decode transfer codings and will not accept `Transfer-Encoding` together with `Content-Length`. Paths with `..` or encoded `/`, `\`, or NUL are rejected at parse time. Static files also resolve `weakly_canonical` under the UI root, including `index.html` for `/` and SPA fallback.
 
 Exact routes beat prefixes. `POST /api/v1/system/version` is 405 because a GET exact route exists; `GET /api/v1/system/reboot` is 501 from the reserved prefix. The router matches exact path, then longest prefix, then fallback. It does not emit JSON; `WebApi` injects JSON 404/405 bodies.
 
-Register new product routes with `HttpRouter::Add` / `AddPrefix` (or `WebApi::router()` after construction). Do not add a method/path `if` chain in `WebServer`.
+Register new product routes by implementing `oc::http::ProductRoutes` (Chime: `WebApi::Register`). Do not add a method/path `if` chain in `TlsServer`.
 
 ## Tests
 
-CTest covers malformed request lines, invalid `Content-Length`, oversized bodies, blank header lines, and unsupported methods. It also covers path traversal, malformed JSON, a large-array JSON conversion, static-file containment (SPA fallback, `/assets/` 404, outbound symlink), a config GET/POST round trip that asserts password redaction, omitted-password preservation, pairing/login/logout, CSRF on mutating routes, ring-sound upload/select, a TLS start/stop smoke test (ephemeral port, self-signed cert, `Connection: close`, `WebServer::Stop()`), and a TLS test that `GET /api/v1/system/version` stays responsive while two slow login hashes run. Run them with `./scripts/chime_ci.sh` or `ctest --test-dir chime/build-ci --output-on-failure --no-tests=error`.
+CTest covers malformed request lines, invalid `Content-Length`, oversized bodies, blank header lines, and unsupported methods. It also covers path traversal, malformed JSON, a large-array JSON conversion, static-file containment (SPA fallback, `/assets/` 404, outbound symlink), a config GET/POST round trip that asserts password redaction, omitted-password preservation, pairing/login/logout, CSRF on mutating routes, ring-sound upload/select, a platform TLS start/stop smoke test (ephemeral port, self-signed cert, `Connection: close`, `TlsServer::Stop()`), a product TLS test that `GET /api/v1/system/version` stays responsive while two slow login hashes run, and `GET /api/v1/ping` registration without editing platform routing. Run them with `./scripts/chime_ci.sh` or `ctest --test-dir chime/build-ci --output-on-failure --no-tests=error`.

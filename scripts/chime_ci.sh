@@ -122,9 +122,10 @@ is_chime_format_file() {
   local path="$1"
   case "$path" in
     chime/third_party/*) return 1 ;;
+    platform/third_party/*) return 1 ;;
     chime/include/chime/generated/*) return 1 ;;
     chime/tests/config_schema_contract_test.cpp) return 1 ;;
-    chime/*|common/*) ;;
+    chime/*|platform/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -136,7 +137,7 @@ is_chime_format_file() {
 is_chime_tidy_file() {
   local path="$1"
   case "$path" in
-    chime/src/*|common/src/*) ;;
+    chime/src/*|platform/src/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -147,7 +148,7 @@ is_chime_tidy_file() {
 
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime common
+    git ls-files -z -- chime platform
     return
   fi
 
@@ -161,10 +162,10 @@ collect_candidates() {
   log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
   if ! git diff --quiet "$merge_base" HEAD -- .clang-format .clang-tidy; then
     log "Clang configuration changed; checking all C/C++ files" >&2
-    git ls-files -z -- chime common
+    git ls-files -z -- chime platform
     return
   fi
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime platform
 }
 
 collect_format_files() {
@@ -206,7 +207,7 @@ run_clang_format() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime/common C/C++ files found for clang-format"
+    log "No chime/platform C/C++ files found for clang-format"
     return
   fi
 
@@ -293,7 +294,7 @@ run_clang_tidy() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime/common C++ sources found for clang-tidy"
+    log "No chime/platform C++ sources found for clang-tidy"
     return
   fi
 

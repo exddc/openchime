@@ -40,8 +40,8 @@ MARKER_FILE="$DEST/.openchime-sync-root"
     echo "ERROR: missing $REPO_ROOT/chime" >&2
     exit 1
 }
-[ -d "$REPO_ROOT/common" ] || {
-    echo "ERROR: missing $REPO_ROOT/common" >&2
+[ -d "$REPO_ROOT/platform" ] || {
+    echo "ERROR: missing $REPO_ROOT/platform" >&2
     exit 1
 }
 
@@ -67,7 +67,7 @@ rsync -a --delete \
     --exclude 'build-*/' \
     --exclude 'cmake-build-*/' \
     "$REPO_ROOT/chime/" "$DEST/chime/"
-rsync -a --delete "$REPO_ROOT/common/" "$DEST/common/"
+rsync -a --delete "$REPO_ROOT/platform/" "$DEST/platform/"
 cp "$REPO_ROOT/CMakeLists.txt" "$DEST/CMakeLists.txt"
 
 if [ -d "$REPO_ROOT/cmake" ]; then
@@ -77,7 +77,7 @@ fi
 
 keep_dest_entry() {
     case "$1" in
-        .openchime-sync-root|CMakeLists.txt|chime|common)
+        .openchime-sync-root|CMakeLists.txt|chime|platform)
             return 0
             ;;
         cmake)

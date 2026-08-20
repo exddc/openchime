@@ -5,8 +5,10 @@
 #include <mutex>
 #include <string>
 
-#include "chime/webd_http.h"
-#include "chime/webd_router.h"
+#include "oc/http/http.h"
+#include "oc/http/product_routes.h"
+#include "oc/http/router.h"
+#include "oc/wifi/scan.h"
 
 namespace oc::logging {
 class Logger;
@@ -14,26 +16,30 @@ class Logger;
 
 namespace chime::webd {
 
+using oc::http::HttpRequest;
+using oc::http::HttpResponse;
+using oc::http::HttpRouter;
+
 constexpr std::size_t kMaxJsonBodyBytes = 64 * 1024;
 
 class ApplyManager;
 class AuthStore;
 class ConfigStore;
-class WifiScanner;
 
-class WebApi {
+class WebApi : public oc::http::ProductRoutes {
   public:
-    WebApi(oc::logging::Logger &logger, ConfigStore &config_store, WifiScanner &wifi_scanner,
+    WebApi(oc::logging::Logger &logger, ConfigStore &config_store, oc::wifi::WifiScanner &wifi_scanner,
            ApplyManager &apply_manager, AuthStore &auth_store, std::string ui_dist_dir,
            std::string observed_topics_path, std::string ring_sounds_dir, std::string active_ring_sound_path);
 
     HttpRouter &router() { return router_; }
     const HttpRouter &router() const { return router_; }
 
+    void Register(HttpRouter &router) override;
     HttpResponse Handle(const HttpRequest &request);
+    static bool OffloadToSlowWorker(const HttpRequest &request);
 
   private:
-    void RegisterRoutes();
     HttpResponse AuthorizeAndDispatch(const HttpRequest &request);
 
     HttpResponse HandleGetCoreConfig();
@@ -49,7 +55,7 @@ class WebApi {
 
     oc::logging::Logger &logger_;
     ConfigStore &config_store_;
-    WifiScanner &wifi_scanner_;
+    oc::wifi::WifiScanner &wifi_scanner_;
     ApplyManager &apply_manager_;
     AuthStore &auth_store_;
     std::string ui_dist_dir_;

@@ -96,9 +96,10 @@ is_cxx_file() {
   local path="$1"
   case "$path" in
     chime/third_party/*) return 1 ;;
+    platform/third_party/*) return 1 ;;
     chime/include/chime/generated/*) return 1 ;;
     chime/tests/config_schema_contract_test.cpp) return 1 ;;
-    chime/*|common/*) ;;
+    chime/*|platform/*) ;;
     *) return 1 ;;
   esac
 
@@ -144,7 +145,7 @@ is_shell_file() {
 
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime common webui scripts buildroot/board
+    git ls-files -z -- chime platform webui scripts buildroot/board
     return 0
   fi
 
@@ -156,7 +157,7 @@ collect_candidates() {
   [ -n "$merge_base" ] || error "Failed to find merge-base for $BASE_REF and HEAD"
 
   log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common webui scripts buildroot/board
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime platform webui scripts buildroot/board
   return 0
 }
 
@@ -204,7 +205,7 @@ collect_files() {
 
   if [ "$mode" = "cxx" ] && cxx_format_configuration_changed; then
     log ".clang-format changed; checking all C/C++ files" >&2
-    emit_files "$mode" < <(git ls-files -z -- chime common)
+    emit_files "$mode" < <(git ls-files -z -- chime platform)
     return 0
   fi
 

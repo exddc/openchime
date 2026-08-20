@@ -9,9 +9,9 @@
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
-#include "chime/webd_http.h"
-#include "chime/webd_wifi_scan.h"
 #include "doctest.h"
+#include "oc/http/http.h"
+#include "oc/wifi/scan.h"
 #include "test_support.h"
 
 constexpr const char *kWebHarnessConfig = R"(
@@ -33,7 +33,7 @@ volume_bell=80
 volume_notifications=70
 )";
 
-inline std::string CookieFromResponse(const chime::webd::HttpResponse &response, const std::string &name) {
+inline std::string CookieFromResponse(const oc::http::HttpResponse &response, const std::string &name) {
     const std::string prefix = name + "=";
     for (const auto &line : response.set_cookies) {
         if (line.rfind(prefix, 0) != 0) {
@@ -54,7 +54,7 @@ class WebHarness {
         const auto conf = tmp_.WriteFile("chime.conf", kWebHarnessConfig);
         store_ =
             std::make_unique<chime::webd::ConfigStore>(logger_, conf.string(), (tmp_.path() / "wpa.conf").string());
-        scanner_ = std::make_unique<chime::webd::WifiScanner>(logger_, "wlan0");
+        scanner_ = std::make_unique<oc::wifi::WifiScanner>(logger_, "wlan0");
         apply_ = std::make_unique<chime::webd::ApplyManager>(logger_, "true", "true");
 
         chime::webd::AuthStoreOptions options;
@@ -89,7 +89,7 @@ class WebHarness {
     }
 
     void Login(const std::string &password) {
-        chime::webd::HttpRequest request;
+        oc::http::HttpRequest request;
         request.method = "POST";
         request.path = "/api/v1/auth/login";
         request.body = std::string("{\"password\":\"") + password + "\"}";
@@ -101,7 +101,7 @@ class WebHarness {
         REQUIRE_FALSE(csrf_token_.empty());
     }
 
-    void Authorize(chime::webd::HttpRequest &request, bool with_csrf = true) const {
+    void Authorize(oc::http::HttpRequest &request, bool with_csrf = true) const {
         request.headers["cookie"] = std::string(chime::webd::kSessionCookieName) + "=" + session_id_ + "; " +
                                     chime::webd::kCsrfCookieName + "=" + csrf_token_;
         if (with_csrf) {
@@ -109,9 +109,9 @@ class WebHarness {
         }
     }
 
-    chime::webd::HttpRequest Request(const std::string &method, const std::string &path, const std::string &body = "",
-                                     bool authed = true, bool with_csrf = true) const {
-        chime::webd::HttpRequest request;
+    oc::http::HttpRequest Request(const std::string &method, const std::string &path, const std::string &body = "",
+                                  bool authed = true, bool with_csrf = true) const {
+        oc::http::HttpRequest request;
         request.method = method;
         request.path = path;
         request.body = body;
@@ -126,7 +126,7 @@ class WebHarness {
     NullLogger logger_;
     std::string secret_;
     std::unique_ptr<chime::webd::ConfigStore> store_;
-    std::unique_ptr<chime::webd::WifiScanner> scanner_;
+    std::unique_ptr<oc::wifi::WifiScanner> scanner_;
     std::unique_ptr<chime::webd::ApplyManager> apply_;
     std::unique_ptr<chime::webd::AuthStore> auth_;
     std::unique_ptr<chime::webd::WebApi> api_;

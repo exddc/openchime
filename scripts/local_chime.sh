@@ -186,7 +186,7 @@ configure_cmake() {
     # Old handwritten builds left binaries named `chime` in the build dir.
     # CMake needs that path as the `chime/` subdirectory output folder.
     local collide
-    for collide in chime common cmake; do
+    for collide in chime platform cmake; do
         if [ -e "$BUILD_DIR/$collide" ] && [ ! -d "$BUILD_DIR/$collide" ]; then
             log "Removing leftover file that conflicts with CMake: $BUILD_DIR/$collide"
             rm -f "$BUILD_DIR/$collide"

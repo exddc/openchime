@@ -6,26 +6,18 @@
 #include <vector>
 
 #include "chime/generated/config_types.h"
+#include "oc/apply/job_runner.h"
+#include "oc/config/validation.h"
 
 namespace chime::webd {
 
-struct ValidationError {
-    std::string field;
-    std::string message;
-};
+using ValidationError = oc::config::ValidationError;
+using ApplyStatus = oc::apply::Status;
 
 struct CoreConfigSnapshot {
     CoreConfig config;
     bool wifi_password_set = false;
     bool mqtt_password_set = false;
-};
-
-struct ApplyStatus {
-    unsigned long long job_id = 0;
-    std::string state = "idle";
-    std::string started_at_utc;
-    std::string finished_at_utc;
-    std::string error;
 };
 
 struct SaveRequest {

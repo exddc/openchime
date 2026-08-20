@@ -8,33 +8,33 @@
 #include <unistd.h>
 
 #include "chime/webd_auth.h"
-#include "chime/webd_http.h"
-#include "chime/webd_json.h"
 #include "doctest.h"
+#include "oc/http/http.h"
+#include "oc/json/json.h"
 #include "web_test_harness.h"
 
 namespace {
 
-chime::webd::JsonValue ParseBody(const chime::webd::HttpResponse &response) {
-    const auto parsed = chime::webd::ParseJson(response.body);
+oc::json::JsonValue ParseBody(const oc::http::HttpResponse &response) {
+    const auto parsed = oc::json::ParseJson(response.body);
     REQUIRE(parsed.success);
     return parsed.value;
 }
 
-chime::webd::JsonValue RequireField(const chime::webd::JsonValue &value, const std::string &key) {
-    const auto field = chime::webd::GetObjectField(value, key);
+oc::json::JsonValue RequireField(const oc::json::JsonValue &value, const std::string &key) {
+    const auto field = oc::json::GetObjectField(value, key);
     REQUIRE(field.has_value());
     return *field;
 }
 
-std::string RequireError(const chime::webd::HttpResponse &response) {
+std::string RequireError(const oc::http::HttpResponse &response) {
     std::string error;
     REQUIRE(RequireField(ParseBody(response), "error").AsString(&error));
     return error;
 }
 
-bool HasField(const chime::webd::JsonValue &value, const std::string &key) {
-    return chime::webd::GetObjectField(value, key).has_value();
+bool HasField(const oc::json::JsonValue &value, const std::string &key) {
+    return oc::json::GetObjectField(value, key).has_value();
 }
 
 std::string MinimalWav() {
@@ -93,7 +93,7 @@ TEST_SUITE("web_auth") {
         const auto version = harness.api().Handle(harness.Request("GET", "/api/v1/system/version", "", false));
         CHECK(version.status == 200);
 
-        chime::webd::HttpRequest pair;
+        oc::http::HttpRequest pair;
         pair.method = "POST";
         pair.path = "/api/v1/auth/pair";
         pair.body = R"({"pairing_code":"ABCD2345","password":"admin-secret-1"})";
@@ -129,7 +129,7 @@ TEST_SUITE("web_auth") {
     TEST_CASE("login succeeds with the admin password and rejects a wrong password") {
         WebHarness harness(WebHarness::Mode::Paired, "correct-horse");
 
-        chime::webd::HttpRequest wrong;
+        oc::http::HttpRequest wrong;
         wrong.method = "POST";
         wrong.path = "/api/v1/auth/login";
         wrong.body = R"({"password":"wrong-password"})";
@@ -139,7 +139,7 @@ TEST_SUITE("web_auth") {
         CHECK(wrong_response.body.find("wrong-password") == std::string::npos);
         CHECK(wrong_response.body.find("correct-horse") == std::string::npos);
 
-        chime::webd::HttpRequest login;
+        oc::http::HttpRequest login;
         login.method = "POST";
         login.path = "/api/v1/auth/login";
         login.body = R"({"password":"correct-horse"})";
@@ -148,7 +148,7 @@ TEST_SUITE("web_auth") {
         CHECK(login_response.body.find("correct-horse") == std::string::npos);
         CHECK(login_response.body.find("pbkdf2") == std::string::npos);
 
-        chime::webd::HttpRequest get;
+        oc::http::HttpRequest get;
         get.method = "GET";
         get.path = "/api/v1/config/core";
         get.headers["cookie"] = std::string(chime::webd::kSessionCookieName) + "=" +
@@ -200,13 +200,13 @@ TEST_SUITE("web_auth") {
         options.session_ttl = std::chrono::seconds(1);
         const auto conf = tmp.WriteFile("chime.conf", kWebHarnessConfig);
         chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
+        oc::wifi::WifiScanner scanner(logger, "wlan0");
         chime::webd::ApplyManager apply(logger, "true", "true");
         chime::webd::AuthStore auth(logger, options);
         chime::webd::WebApi api(logger, store, scanner, apply, auth, "", (tmp.path() / "topics.txt").string(),
                                 (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());
 
-        chime::webd::HttpRequest login;
+        oc::http::HttpRequest login;
         login.method = "POST";
         login.path = "/api/v1/auth/login";
         login.body = R"({"password":"test-password-ok"})";
@@ -215,7 +215,7 @@ TEST_SUITE("web_auth") {
         const std::string session = CookieFromResponse(login_response, chime::webd::kSessionCookieName);
         const std::string csrf = CookieFromResponse(login_response, chime::webd::kCsrfCookieName);
 
-        chime::webd::HttpRequest logout;
+        oc::http::HttpRequest logout;
         logout.method = "POST";
         logout.path = "/api/v1/auth/logout";
         logout.headers["cookie"] = std::string(chime::webd::kSessionCookieName) + "=" + session;
@@ -226,7 +226,7 @@ TEST_SUITE("web_auth") {
         REQUIRE(RequireField(ParseBody(logout_response), "authenticated").AsBool(&authenticated));
         CHECK_FALSE(authenticated);
 
-        chime::webd::HttpRequest get;
+        oc::http::HttpRequest get;
         get.method = "GET";
         get.path = "/api/v1/config/core";
         get.headers["cookie"] = std::string(chime::webd::kSessionCookieName) + "=" + session;
@@ -235,7 +235,7 @@ TEST_SUITE("web_auth") {
         const auto login_again = api.Handle(login);
         REQUIRE(login_again.status == 200);
         std::this_thread::sleep_for(std::chrono::milliseconds(1100));
-        chime::webd::HttpRequest expired;
+        oc::http::HttpRequest expired;
         expired.method = "GET";
         expired.path = "/api/v1/config/core";
         expired.headers["cookie"] = std::string(chime::webd::kSessionCookieName) + "=" +
@@ -264,7 +264,7 @@ TEST_SUITE("web_auth") {
               "unpaired");
 
         const std::string pairing_code = *harness.auth().UnpairedSetupSecret();
-        chime::webd::HttpRequest pair;
+        oc::http::HttpRequest pair;
         pair.method = "POST";
         pair.path = "/api/v1/auth/pair";
         pair.body = std::string("{\"pairing_code\":\"") + pairing_code + "\",\"password\":\"new-admin-pass\"}";
@@ -283,7 +283,7 @@ TEST_SUITE("web_auth") {
 
     TEST_CASE("login rate limit rejects extra guesses") {
         WebHarness harness(WebHarness::Mode::Paired, "correct-horse");
-        chime::webd::HttpRequest wrong;
+        oc::http::HttpRequest wrong;
         wrong.method = "POST";
         wrong.path = "/api/v1/auth/login";
         wrong.peer_address = "192.0.2.10";
@@ -295,14 +295,14 @@ TEST_SUITE("web_auth") {
         CHECK(last_status == 429);
         CHECK(RequireError(harness.api().Handle(wrong)) == "rate_limited");
 
-        chime::webd::HttpRequest other;
+        oc::http::HttpRequest other;
         other.method = "POST";
         other.path = "/api/v1/auth/login";
         other.peer_address = "192.0.2.11";
         other.body = R"({"password":"correct-horse"})";
         CHECK(harness.api().Handle(other).status == 200);
 
-        chime::webd::HttpRequest malformed;
+        oc::http::HttpRequest malformed;
         malformed.method = "POST";
         malformed.path = "/api/v1/auth/login";
         malformed.peer_address = "192.0.2.12";
@@ -310,14 +310,14 @@ TEST_SUITE("web_auth") {
         for (int i = 0; i < 6; ++i) {
             CHECK(harness.api().Handle(malformed).status == 400);
         }
-        chime::webd::HttpRequest still_allowed = wrong;
+        oc::http::HttpRequest still_allowed = wrong;
         still_allowed.peer_address = "192.0.2.12";
         CHECK(harness.api().Handle(still_allowed).status == 401);
     }
 
     TEST_CASE("pairing rate limit rejects extra guesses") {
         WebHarness harness(WebHarness::Mode::Unpaired, "ABCD2345");
-        chime::webd::HttpRequest wrong;
+        oc::http::HttpRequest wrong;
         wrong.method = "POST";
         wrong.path = "/api/v1/auth/pair";
         wrong.peer_address = "192.0.2.20";
@@ -329,7 +329,7 @@ TEST_SUITE("web_auth") {
         CHECK(last_status == 429);
         CHECK(RequireError(harness.api().Handle(wrong)) == "rate_limited");
 
-        chime::webd::HttpRequest other;
+        oc::http::HttpRequest other;
         other.method = "POST";
         other.path = "/api/v1/auth/pair";
         other.peer_address = "192.0.2.21";
@@ -337,7 +337,7 @@ TEST_SUITE("web_auth") {
         CHECK(harness.api().Handle(other).status == 200);
 
         WebHarness second(WebHarness::Mode::Unpaired, "ABCD2345");
-        chime::webd::HttpRequest malformed;
+        oc::http::HttpRequest malformed;
         malformed.method = "POST";
         malformed.path = "/api/v1/auth/pair";
         malformed.peer_address = "192.0.2.22";
@@ -345,7 +345,7 @@ TEST_SUITE("web_auth") {
         for (int i = 0; i < 6; ++i) {
             CHECK(second.api().Handle(malformed).status == 400);
         }
-        chime::webd::HttpRequest still_allowed = wrong;
+        oc::http::HttpRequest still_allowed = wrong;
         still_allowed.peer_address = "192.0.2.22";
         CHECK(second.api().Handle(still_allowed).status == 401);
     }
@@ -361,7 +361,7 @@ TEST_SUITE("web_auth") {
             chime::webd::AuthStore auth(logger, options);
             REQUIRE(auth.Ready());
             CHECK_FALSE(auth.IsPaired());
-            chime::webd::HttpRequest pair;
+            oc::http::HttpRequest pair;
             pair.method = "POST";
             pair.path = "/api/v1/auth/pair";
             pair.body = R"({"pairing_code":"ABCD2345","password":"persist-secret"})";
@@ -373,7 +373,7 @@ TEST_SUITE("web_auth") {
         chime::webd::AuthStore restarted(logger, options);
         REQUIRE(restarted.Ready());
         CHECK(restarted.IsPaired());
-        chime::webd::HttpRequest login;
+        oc::http::HttpRequest login;
         login.method = "POST";
         login.path = "/api/v1/auth/login";
         login.body = R"({"password":"persist-secret"})";
@@ -402,7 +402,7 @@ TEST_SUITE("web_auth") {
         options.pbkdf2_iterations = 2;
         options.cookie_secure = false;
         chime::webd::AuthStore auth(logger, options);
-        chime::webd::HttpRequest login_insecure;
+        oc::http::HttpRequest login_insecure;
         login_insecure.method = "POST";
         login_insecure.path = "/api/v1/auth/login";
         login_insecure.body = R"({"password":"test-password-ok"})";
@@ -444,7 +444,7 @@ TEST_SUITE("web_auth") {
         options.auth_window = std::chrono::seconds(1);
         chime::webd::AuthStore auth(logger, options);
 
-        chime::webd::HttpRequest login;
+        oc::http::HttpRequest login;
         login.method = "POST";
         login.path = "/api/v1/auth/login";
         login.body = R"({"password":"test-password-ok"})";
@@ -454,13 +454,13 @@ TEST_SUITE("web_auth") {
         CHECK(auth.SessionEntryCount() == chime::webd::kMaxAuthSessions);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1100));
-        chime::webd::HttpRequest status;
+        oc::http::HttpRequest status;
         status.method = "GET";
         status.path = "/api/v1/auth/status";
         REQUIRE(auth.HandleStatus(status).status == 200);
         CHECK(auth.SessionEntryCount() == 0);
 
-        chime::webd::HttpRequest wrong;
+        oc::http::HttpRequest wrong;
         wrong.method = "POST";
         wrong.path = "/api/v1/auth/login";
         wrong.body = R"({"password":"nope-nope-nope"})";
@@ -485,7 +485,7 @@ TEST_SUITE("web_auth") {
         chime::webd::AuthStore auth(logger, options);
         CHECK_FALSE(auth.Ready());
 
-        chime::webd::HttpRequest status;
+        oc::http::HttpRequest status;
         status.method = "GET";
         status.path = "/api/v1/auth/status";
         const auto status_response = auth.HandleStatus(status);
@@ -493,7 +493,7 @@ TEST_SUITE("web_auth") {
         CHECK(RequireError(status_response) == "auth_unavailable");
         CHECK_FALSE(HasField(ParseBody(status_response), "paired"));
 
-        chime::webd::HttpRequest pair;
+        oc::http::HttpRequest pair;
         pair.method = "POST";
         pair.path = "/api/v1/auth/pair";
         pair.body = R"({"pairing_code":"ABCD2345","password":"admin-secret-1"})";
