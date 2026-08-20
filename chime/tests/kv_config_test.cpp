@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "oc/config/kv_config.h"
+#include "oc/config/kv_document.h"
 #include "test_support.h"
 
 namespace {
@@ -111,5 +112,32 @@ items = a, b,c
         const auto result = oc::config::load("/no/such/openchime-kv-config.conf", SampleConfig{}, kFields);
         CHECK_FALSE(result);
         CHECK(result.error.find("Failed to open config") != std::string::npos);
+    }
+}
+
+TEST_SUITE("kv_document") {
+    TEST_CASE("round-trips comments, assignments, and unknown lines") {
+        const std::string original = "# heading\nfoo=1\n\nnot-a-pair\nfoo=2\n";
+        auto document = oc::config::ParseKvDocument(original);
+        CHECK(oc::config::KvDocumentValue(document, "foo") == "2");
+        oc::config::KvDocumentSetValue(document, "foo", "3");
+        oc::config::KvDocumentSetValue(document, "bar", "x");
+        oc::config::KvDocumentRemoveKey(document, "missing");
+        const std::string rendered = oc::config::RenderKvDocument(document);
+        CHECK(rendered.find("# heading") != std::string::npos);
+        CHECK(rendered.find("not-a-pair") != std::string::npos);
+        CHECK(rendered.find("foo=3") != std::string::npos);
+        CHECK(rendered.find("bar=x") != std::string::npos);
+        CHECK(rendered.find("foo=1") == std::string::npos);
+    }
+
+    TEST_CASE("join_csv and bool_to_text match parsers") {
+        CHECK(oc::config::join_csv({"a", "b"}) == "a,b");
+        bool parsed = false;
+        CHECK(oc::config::parse_bool_value(oc::config::bool_to_text(true), &parsed));
+        CHECK(parsed);
+        int number = 0;
+        CHECK(oc::config::parse_int_value("12", 1, 20, &number));
+        CHECK(number == 12);
     }
 }

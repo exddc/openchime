@@ -122,6 +122,8 @@ is_chime_format_file() {
   local path="$1"
   case "$path" in
     chime/third_party/*) return 1 ;;
+    chime/include/chime/generated/*) return 1 ;;
+    chime/tests/config_schema_contract_test.cpp) return 1 ;;
     chime/*|common/*) ;;
     *) return 1 ;;
   esac

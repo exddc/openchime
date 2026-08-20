@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Migrates /etc/chime.conf after S31persistent bind-mounts /data/etc/chime.conf.
+# Must run before S41timesync, S45webd, and S99chime.
+# Malformed or future schema_version values leave the file unchanged here;
+# chime and chime-webd refuse to start on those failures.
+
+DAEMON="chime-migrate"
+MIGRATE_BIN="/usr/local/bin/chime-migrate"
+CONFIG_FILE="/etc/chime.conf"
+
+start() {
+    printf "Starting %s: " "$DAEMON"
+
+    if [ ! -x "$MIGRATE_BIN" ]; then
+        echo "SKIP (binary not found)"
+        return 0
+    fi
+
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "SKIP (no config)"
+        return 0
+    fi
+
+    if "$MIGRATE_BIN" "$CONFIG_FILE"; then
+        echo "OK"
+        return 0
+    fi
+
+    echo "WARN (kept last usable config)"
+    return 0
+}
+
+stop() {
+    :
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+        ;;
+esac
+
+exit 0

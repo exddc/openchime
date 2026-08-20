@@ -38,6 +38,58 @@ inline std::vector<std::string> split_csv(std::string_view csv) {
     return result;
 }
 
+inline std::string join_csv(const std::vector<std::string> &items) {
+    std::string out;
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        if (i > 0) {
+            out.push_back(',');
+        }
+        out += items[i];
+    }
+    return out;
+}
+
+inline const char *bool_to_text(bool value) { return value ? "true" : "false"; }
+
+inline bool parse_int_value(std::string_view value, int min_val, int max_val, int *output) {
+    if (output == nullptr) {
+        return false;
+    }
+    const std::string text = trim(value);
+    if (text.empty()) {
+        return false;
+    }
+    char *end = nullptr;
+    const long parsed = std::strtol(text.c_str(), &end, 10);
+    if (end == nullptr || *end != '\0' || parsed < min_val || parsed > max_val) {
+        return false;
+    }
+    *output = static_cast<int>(parsed);
+    return true;
+}
+
+inline bool parse_bool_value(std::string_view value, bool *output) {
+    if (output == nullptr) {
+        return false;
+    }
+    std::string lower = trim(value);
+    if (lower.empty()) {
+        return false;
+    }
+    for (char &c : lower) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    if (lower == "true" || lower == "yes" || lower == "1" || lower == "on") {
+        *output = true;
+        return true;
+    }
+    if (lower == "false" || lower == "no" || lower == "0" || lower == "off") {
+        *output = false;
+        return true;
+    }
+    return false;
+}
+
 template <typename T> struct Field {
     const char *key;
     bool (*setter)(T &target, std::string_view value);
@@ -51,13 +103,7 @@ template <typename T, std::string T::*member> bool parse_string(T &target, std::
 
 template <typename T, int T::*member, int min_val = 1, int max_val = 65535>
 bool parse_int(T &target, std::string_view value) {
-    char *end = nullptr;
-    const long parsed = std::strtol(std::string(value).c_str(), &end, 10);
-    if (end == nullptr || *end != '\0' || parsed < min_val || parsed > max_val) {
-        return false;
-    }
-    target.*member = static_cast<int>(parsed);
-    return true;
+    return parse_int_value(value, min_val, max_val, &(target.*member));
 }
 
 template <typename T, std::vector<std::string> T::*member> bool parse_csv(T &target, std::string_view value) {
@@ -66,20 +112,7 @@ template <typename T, std::vector<std::string> T::*member> bool parse_csv(T &tar
 }
 
 template <typename T, bool T::*member> bool parse_bool(T &target, std::string_view value) {
-    std::string lower;
-    lower.reserve(value.size());
-    for (char c : value) {
-        lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    if (lower == "true" || lower == "yes" || lower == "1" || lower == "on") {
-        target.*member = true;
-        return true;
-    }
-    if (lower == "false" || lower == "no" || lower == "0" || lower == "off") {
-        target.*member = false;
-        return true;
-    }
-    return false;
+    return parse_bool_value(value, &(target.*member));
 }
 
 template <typename T> struct LoadResult {

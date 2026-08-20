@@ -95,11 +95,13 @@ The daemon logs:
 
 ## Config Keys
 
-See `/etc/chime.conf` for image defaults. Empty `mqtt_host` means the broker is not configured.
+The product schema is `schema/chime_config.json`. Field names, types, defaults, validation, ownership, secrets, and migration live there. Runtime `ChimeConfig`, webd `CoreConfig`, TypeScript UI types, and this file's inventory are generated from it. See [config schema](../docs/config-schema.md).
+
+See `/etc/chime.conf` for image values. Empty `mqtt_host` means the broker is not configured.
 
 Daemon keys:
 - `mqtt_host`, `mqtt_port`, `mqtt_client_id`
-- `mqtt_username`, `mqtt_password` (optional broker auth)
+- `mqtt_username`, `mqtt_password` (optional broker auth; password is redacted on API reads)
 - `mqtt_tls_enabled`, `mqtt_tls_validate_certificate`
 - `mqtt_tls_ca_file`, `mqtt_tls_cert_file`, `mqtt_tls_key_file`
 - `mqtt_topics` (comma-separated)
@@ -110,14 +112,15 @@ Daemon keys:
   - Supports MQTT topic filters (`+` and `#`) for matching incoming message topics
 - `sound_path`
 - `volume_bell` (0-100, bell/ring events)
-- `volume_notifications` (0-100, startup/notification category)
-- `volume_other` (0-100, fallback category)
+- `volume_notifications` (0-100, startup/notification playback)
 - `audio_enabled`
 - `wifi_interface`
 - `wifi_check_interval` (0 disables WiFi state checks)
 
-Init-service keys (used by `S41timesync` and `S99chime`):
+Init-service keys (used by `S41timesync` and `S99chime`, not by the daemons):
 - `ntp_servers` (comma-separated)
 - `time_http_urls` (comma-separated HTTP URLs used as fallback Date source)
 - `time_sync_retries`, `time_sync_retry_delay`, `time_sync_interval`
 - `log_max_bytes`, `log_rotate_keep`, `log_rotate_check_interval`
+
+`schema_version` is written by `chime-migrate`. `volume_other` was removed in schema 5.

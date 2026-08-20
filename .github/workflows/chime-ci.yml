@@ -17,6 +17,7 @@ on:
       - "webui/biome.json"
       - "webui/package.json"
       - "webui/bun.lock"
+      - "schema/**"
   pull_request:
     paths:
       - "**/CMakeLists.txt"
@@ -32,6 +33,7 @@ on:
       - "webui/biome.json"
       - "webui/package.json"
       - "webui/bun.lock"
+      - "schema/**"
   workflow_dispatch:
 
 concurrency:

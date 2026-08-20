@@ -1,13 +1,10 @@
 #include "chime/webd_config_store.h"
 
-#include <algorithm>
-#include <cctype>
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <map>
-#include <set>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <sys/stat.h>
@@ -15,7 +12,10 @@
 #include <vector>
 
 #include "chime/chime_config.h"
+#include "chime/generated/config_json.h"
+#include "chime/generated/config_types.h"
 #include "oc/config/kv_config.h"
+#include "oc/config/kv_document.h"
 #include "oc/logging/logger.h"
 #include "oc/util/filesystem.h"
 
@@ -63,62 +63,6 @@ std::string JoinLines(const std::vector<std::string> &lines) {
         content.push_back('\n');
     }
     return content;
-}
-
-std::string JoinCsv(const std::vector<std::string> &items) {
-    std::string out;
-    for (std::size_t i = 0; i < items.size(); ++i) {
-        if (i > 0) {
-            out.push_back(',');
-        }
-        out += items[i];
-    }
-    return out;
-}
-
-bool ParseInt(std::string_view text, int min_value, int max_value, int *output) {
-    if (output == nullptr) {
-        return false;
-    }
-
-    const std::string trimmed = oc::config::trim(text);
-    if (trimmed.empty()) {
-        return false;
-    }
-
-    char *end = nullptr;
-    const long parsed = std::strtol(trimmed.c_str(), &end, 10);
-    if (end == nullptr || *end != '\0' || parsed < min_value || parsed > max_value) {
-        return false;
-    }
-
-    *output = static_cast<int>(parsed);
-    return true;
-}
-
-bool ParseBool(std::string_view text, bool *output) {
-    if (output == nullptr) {
-        return false;
-    }
-    std::string normalized = oc::config::trim(text);
-    if (normalized.empty()) {
-        return false;
-    }
-    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (normalized == "true" || normalized == "yes" || normalized == "1" || normalized == "on") {
-        *output = true;
-        return true;
-    }
-    if (normalized == "false" || normalized == "no" || normalized == "0" || normalized == "off") {
-        *output = false;
-        return true;
-    }
-    return false;
-}
-
-std::string BoolToConfig(bool value) {
-    return value ? "true" : "false";
 }
 
 std::string StripQuotes(std::string_view value) {
@@ -215,36 +159,6 @@ WpaData ParseWpaData(const std::vector<std::string> &lines) {
     return data;
 }
 
-std::string ExtractConfigValue(const std::vector<std::string> &lines, const std::string &key) {
-    std::string output;
-    const std::string prefix = key + "=";
-
-    for (const auto &line : lines) {
-        const std::string trimmed = oc::config::trim(line);
-        if (trimmed.empty() || trimmed[0] == '#') {
-            continue;
-        }
-        if (trimmed.rfind(prefix, 0) == 0) {
-            output = oc::config::trim(trimmed.substr(prefix.size()));
-        }
-    }
-
-    return output;
-}
-
-bool IsTopicValid(const std::string &topic) {
-    if (topic.empty()) {
-        return false;
-    }
-    if (topic.find(' ') != std::string::npos) {
-        return false;
-    }
-    if (topic.find('\t') != std::string::npos) {
-        return false;
-    }
-    return true;
-}
-
 } // namespace
 
 ConfigStore::ConfigStore(oc::logging::Logger &logger, std::string chime_config_path, std::string wpa_supplicant_path)
@@ -270,11 +184,13 @@ SaveResult ConfigStore::SaveCoreConfig(const SaveRequest &request) {
 
     std::string error;
     if (!SaveWpaSupplicant(request, existing.snapshot, &error)) {
+        logger_.Error("webd", "failed to save wpa_supplicant.conf: " + error);
         result.error = error;
         return result;
     }
 
     if (!SaveChimeConfig(request, existing.snapshot, &error)) {
+        logger_.Error("webd", "failed to save chime.conf: " + error);
         result.error = error;
         return result;
     }
@@ -290,101 +206,27 @@ SaveResult ConfigStore::SaveCoreConfig(const SaveRequest &request) {
 
 std::vector<ValidationError> ConfigStore::ValidateRequest(const SaveRequest &request) const {
     std::vector<ValidationError> errors;
-
-    if (request.config.wifi_ssid.empty()) {
-        errors.push_back({"wifi_ssid", "wifi_ssid is required"});
-    } else if (request.config.wifi_ssid.size() > 32) {
-        errors.push_back({"wifi_ssid", "wifi_ssid must be <= 32 chars"});
-    }
-
-    if (request.wifi_password.has_value() && !request.wifi_password->empty()) {
-        const std::size_t length = request.wifi_password->size();
-        if (length < 8 || length > 63) {
-            errors.push_back({"wifi_password", "wifi_password must be 8-63 chars when provided"});
-        }
-    }
-
-    if (request.config.mqtt_host.empty()) {
-        errors.push_back({"mqtt_host", "mqtt_host is required"});
-    } else if (request.config.mqtt_host.find(' ') != std::string::npos) {
-        errors.push_back({"mqtt_host", "mqtt_host must not contain spaces"});
-    }
-
-    if (request.config.mqtt_port < 1 || request.config.mqtt_port > 65535) {
-        errors.push_back({"mqtt_port", "mqtt_port must be 1-65535"});
-    }
-
-    if (request.config.mqtt_client_id.empty()) {
-        errors.push_back({"mqtt_client_id", "mqtt_client_id is required"});
-    } else if (request.config.mqtt_client_id.size() > 128) {
-        errors.push_back({"mqtt_client_id", "mqtt_client_id must be <= 128 chars"});
-    }
-
-    if (request.config.mqtt_username.size() > 128) {
-        errors.push_back({"mqtt_username", "mqtt_username must be <= 128 chars"});
-    }
+    generated_config_json::ValidateSaveRequest(request, &errors);
 
     if (request.config.mqtt_username.empty() && request.mqtt_password.has_value() && !request.mqtt_password->empty()) {
         errors.push_back({"mqtt_password", "mqtt_password requires mqtt_username to be set"});
     }
 
-    if (request.mqtt_password.has_value() && request.mqtt_password->size() > 256) {
-        errors.push_back({"mqtt_password", "mqtt_password must be <= 256 chars"});
-    }
-
-    if (request.config.mqtt_tls_ca_file.size() > 256) {
-        errors.push_back({"mqtt_tls_ca_file", "mqtt_tls_ca_file must be <= 256 chars"});
-    }
-    if (request.config.mqtt_tls_cert_file.size() > 256) {
-        errors.push_back({"mqtt_tls_cert_file", "mqtt_tls_cert_file must be <= 256 chars"});
-    }
-    if (request.config.mqtt_tls_key_file.size() > 256) {
-        errors.push_back({"mqtt_tls_key_file", "mqtt_tls_key_file must be <= 256 chars"});
-    }
     const bool tls_cert_set = !request.config.mqtt_tls_cert_file.empty();
     const bool tls_key_set = !request.config.mqtt_tls_key_file.empty();
     if (tls_cert_set != tls_key_set) {
         errors.push_back({"mqtt_tls_cert_file", "mqtt_tls_cert_file and mqtt_tls_key_file must both be set"});
     }
 
-    if (request.config.mqtt_topics.empty()) {
-        errors.push_back({"mqtt_topics", "mqtt_topics must contain at least one topic"});
-    } else {
-        for (std::size_t i = 0; i < request.config.mqtt_topics.size(); ++i) {
-            if (!IsTopicValid(request.config.mqtt_topics[i])) {
-                errors.push_back({"mqtt_topics", "mqtt_topics[" + std::to_string(i) + "] is invalid"});
-            }
-        }
-    }
-
-    if (!IsTopicValid(request.config.ring_topic)) {
-        errors.push_back({"ring_topic", "ring_topic is invalid"});
-    }
-
-    const auto validate_sound_path = [&errors](const std::string &field_name, const std::string &value) {
-        if (value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
-            errors.push_back({field_name, field_name + " must not contain newline characters"});
-            return;
-        }
-
-        const std::string trimmed = oc::config::trim(value);
-        if (trimmed.empty() || trimmed.size() > 256) {
-            errors.push_back({field_name, field_name + " must be 1-256 chars after trimming"});
+    const auto reject_blank_after_trim = [&errors](const char *key, const std::string &value) {
+        if (!value.empty() && oc::config::trim(value).empty()) {
+            const auto *spec = FindConfigField(key);
+            const int max_len = spec != nullptr && spec->max_len > 0 ? spec->max_len : 256;
+            errors.push_back({key, std::string(key) + " must be 1-" + std::to_string(max_len) + " chars after trimming"});
         }
     };
-
-    validate_sound_path("notification_success_sound_path", request.config.notification_success_sound_path);
-    validate_sound_path("notification_failure_sound_path", request.config.notification_failure_sound_path);
-
-    if (request.config.volume_bell < 0 || request.config.volume_bell > 100) {
-        errors.push_back({"volume_bell", "volume_bell must be 0-100"});
-    }
-    if (request.config.volume_notifications < 0 || request.config.volume_notifications > 100) {
-        errors.push_back({"volume_notifications", "volume_notifications must be 0-100"});
-    }
-    if (request.config.volume_other < 0 || request.config.volume_other > 100) {
-        errors.push_back({"volume_other", "volume_other must be 0-100"});
-    }
+    reject_blank_after_trim("notification_success_sound_path", request.config.notification_success_sound_path);
+    reject_blank_after_trim("notification_failure_sound_path", request.config.notification_failure_sound_path);
 
     return errors;
 }
@@ -393,77 +235,16 @@ SaveResult ConfigStore::LoadCoreConfigInternal() const {
     SaveResult result;
     result.success = false;
 
-    std::vector<std::string> chime_lines;
-    std::string error;
-    if (!ReadAllLines(chime_config_path_, &chime_lines, &error)) {
-        result.error = error;
+    const auto loaded = oc::config::load(chime_config_path_, FileConfig{}, kFileConfigFields);
+    if (!loaded) {
+        result.error = loaded.error;
         return result;
     }
 
-    chime::ChimeConfig defaults;
-    CoreConfig config;
-    config.mqtt_host = ExtractConfigValue(chime_lines, "mqtt_host");
-    const std::string port_raw = ExtractConfigValue(chime_lines, "mqtt_port");
-    int port_value = 1883;
-    if (!ParseInt(port_raw, 1, 65535, &port_value)) {
-        port_value = 1883;
-    }
-    config.mqtt_port = port_value;
-
-    const std::string client_id = ExtractConfigValue(chime_lines, "mqtt_client_id");
-    config.mqtt_client_id = client_id.empty() ? defaults.client_id : client_id;
-
-    config.mqtt_username = ExtractConfigValue(chime_lines, "mqtt_username");
-    config.mqtt_password = ExtractConfigValue(chime_lines, "mqtt_password");
-
-    const std::string tls_enabled_raw = ExtractConfigValue(chime_lines, "mqtt_tls_enabled");
-    bool tls_enabled = defaults.mqtt_tls_enabled;
-    ParseBool(tls_enabled_raw, &tls_enabled);
-    config.mqtt_tls_enabled = tls_enabled;
-
-    const std::string tls_validate_raw = ExtractConfigValue(chime_lines, "mqtt_tls_validate_certificate");
-    bool tls_validate = defaults.mqtt_tls_validate_certificate;
-    ParseBool(tls_validate_raw, &tls_validate);
-    config.mqtt_tls_validate_certificate = tls_validate;
-
-    config.mqtt_tls_ca_file = ExtractConfigValue(chime_lines, "mqtt_tls_ca_file");
-    config.mqtt_tls_cert_file = ExtractConfigValue(chime_lines, "mqtt_tls_cert_file");
-    config.mqtt_tls_key_file = ExtractConfigValue(chime_lines, "mqtt_tls_key_file");
-
-    const std::string topics_csv = ExtractConfigValue(chime_lines, "mqtt_topics");
-    config.mqtt_topics = oc::config::split_csv(topics_csv);
-
-    const std::string ring_topic = ExtractConfigValue(chime_lines, "ring_topic");
-    config.ring_topic = ring_topic.empty() ? defaults.ring_topic : ring_topic;
-
-    const std::string notification_success_sound_path =
-        ExtractConfigValue(chime_lines, "notification_success_sound_path");
-    config.notification_success_sound_path = notification_success_sound_path.empty()
-                                                 ? defaults.notification_success_sound_path
-                                                 : notification_success_sound_path;
-
-    const std::string notification_failure_sound_path =
-        ExtractConfigValue(chime_lines, "notification_failure_sound_path");
-    config.notification_failure_sound_path = notification_failure_sound_path.empty()
-                                                 ? defaults.notification_failure_sound_path
-                                                 : notification_failure_sound_path;
-
-    const std::string volume_bell_raw = ExtractConfigValue(chime_lines, "volume_bell");
-    int volume_bell = defaults.volume_bell;
-    ParseInt(volume_bell_raw, 0, 100, &volume_bell);
-    config.volume_bell = volume_bell;
-
-    const std::string volume_notifications_raw = ExtractConfigValue(chime_lines, "volume_notifications");
-    int volume_notifications = defaults.volume_notifications;
-    ParseInt(volume_notifications_raw, 0, 100, &volume_notifications);
-    config.volume_notifications = volume_notifications;
-
-    const std::string volume_other_raw = ExtractConfigValue(chime_lines, "volume_other");
-    int volume_other = defaults.volume_other;
-    ParseInt(volume_other_raw, 0, 100, &volume_other);
-    config.volume_other = volume_other;
+    CoreConfig config = CoreConfigFromFile(loaded.config);
 
     std::vector<std::string> wpa_lines;
+    std::string error;
     if (!ReadAllLinesIfExists(wpa_supplicant_path_, &wpa_lines, &error)) {
         result.error = error;
         return result;
@@ -481,66 +262,31 @@ SaveResult ConfigStore::LoadCoreConfigInternal() const {
 
 bool ConfigStore::SaveChimeConfig(const SaveRequest &request, const CoreConfigSnapshot &existing,
                                   std::string *error) const {
-    std::vector<std::string> lines;
-    if (!ReadAllLines(chime_config_path_, &lines, error)) {
-        return false;
+    std::string original;
+    {
+        std::ifstream file(chime_config_path_);
+        if (!file.is_open()) {
+            *error = "failed to open file '" + chime_config_path_ + "'";
+            return false;
+        }
+        original.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     }
 
+    auto document = oc::config::ParseKvDocument(original);
     std::string mqtt_password = existing.config.mqtt_password;
     if (request.mqtt_password.has_value()) {
         mqtt_password = *request.mqtt_password;
     }
 
-    const std::map<std::string, std::string> replacements = {
-        {"mqtt_host", request.config.mqtt_host},
-        {"mqtt_port", std::to_string(request.config.mqtt_port)},
-        {"mqtt_client_id", request.config.mqtt_client_id},
-        {"mqtt_username", request.config.mqtt_username},
-        {"mqtt_password", mqtt_password},
-        {"mqtt_tls_enabled", BoolToConfig(request.config.mqtt_tls_enabled)},
-        {"mqtt_tls_validate_certificate", BoolToConfig(request.config.mqtt_tls_validate_certificate)},
-        {"mqtt_tls_ca_file", request.config.mqtt_tls_ca_file},
-        {"mqtt_tls_cert_file", request.config.mqtt_tls_cert_file},
-        {"mqtt_tls_key_file", request.config.mqtt_tls_key_file},
-        {"mqtt_topics", JoinCsv(request.config.mqtt_topics)},
-        {"ring_topic", request.config.ring_topic},
-        {"notification_success_sound_path", request.config.notification_success_sound_path},
-        {"notification_failure_sound_path", request.config.notification_failure_sound_path},
-        {"volume_bell", std::to_string(request.config.volume_bell)},
-        {"volume_notifications", std::to_string(request.config.volume_notifications)},
-        {"volume_other", std::to_string(request.config.volume_other)},
-    };
-
-    std::set<std::string> seen;
-    for (auto &line : lines) {
-        const std::string trimmed = oc::config::trim(line);
-        if (trimmed.empty() || trimmed[0] == '#') {
-            continue;
-        }
-
-        const auto separator = trimmed.find('=');
-        if (separator == std::string::npos) {
-            continue;
-        }
-
-        const std::string key = oc::config::trim(trimmed.substr(0, separator));
-        const auto it = replacements.find(key);
-        if (it == replacements.end()) {
-            continue;
-        }
-
-        line = key + "=" + it->second;
-        seen.insert(key);
-    }
-
+    const auto replacements = CoreConfigFileReplacements(request.config, mqtt_password);
     for (const auto &[key, value] : replacements) {
-        if (seen.find(key) == seen.end()) {
-            lines.push_back(key + "=" + value);
-        }
+        oc::config::KvDocumentSetValue(document, key, value);
+    }
+    for (const char *removed : kRemovedConfigKeys) {
+        oc::config::KvDocumentRemoveKey(document, removed);
     }
 
-    const std::string content = JoinLines(lines);
-    return oc::util::AtomicWriteFile(chime_config_path_, content, kChimeConfigMode, error);
+    return oc::util::AtomicWriteFile(chime_config_path_, oc::config::RenderKvDocument(document), kChimeConfigMode, error);
 }
 
 bool ConfigStore::SaveWpaSupplicant(const SaveRequest &request, const CoreConfigSnapshot &, std::string *error) const {

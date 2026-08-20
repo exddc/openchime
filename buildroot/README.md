@@ -36,8 +36,8 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.7
-CHIME_CONFIG_VERSION=4
+OPENCHIME_OS_VERSION=0.2.8
+CHIME_CONFIG_VERSION=5
 ```
 
 `chime/VERSION`
@@ -46,7 +46,7 @@ CHIME_CONFIG_VERSION=4
 ```
 
 - `OPENCHIME_OS_VERSION`: bump when you build/flash a new OS image.
-- `CHIME_CONFIG_VERSION`: bump when default `chime.conf` semantics or format changes.
+- `CHIME_CONFIG_VERSION`: bump when default `chime.conf` semantics or the product schema in `schema/chime_config.json` change.
 - `chime/VERSION`: bump when `chime` binary behavior changes.
 
 During image builds, `post_build.sh` writes `/etc/openchime-release` on the target rootfs.

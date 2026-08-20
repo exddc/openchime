@@ -9,7 +9,7 @@ CONFIG_FILE="/etc/chime.conf"
 SUPERVISOR_PIDFILE="/var/run/chime_supervisor.pid"
 RESTART_DELAY_SECONDS=2
 
-# Log rotation defaults (overridable in /etc/chime.conf)
+# Log rotation defaults (overridable in /etc/chime.conf; init-only, not daemon fields)
 LOG_MAX_BYTES_DEFAULT=262144
 LOG_ROTATE_KEEP_DEFAULT=5
 LOG_ROTATE_CHECK_INTERVAL_DEFAULT=30

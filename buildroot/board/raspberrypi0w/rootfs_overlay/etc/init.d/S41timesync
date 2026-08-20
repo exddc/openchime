@@ -1,4 +1,7 @@
 #!/bin/sh
+# Time sync using init-only keys in /etc/chime.conf (ntp_servers, time_http_urls,
+# time_sync_retries, time_sync_retry_delay, time_sync_interval). The chime and
+# chime-webd daemons do not read these keys.
 
 DAEMON="timesync"
 CONFIG_FILE="/etc/chime.conf"

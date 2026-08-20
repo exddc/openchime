@@ -5,32 +5,13 @@
 #include <string>
 #include <vector>
 
+#include "chime/generated/config_types.h"
+
 namespace chime::webd {
 
 struct ValidationError {
     std::string field;
     std::string message;
-};
-
-struct CoreConfig {
-    std::string wifi_ssid;
-    std::string mqtt_host;
-    int mqtt_port = 1883;
-    std::string mqtt_client_id = "chime";
-    std::string mqtt_username;
-    std::string mqtt_password;
-    bool mqtt_tls_enabled = false;
-    bool mqtt_tls_validate_certificate = true;
-    std::string mqtt_tls_ca_file;
-    std::string mqtt_tls_cert_file;
-    std::string mqtt_tls_key_file;
-    std::vector<std::string> mqtt_topics;
-    std::string ring_topic = "doorbell/ring";
-    std::string notification_success_sound_path = "/usr/local/share/chime/test.wav";
-    std::string notification_failure_sound_path = "/usr/local/share/chime/ring.wav";
-    int volume_bell = 80;
-    int volume_notifications = 70;
-    int volume_other = 70;
 };
 
 struct CoreConfigSnapshot {
