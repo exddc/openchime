@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { CORE_CONFIG_DEFAULTS } from "../../generated/config_schema";
+
   export let notificationSuccessSoundPath: string;
   export let notificationFailureSoundPath: string;
 </script>
@@ -12,7 +14,7 @@
         id="notification_success_sound_path"
         bind:value={notificationSuccessSoundPath}
         maxlength="256"
-        placeholder="/usr/local/share/chime/test.wav"
+        placeholder={CORE_CONFIG_DEFAULTS.notification_success_sound_path}
       />
     </div>
     <div>
@@ -21,7 +23,7 @@
         id="notification_failure_sound_path"
         bind:value={notificationFailureSoundPath}
         maxlength="256"
-        placeholder="/usr/local/share/chime/ring.wav"
+        placeholder={CORE_CONFIG_DEFAULTS.notification_failure_sound_path}
       />
     </div>
   </div>

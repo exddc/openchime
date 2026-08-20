@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { CORE_CONFIG_DEFAULTS } from "../../generated/config_schema";
   import {
     errorMessage,
     getCoreConfig,
@@ -28,25 +29,26 @@
   export let onLoadFailed: (error: unknown) => void;
   export let loadRetryDelayMs = 800;
 
-  let wifiSsid = "";
+  let wifiSsid = CORE_CONFIG_DEFAULTS.wifi_ssid;
   let wifiPassword = "";
-  let mqttHost = "";
-  let mqttPort = 1883;
-  let mqttClientId = "chime";
-  let mqttUsername = "";
+  let mqttHost = CORE_CONFIG_DEFAULTS.mqtt_host;
+  let mqttPort = CORE_CONFIG_DEFAULTS.mqtt_port;
+  let mqttClientId = CORE_CONFIG_DEFAULTS.mqtt_client_id;
+  let mqttUsername = CORE_CONFIG_DEFAULTS.mqtt_username;
   let mqttPassword = "";
   let mqttPasswordSet = false;
-  let mqttTlsEnabled = false;
-  let mqttTlsValidateCertificate = true;
-  let mqttTlsCaFile = "";
-  let mqttTlsCertFile = "";
-  let mqttTlsKeyFile = "";
-  let ringTopic = "doorbell/ring";
-  let notificationSuccessSoundPath = "/usr/local/share/chime/test.wav";
-  let notificationFailureSoundPath = "/usr/local/share/chime/ring.wav";
-  let volumeBell = 80;
-  let volumeNotifications = 70;
-  let volumeOther = 70;
+  let mqttTlsEnabled = CORE_CONFIG_DEFAULTS.mqtt_tls_enabled;
+  let mqttTlsValidateCertificate = CORE_CONFIG_DEFAULTS.mqtt_tls_validate_certificate;
+  let mqttTlsCaFile = CORE_CONFIG_DEFAULTS.mqtt_tls_ca_file;
+  let mqttTlsCertFile = CORE_CONFIG_DEFAULTS.mqtt_tls_cert_file;
+  let mqttTlsKeyFile = CORE_CONFIG_DEFAULTS.mqtt_tls_key_file;
+  let ringTopic = CORE_CONFIG_DEFAULTS.ring_topic;
+  let notificationSuccessSoundPath =
+    CORE_CONFIG_DEFAULTS.notification_success_sound_path ?? "";
+  let notificationFailureSoundPath =
+    CORE_CONFIG_DEFAULTS.notification_failure_sound_path ?? "";
+  let volumeBell = CORE_CONFIG_DEFAULTS.volume_bell;
+  let volumeNotifications = CORE_CONFIG_DEFAULTS.volume_notifications;
   let mqttTopics = "";
   let observedTopics: string[] = [];
   let ringSounds: string[] = [];
@@ -94,25 +96,31 @@
   async function loadConfig(): Promise<void> {
     const data = await getCoreConfig(requestInit());
 
-    wifiSsid = data.wifi_ssid ?? "";
-    mqttHost = data.mqtt_host ?? "";
-    mqttPort = data.mqtt_port ?? 1883;
-    mqttClientId = data.mqtt_client_id ?? "chime";
-    mqttUsername = data.mqtt_username ?? "";
+    wifiSsid = data.wifi_ssid ?? CORE_CONFIG_DEFAULTS.wifi_ssid;
+    mqttHost = data.mqtt_host ?? CORE_CONFIG_DEFAULTS.mqtt_host;
+    mqttPort = data.mqtt_port ?? CORE_CONFIG_DEFAULTS.mqtt_port;
+    mqttClientId = data.mqtt_client_id ?? CORE_CONFIG_DEFAULTS.mqtt_client_id;
+    mqttUsername = data.mqtt_username ?? CORE_CONFIG_DEFAULTS.mqtt_username;
     mqttPasswordSet = data.mqtt_password_set ?? false;
-    mqttTlsEnabled = data.mqtt_tls_enabled ?? false;
-    mqttTlsValidateCertificate = data.mqtt_tls_validate_certificate ?? true;
-    mqttTlsCaFile = data.mqtt_tls_ca_file ?? "";
-    mqttTlsCertFile = data.mqtt_tls_cert_file ?? "";
-    mqttTlsKeyFile = data.mqtt_tls_key_file ?? "";
-    ringTopic = data.ring_topic ?? "doorbell/ring";
+    mqttTlsEnabled = data.mqtt_tls_enabled ?? CORE_CONFIG_DEFAULTS.mqtt_tls_enabled;
+    mqttTlsValidateCertificate =
+      data.mqtt_tls_validate_certificate ??
+      CORE_CONFIG_DEFAULTS.mqtt_tls_validate_certificate;
+    mqttTlsCaFile = data.mqtt_tls_ca_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_ca_file;
+    mqttTlsCertFile = data.mqtt_tls_cert_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_cert_file;
+    mqttTlsKeyFile = data.mqtt_tls_key_file ?? CORE_CONFIG_DEFAULTS.mqtt_tls_key_file;
+    ringTopic = data.ring_topic ?? CORE_CONFIG_DEFAULTS.ring_topic;
     notificationSuccessSoundPath =
-      data.notification_success_sound_path ?? "/usr/local/share/chime/test.wav";
+      data.notification_success_sound_path ??
+      CORE_CONFIG_DEFAULTS.notification_success_sound_path ??
+      "";
     notificationFailureSoundPath =
-      data.notification_failure_sound_path ?? "/usr/local/share/chime/ring.wav";
-    volumeBell = data.volume_bell ?? 80;
-    volumeNotifications = data.volume_notifications ?? 70;
-    volumeOther = data.volume_other ?? 70;
+      data.notification_failure_sound_path ??
+      CORE_CONFIG_DEFAULTS.notification_failure_sound_path ??
+      "";
+    volumeBell = data.volume_bell ?? CORE_CONFIG_DEFAULTS.volume_bell;
+    volumeNotifications =
+      data.volume_notifications ?? CORE_CONFIG_DEFAULTS.volume_notifications;
     mqttTopics = (data.mqtt_topics ?? []).join(",");
     setMessage(wifiPasswordHint(data.wifi_password_set), false);
   }
@@ -229,13 +237,17 @@
     isSaving = true;
     setMessage("Saving and applying changes...", false);
 
-    const safeVolumeBell = clampVolumeValue(volumeBell, 80);
-    const safeVolumeNotifications = clampVolumeValue(volumeNotifications, 70);
-    const safeVolumeOther = clampVolumeValue(volumeOther, 70);
+    const safeVolumeBell = clampVolumeValue(
+      volumeBell,
+      CORE_CONFIG_DEFAULTS.volume_bell,
+    );
+    const safeVolumeNotifications = clampVolumeValue(
+      volumeNotifications,
+      CORE_CONFIG_DEFAULTS.volume_notifications,
+    );
 
     volumeBell = safeVolumeBell;
     volumeNotifications = safeVolumeNotifications;
-    volumeOther = safeVolumeOther;
 
     try {
       const data = await saveCoreConfig(
@@ -258,7 +270,6 @@
           notification_failure_sound_path: notificationFailureSoundPath.trim(),
           volume_bell: safeVolumeBell,
           volume_notifications: safeVolumeNotifications,
-          volume_other: safeVolumeOther,
         },
         requestInit(),
       );
@@ -317,7 +328,7 @@
   bind:notificationFailureSoundPath
 />
 
-<VolumeCard bind:volumeBell bind:volumeNotifications bind:volumeOther />
+<VolumeCard bind:volumeBell bind:volumeNotifications />
 
 <MqttCard
   bind:mqttHost

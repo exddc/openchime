@@ -1,3 +1,5 @@
+import type { CoreConfigFields } from "../generated/config_schema";
+
 export type SessionLoss = "pair" | "login";
 
 type AuthErrorHandler = (kind: SessionLoss) => void;
@@ -38,52 +40,18 @@ export type ApplyStatus = {
   error?: string;
 };
 
-export type CoreConfigResponse = {
-  wifi_ssid?: string;
+export type CoreConfigResponse = Partial<CoreConfigFields> & {
   wifi_password_set?: boolean;
-  mqtt_host?: string;
-  mqtt_port?: number;
-  mqtt_client_id?: string;
-  mqtt_username?: string;
   mqtt_password_set?: boolean;
-  mqtt_tls_enabled?: boolean;
-  mqtt_tls_validate_certificate?: boolean;
-  mqtt_tls_ca_file?: string;
-  mqtt_tls_cert_file?: string;
-  mqtt_tls_key_file?: string;
-  mqtt_topics?: string[];
-  ring_topic?: string;
-  notification_success_sound_path?: string;
-  notification_failure_sound_path?: string;
-  volume_bell?: number;
-  volume_notifications?: number;
-  volume_other?: number;
   apply?: ApplyStatus;
   error?: string;
   message?: string;
   validation_errors?: ValidationError[];
 };
 
-export type CoreConfigWrite = {
-  wifi_ssid: string;
+export type CoreConfigWrite = CoreConfigFields & {
   wifi_password?: string;
-  mqtt_host: string;
-  mqtt_port: number;
-  mqtt_client_id: string;
-  mqtt_username: string;
   mqtt_password?: string;
-  mqtt_tls_enabled: boolean;
-  mqtt_tls_validate_certificate: boolean;
-  mqtt_tls_ca_file: string;
-  mqtt_tls_cert_file: string;
-  mqtt_tls_key_file: string;
-  mqtt_topics: string[];
-  ring_topic: string;
-  notification_success_sound_path: string;
-  notification_failure_sound_path: string;
-  volume_bell: number;
-  volume_notifications: number;
-  volume_other: number;
 };
 
 export type RingSoundsResponse = {
@@ -358,7 +326,6 @@ export async function saveCoreConfig(
     notification_failure_sound_path: input.notification_failure_sound_path,
     volume_bell: input.volume_bell,
     volume_notifications: input.volume_notifications,
-    volume_other: input.volume_other,
   };
   if (input.wifi_password != null && input.wifi_password.length > 0) {
     payload.wifi_password = input.wifi_password;

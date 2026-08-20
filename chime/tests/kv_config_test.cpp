@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "oc/config/kv_config.h"
+#include "oc/config/kv_document.h"
 #include "test_support.h"
 
 namespace {
@@ -111,5 +112,52 @@ items = a, b,c
         const auto result = oc::config::load("/no/such/openchime-kv-config.conf", SampleConfig{}, kFields);
         CHECK_FALSE(result);
         CHECK(result.error.find("Failed to open config") != std::string::npos);
+    }
+}
+
+TEST_SUITE("kv_document") {
+    TEST_CASE("round-trips comments, assignments, and unknown lines") {
+        const std::string original = "# heading\nfoo=1\n\nnot-a-pair\nfoo=2\n";
+        auto document = oc::config::ParseKvDocument(original);
+        CHECK(oc::config::KvDocumentValue(document, "foo") == "2");
+        oc::config::KvDocumentSetValue(document, "foo", "3");
+        oc::config::KvDocumentSetValue(document, "bar", "x");
+        oc::config::KvDocumentRemoveKey(document, "missing");
+        const std::string rendered = oc::config::RenderKvDocument(document);
+        CHECK(rendered.find("# heading") != std::string::npos);
+        CHECK(rendered.find("not-a-pair") != std::string::npos);
+        CHECK(rendered.find("foo=3") != std::string::npos);
+        CHECK(rendered.find("bar=x") != std::string::npos);
+        CHECK(rendered.find("foo=1") == std::string::npos);
+    }
+
+    TEST_CASE("rename moves a key unless the destination already exists") {
+        auto document = oc::config::ParseKvDocument("old=1\nkeep=2\n");
+        oc::config::KvDocumentRenameKey(document, "old", "new");
+        CHECK(oc::config::KvDocumentValue(document, "new") == "1");
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "old"));
+
+        auto collision = oc::config::ParseKvDocument("from=a\nto=b\n");
+        oc::config::KvDocumentRenameKey(collision, "from", "to");
+        CHECK(oc::config::KvDocumentValue(collision, "to") == "b");
+        CHECK_FALSE(oc::config::KvDocumentHasKey(collision, "from"));
+    }
+
+    TEST_CASE("constrained string parsers reject whitespace and oversize values") {
+        constexpr oc::config::Field<SampleConfig> constrained[] = {
+            {"name", oc::config::parse_string<SampleConfig, &SampleConfig::name, 1, 8, true, true>, true},
+            {"port", oc::config::parse_int<SampleConfig, &SampleConfig::port, 1, 65535>, true},
+        };
+        const ScopedTempDir tmp;
+        CHECK_FALSE(oc::config::load(tmp.WriteFile("space.conf", "name=bad name\nport=1\n").string(), SampleConfig{},
+                                     constrained));
+        CHECK_FALSE(oc::config::load(tmp.WriteFile("long.conf", "name=toolongxx\nport=1\n").string(), SampleConfig{},
+                                     constrained));
+        CHECK_FALSE(
+            oc::config::load(tmp.WriteFile("cr.conf", "name=ba\rd\nport=1\n").string(), SampleConfig{}, constrained));
+        const auto ok = oc::config::load(tmp.WriteFile("ok-name.conf", "name=ok-host\nport=1\n").string(),
+                                         SampleConfig{}, constrained);
+        REQUIRE(ok);
+        CHECK(ok.config.name == "ok-host");
     }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import MessageBanner from "../../components/MessageBanner.svelte";
+  import { CORE_CONFIG_INT_BOUNDS } from "../../generated/config_schema";
 
   export let mqttHost: string;
   export let mqttPort: number;
@@ -34,7 +35,13 @@
     </div>
     <div>
       <label for="mqtt_port">Port</label>
-      <input id="mqtt_port" type="number" min="1" max="65535" bind:value={mqttPort} />
+      <input
+        id="mqtt_port"
+        type="number"
+        min={CORE_CONFIG_INT_BOUNDS.mqtt_port.min}
+        max={CORE_CONFIG_INT_BOUNDS.mqtt_port.max}
+        bind:value={mqttPort}
+      />
     </div>
   </div>
 

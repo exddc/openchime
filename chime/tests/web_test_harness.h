@@ -31,7 +31,6 @@ notification_success_sound_path=/usr/local/share/chime/test.wav
 notification_failure_sound_path=/usr/local/share/chime/ring.wav
 volume_bell=80
 volume_notifications=70
-volume_other=70
 )";
 
 inline std::string CookieFromResponse(const chime::webd::HttpResponse &response, const std::string &name) {
