@@ -295,4 +295,11 @@ TEST_SUITE("web_api") {
         CHECK(conf_text.find("mqtt_username=user") == std::string::npos);
         CHECK(conf_text.find("mqtt_password=mqtt-secret") != std::string::npos);
     }
+
+    TEST_CASE("config save joins the apply worker before ApplyManager is destroyed") {
+        for (int i = 0; i < 8; ++i) {
+            WebHarness harness;
+            REQUIRE(harness.api().Handle(harness.Request("POST", "/api/v1/config/core", CorePostBody())).status == 200);
+        }
+    }
 }
