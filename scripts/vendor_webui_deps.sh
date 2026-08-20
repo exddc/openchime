@@ -12,6 +12,20 @@ ASSERT_SCRIPT="$SCRIPT_DIR/assert_webui_vendor_archive.sh"
 
 error() { echo "[vendor-webui] ERROR: $*" >&2; exit 1; }
 
+# macOS bsdtar stores com.apple.provenance in pax headers by default. GNU tar
+# on Linux then warns on every member. COPYFILE_DISABLE only skips AppleDouble
+# fork files, not those xattrs.
+tar_without_apple_metadata() {
+    local extra=()
+    if tar --no-xattrs -cf - /dev/null >/dev/null 2>&1; then
+        extra+=(--no-xattrs)
+    fi
+    if tar --no-mac-metadata -cf - /dev/null >/dev/null 2>&1; then
+        extra+=(--no-mac-metadata)
+    fi
+    COPYFILE_DISABLE=1 tar "${extra[@]}" "$@"
+}
+
 [ -f "$WEBUI_DIR/package.json" ] || error "missing $WEBUI_DIR/package.json"
 [ -f "$WEBUI_DIR/bun.lock" ] || error "missing $WEBUI_DIR/bun.lock"
 [ -f "$BUN_VERSION_FILE" ] || error "missing $BUN_VERSION_FILE"
@@ -34,7 +48,7 @@ cp "$WEBUI_DIR/package.json" "$WEBUI_DIR/bun.lock" "$tmp/"
     bun install --frozen-lockfile --os=linux --cpu=x64
     bun install --frozen-lockfile --os=linux --cpu=arm64
     rm -f "$ARCHIVE"
-    COPYFILE_DISABLE=1 tar -czf "$ARCHIVE" node_modules
+    tar_without_apple_metadata -czf "$ARCHIVE" node_modules
 )
 
 bash "$ASSERT_SCRIPT" "$ARCHIVE"

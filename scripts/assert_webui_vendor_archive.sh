@@ -24,6 +24,23 @@ error() {
 
 [ -f "$ARCHIVE" ] || error "missing vendor archive: $ARCHIVE"
 
+command -v python3 >/dev/null 2>&1 || error "python3 is required to inspect vendor archive headers"
+python3 - "$ARCHIVE" <<'PY' || error "vendor archive contains Apple xattrs; regenerate with scripts/vendor_webui_deps.sh"
+import sys
+import tarfile
+
+archive = sys.argv[1]
+with tarfile.open(archive, "r:gz") as tar:
+    for member in tar.getmembers():
+        for key in member.pax_headers:
+            if (
+                "xattr.com.apple" in key
+                or key.startswith("LIBARCHIVE.xattr")
+                or key.startswith("SCHILY.xattr")
+            ):
+                sys.exit(1)
+PY
+
 LIST="$(tar -tzf "$ARCHIVE")"
 [ -n "$LIST" ] || error "vendor archive is empty: $ARCHIVE"
 
