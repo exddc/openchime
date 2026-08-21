@@ -221,7 +221,9 @@ function(oc_assert_no_product_payload root via text seen)
       set(_tgt "${CMAKE_MATCH_1}")
       set(_prop "${CMAKE_MATCH_2}")
     else()
-      set(_tgt "${via}")
+      # $<TARGET_PROPERTY:prop> is evaluated on the consuming target, not the
+      # interface that published the expression.
+      set(_tgt "${root}")
       set(_prop "${_body}")
     endif()
     if(NOT TARGET "${_tgt}")

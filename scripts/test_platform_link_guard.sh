@@ -126,4 +126,12 @@ target_compile_definitions(
 EOF
 )"
 
+expect_configure_rejected "one-argument TARGET_PROPERTY consumer context" "must not compile with product definition" "$(cat <<'EOF'
+add_library(neutral INTERFACE)
+set_property(TARGET oc_platform PROPERTY PRODUCT_DEFS CHIME_LEAK=1)
+target_compile_definitions(neutral INTERFACE "$<TARGET_PROPERTY:PRODUCT_DEFS>")
+target_link_libraries(oc_platform PUBLIC neutral)
+EOF
+)"
+
 log "Product-link guard rejected late, genex, definition, and alias edges"
