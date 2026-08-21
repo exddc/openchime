@@ -117,4 +117,13 @@ target_link_libraries(oc_platform PUBLIC "$<IF:1,neutral,unused>")
 EOF
 )"
 
+expect_configure_rejected "custom TARGET_PROPERTY compile definitions" "must not compile with product definition" "$(cat <<'EOF'
+add_library(neutral INTERFACE)
+set_property(TARGET neutral PROPERTY PRODUCT_DEFS CHIME_LEAK=1)
+target_compile_definitions(
+  oc_platform PRIVATE
+  "$<TARGET_PROPERTY:neutral,PRODUCT_DEFS>")
+EOF
+)"
+
 log "Product-link guard rejected late, genex, definition, and alias edges"
