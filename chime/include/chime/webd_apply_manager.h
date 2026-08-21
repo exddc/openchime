@@ -1,12 +1,10 @@
 #ifndef CHIME_WEBD_APPLY_MANAGER_H
 #define CHIME_WEBD_APPLY_MANAGER_H
 
-#include <atomic>
-#include <mutex>
 #include <string>
-#include <thread>
+#include <vector>
 
-#include "chime/webd_types.h"
+#include "oc/apply/job_runner.h"
 
 namespace oc::logging {
 class Logger;
@@ -14,26 +12,20 @@ class Logger;
 
 namespace chime::webd {
 
-class ApplyManager {
+class ApplyManager final : public oc::apply::ProductApply {
   public:
     ApplyManager(oc::logging::Logger &logger, std::string network_restart_command, std::string chime_restart_command);
     ApplyManager(const ApplyManager &) = delete;
     ApplyManager &operator=(const ApplyManager &) = delete;
 
-    ApplyStatus StartApply();
-    ApplyStatus CurrentStatus() const;
+    std::vector<oc::apply::Step> Steps() const override;
+    oc::apply::Status StartApply();
+    oc::apply::Status CurrentStatus() const;
 
   private:
-    void RunApplyJob(unsigned long long job_id);
-    bool RunCommand(const std::string &command, std::string *error) const;
-
-    oc::logging::Logger &logger_;
+    oc::apply::JobRunner runner_;
     std::string network_restart_command_;
     std::string chime_restart_command_;
-    mutable std::mutex mutex_;
-    ApplyStatus status_;
-    std::atomic<unsigned long long> next_job_id_{1};
-    std::jthread worker_;
 };
 
 } // namespace chime::webd

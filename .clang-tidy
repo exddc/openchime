@@ -32,5 +32,5 @@ Checks: >
   cppcoreguidelines-macro-usage,
   cppcoreguidelines-narrowing-conversions
 WarningsAsErrors: '*'
-HeaderFilterRegex: '(chime|common)/.*'
+HeaderFilterRegex: '(chime|platform)/.*'
 FormatStyle: file

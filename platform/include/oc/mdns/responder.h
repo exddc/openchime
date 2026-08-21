@@ -1,0 +1,39 @@
+#ifndef OC_MDNS_RESPONDER_H
+#define OC_MDNS_RESPONDER_H
+
+#include <atomic>
+#include <string>
+#include <thread>
+
+namespace oc::logging {
+class Logger;
+}
+
+namespace oc::mdns {
+
+class MdnsResponder {
+  public:
+    MdnsResponder(oc::logging::Logger &logger, std::string host_label, std::string interface_name);
+    ~MdnsResponder();
+
+    MdnsResponder(const MdnsResponder &) = delete;
+    MdnsResponder &operator=(const MdnsResponder &) = delete;
+
+    bool Start();
+    void Stop();
+
+  private:
+    void Run();
+
+    oc::logging::Logger &logger_;
+    std::string host_label_;
+    std::string interface_name_;
+
+    std::atomic<bool> running_{false};
+    int socket_fd_ = -1;
+    std::thread thread_;
+};
+
+} // namespace oc::mdns
+
+#endif

@@ -7,7 +7,7 @@ on:
       - "**/CMakeLists.txt"
       - "cmake/**"
       - "chime/**"
-      - "common/**"
+      - "platform/**"
       - "webui/**"
       - "scripts/**"
       - "buildroot/**"
@@ -23,7 +23,7 @@ on:
       - "**/CMakeLists.txt"
       - "cmake/**"
       - "chime/**"
-      - "common/**"
+      - "platform/**"
       - "webui/**"
       - "scripts/**"
       - "buildroot/**"
@@ -157,6 +157,13 @@ jobs:
           CLANG_TIDY_TOOL: clang-tidy-18
         run: |
           bash ./scripts/chime_ci.sh
+
+      - name: Run platform-only tests
+        env:
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: |
+          bash ./scripts/platform_only_ci.sh
+          bash ./scripts/test_platform_link_guard.sh
 
       - name: Assert checkout is clean
         run: |

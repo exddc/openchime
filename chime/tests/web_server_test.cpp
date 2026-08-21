@@ -14,13 +14,14 @@
 
 #include <openssl/ssl.h>
 
+#include "chime/webd_api.h"
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
-#include "chime/webd_json.h"
-#include "chime/webd_web_server.h"
-#include "chime/webd_wifi_scan.h"
 #include "doctest.h"
+#include "oc/http/tls_server.h"
+#include "oc/json/json.h"
+#include "oc/wifi/scan.h"
 #include "test_support.h"
 
 namespace {
@@ -83,25 +84,49 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
     return response;
 }
 
+struct ChimeHttps {
+    chime::webd::ConfigStore store;
+    oc::wifi::WifiScanner scanner;
+    chime::webd::ApplyManager apply;
+    chime::webd::AuthStore auth;
+    chime::webd::WebApi api;
+    oc::http::TlsServer server;
+
+    ChimeHttps(oc::logging::Logger &logger, const ScopedTempDir &tmp, chime::webd::AuthStoreOptions auth_options)
+        : store(logger, (tmp.path() / "chime.conf").string(), (tmp.path() / "wpa.conf").string()),
+          scanner(logger, "wlan0"), apply(logger, "true", "true"), auth(logger, std::move(auth_options)),
+          api(logger, store, scanner, apply, auth, (tmp.path() / "ui").string(), (tmp.path() / "topics.txt").string(),
+              (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string()),
+          server(
+              logger, MakeTlsConfig(tmp), [this](const oc::http::HttpRequest &request) { return api.Handle(request); },
+              chime::webd::WebApi::OffloadToSlowWorker) {}
+
+    static oc::http::TlsServerConfig MakeTlsConfig(const ScopedTempDir &tmp) {
+        oc::http::TlsServerConfig config;
+        config.bind_address = "127.0.0.1";
+        config.port = 0;
+        config.cert_path = (tmp.path() / "cert.pem").string();
+        config.key_path = (tmp.path() / "key.pem").string();
+        config.cert_organization = "OpenChime";
+        config.cert_common_name = "chime.local";
+        config.log_component = "webd";
+        return config;
+    }
+};
+
 } // namespace
 
 TEST_SUITE("web_server_tls") {
     TEST_CASE("starts, serves HTTPS, closes the connection, and stops") {
         const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
+        tmp.WriteFile("chime.conf", kCoreConfig);
         NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
         chime::webd::AuthStoreOptions auth_options;
         auth_options.auth_dir = (tmp.path() / "auth").string();
         auth_options.bootstrap_password = "test-password-ok";
         auth_options.pbkdf2_iterations = 2;
-        chime::webd::AuthStore auth(logger, auth_options);
-        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
-                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
-                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
-                                      (tmp.path() / "ring.wav").string());
+        ChimeHttps https(logger, tmp, auth_options);
+        auto &server = https.server;
 
         REQUIRE(server.Start());
         CHECK(server.port() > 0);
@@ -125,10 +150,10 @@ TEST_SUITE("web_server_tls") {
             "GET /api/v1/config/core HTTP/1.1\r\nHost: 127.0.0.1\r\nCookie: " + session_cookie + "\r\n\r\n");
         CHECK(ok.find("HTTP/1.1 200 OK\r\n") == 0);
         CHECK(ok.find("Connection: close\r\n") != std::string::npos);
-        const auto parsed = chime::webd::ParseJson(ok.substr(ok.find("\r\n\r\n") + 4));
+        const auto parsed = oc::json::ParseJson(ok.substr(ok.find("\r\n\r\n") + 4));
         REQUIRE(parsed.success);
-        CHECK(chime::webd::GetObjectField(parsed.value, "mqtt_host").has_value());
-        CHECK_FALSE(chime::webd::GetObjectField(parsed.value, "mqtt_password").has_value());
+        CHECK(oc::json::GetObjectField(parsed.value, "mqtt_host").has_value());
+        CHECK_FALSE(oc::json::GetObjectField(parsed.value, "mqtt_password").has_value());
 
         const std::string unauthenticated =
             TlsExchange("127.0.0.1", server.port(), "GET /api/v1/config/core HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
@@ -144,20 +169,14 @@ TEST_SUITE("web_server_tls") {
 
     TEST_CASE("version stays available while two slow login hashes run") {
         const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
+        tmp.WriteFile("chime.conf", kCoreConfig);
         NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
         chime::webd::AuthStoreOptions auth_options;
         auth_options.auth_dir = (tmp.path() / "auth").string();
         auth_options.bootstrap_password = "test-password-ok";
         auth_options.pbkdf2_iterations = 2000000;
-        chime::webd::AuthStore auth(logger, auth_options);
-        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
-                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
-                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
-                                      (tmp.path() / "ring.wav").string());
+        ChimeHttps https(logger, tmp, auth_options);
+        auto &server = https.server;
 
         REQUIRE(server.Start());
 
@@ -198,20 +217,14 @@ TEST_SUITE("web_server_tls") {
 
     TEST_CASE("Stop returns promptly when a client stalls in the TLS handshake") {
         const ScopedTempDir tmp;
-        const auto conf = tmp.WriteFile("chime.conf", kCoreConfig);
+        tmp.WriteFile("chime.conf", kCoreConfig);
         NullLogger logger;
-        chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
-        chime::webd::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
         chime::webd::AuthStoreOptions auth_options;
         auth_options.auth_dir = (tmp.path() / "auth").string();
         auth_options.bootstrap_password = "test-password-ok";
         auth_options.pbkdf2_iterations = 2;
-        chime::webd::AuthStore auth(logger, auth_options);
-        chime::webd::WebServer server(logger, store, scanner, apply, auth, "127.0.0.1", 0,
-                                      (tmp.path() / "cert.pem").string(), (tmp.path() / "key.pem").string(), "",
-                                      (tmp.path() / "topics.txt").string(), (tmp.path() / "sounds").string(),
-                                      (tmp.path() / "ring.wav").string());
+        ChimeHttps https(logger, tmp, auth_options);
+        auto &server = https.server;
 
         REQUIRE(server.Start());
 

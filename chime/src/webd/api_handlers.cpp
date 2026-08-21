@@ -20,18 +20,34 @@
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
-#include "chime/webd_json.h"
-#include "chime/webd_json_http.h"
-#include "chime/webd_json_validate.h"
 #include "chime/webd_sound_name.h"
-#include "chime/webd_static_files.h"
-#include "chime/webd_string_utils.h"
 #include "chime/webd_ui_assets.h"
-#include "chime/webd_wifi_scan.h"
 #include "oc/config/kv_config.h"
+#include "oc/http/json_http.h"
+#include "oc/http/static_files.h"
+#include "oc/json/json.h"
+#include "oc/json/validate.h"
 #include "oc/logging/logger.h"
+#include "oc/util/strings.h"
+#include "oc/wifi/scan.h"
 
 namespace chime::webd {
+
+using oc::config::ValidationError;
+using oc::http::JsonHttpBody;
+using oc::http::JsonHttpError;
+using oc::http::ServeStaticUi;
+using oc::json::JsonParseResult;
+using oc::json::JsonValue;
+using oc::json::ParseJson;
+using oc::json::ReadOptionalString;
+using oc::json::ReadRequiredBool;
+using oc::json::ReadRequiredInt;
+using oc::json::ReadRequiredString;
+using oc::json::ReadRequiredStringArray;
+using oc::wifi::WifiScanner;
+using oc::wifi::WifiScanResult;
+
 namespace {
 
 constexpr const char *kDefaultRingSoundName = "ring-default.wav";
@@ -41,7 +57,7 @@ constexpr const char *kAppVersionPath = "/etc/chime-app-version";
 std::string MimeTypeOnly(const std::string &content_type) {
     const std::size_t semicolon = content_type.find(';');
     const std::string raw = semicolon == std::string::npos ? content_type : content_type.substr(0, semicolon);
-    return ToLower(oc::config::trim(raw));
+    return oc::util::ToLower(oc::config::trim(raw));
 }
 
 bool EnsureDirectoryExists(const std::string &path, std::string *error) {
@@ -257,41 +273,45 @@ WebApi::WebApi(oc::logging::Logger &logger, ConfigStore &config_store, WifiScann
       auth_store_(auth_store), ui_dist_dir_(std::move(ui_dist_dir)),
       observed_topics_path_(std::move(observed_topics_path)), ring_sounds_dir_(std::move(ring_sounds_dir)),
       active_ring_sound_path_(std::move(active_ring_sound_path)) {
-    RegisterRoutes();
+    Register(router_);
 }
 
-void WebApi::RegisterRoutes() {
-    router_.SetMethodNotAllowed(JsonHttpError(405, "method_not_allowed"));
-    router_.SetNotFound(JsonHttpError(404, "not_found"));
-    router_.Add("GET", "/api/v1/auth/status",
-                [this](const HttpRequest &request) { return auth_store_.HandleStatus(request); });
-    router_.Add("POST", "/api/v1/auth/pair",
-                [this](const HttpRequest &request) { return auth_store_.HandlePair(request); });
-    router_.Add("POST", "/api/v1/auth/login",
-                [this](const HttpRequest &request) { return auth_store_.HandleLogin(request); });
-    router_.Add("POST", "/api/v1/auth/logout",
-                [this](const HttpRequest &request) { return auth_store_.HandleLogout(request); });
-    router_.Add("GET", "/api/v1/config/core", [this](const HttpRequest &) { return HandleGetCoreConfig(); });
-    router_.Add("POST", "/api/v1/config/core",
-                [this](const HttpRequest &request) { return HandlePostCoreConfig(request); });
-    router_.Add("GET", "/api/v1/wifi/scan", [this](const HttpRequest &) { return HandleWifiScan(); });
-    router_.Add("GET", "/api/v1/system/version", [this](const HttpRequest &) { return HandleGetSystemVersion(); });
-    router_.Add("GET", "/api/v1/mqtt/topics", [this](const HttpRequest &) { return HandleGetObservedTopics(); });
-    router_.Add("GET", "/api/v1/ring/sounds", [this](const HttpRequest &) { return HandleGetRingSounds(); });
-    router_.Add("POST", "/api/v1/ring/sounds/select",
-                [this](const HttpRequest &request) { return HandleSelectRingSound(request); });
-    router_.AddPrefix("PUT", "/api/v1/ring/sounds/",
-                      [this](const HttpRequest &request) { return HandleUploadRingSound(request); });
+void WebApi::Register(HttpRouter &router) {
+    router.SetMethodNotAllowed(JsonHttpError(405, "method_not_allowed"));
+    router.SetNotFound(JsonHttpError(404, "not_found"));
+    router.Add("GET", "/api/v1/auth/status",
+               [this](const HttpRequest &request) { return auth_store_.HandleStatus(request); });
+    router.Add("POST", "/api/v1/auth/pair",
+               [this](const HttpRequest &request) { return auth_store_.HandlePair(request); });
+    router.Add("POST", "/api/v1/auth/login",
+               [this](const HttpRequest &request) { return auth_store_.HandleLogin(request); });
+    router.Add("POST", "/api/v1/auth/logout",
+               [this](const HttpRequest &request) { return auth_store_.HandleLogout(request); });
+    router.Add("GET", "/api/v1/config/core", [this](const HttpRequest &) { return HandleGetCoreConfig(); });
+    router.Add("POST", "/api/v1/config/core",
+               [this](const HttpRequest &request) { return HandlePostCoreConfig(request); });
+    router.Add("GET", "/api/v1/wifi/scan", [this](const HttpRequest &) { return HandleWifiScan(); });
+    router.Add("GET", "/api/v1/system/version", [this](const HttpRequest &) { return HandleGetSystemVersion(); });
+    router.Add("GET", "/api/v1/mqtt/topics", [this](const HttpRequest &) { return HandleGetObservedTopics(); });
+    router.Add("GET", "/api/v1/ring/sounds", [this](const HttpRequest &) { return HandleGetRingSounds(); });
+    router.Add("POST", "/api/v1/ring/sounds/select",
+               [this](const HttpRequest &request) { return HandleSelectRingSound(request); });
+    router.AddPrefix("PUT", "/api/v1/ring/sounds/",
+                     [this](const HttpRequest &request) { return HandleUploadRingSound(request); });
 
     const auto reserved = [this](const HttpRequest &request) { return ReservedNotImplemented(request); };
-    router_.AddAny("/api/v1/system", reserved);
-    router_.AddAnyPrefix("/api/v1/system/", reserved);
-    router_.AddAny("/api/v1/device", reserved);
-    router_.AddAnyPrefix("/api/v1/device/", reserved);
-    router_.AddAny("/api/v1/diagnostics", reserved);
-    router_.AddAnyPrefix("/api/v1/diagnostics/", reserved);
+    router.AddAny("/api/v1/system", reserved);
+    router.AddAnyPrefix("/api/v1/system/", reserved);
+    router.AddAny("/api/v1/device", reserved);
+    router.AddAnyPrefix("/api/v1/device/", reserved);
+    router.AddAny("/api/v1/diagnostics", reserved);
+    router.AddAnyPrefix("/api/v1/diagnostics/", reserved);
 
-    router_.SetFallback([this](const HttpRequest &request) { return HandleFallback(request); });
+    router.SetFallback([this](const HttpRequest &request) { return HandleFallback(request); });
+}
+
+bool WebApi::OffloadToSlowWorker(const HttpRequest &request) {
+    return request.method == "POST" && (request.path == "/api/v1/auth/pair" || request.path == "/api/v1/auth/login");
 }
 
 HttpResponse WebApi::Handle(const HttpRequest &request) {

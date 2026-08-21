@@ -6,12 +6,19 @@
 #include <vector>
 
 #include "chime/generated/config_types.h"
-#include "chime/webd_json.h"
-#include "chime/webd_json_validate.h"
+#include "oc/json/json.h"
+#include "oc/json/validate.h"
 #include "chime/webd_types.h"
 
 namespace chime::webd {
 namespace generated_config_json {
+
+using oc::json::JsonValue;
+using oc::json::ReadOptionalString;
+using oc::json::ReadRequiredBool;
+using oc::json::ReadRequiredInt;
+using oc::json::ReadRequiredString;
+using oc::json::ReadRequiredStringArray;
 
 inline JsonValue SerializeStringArray(const std::vector<std::string> &items) {
     std::vector<JsonValue> output;

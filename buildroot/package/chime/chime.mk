@@ -14,7 +14,7 @@ CHIME_OS_VERSION = $(strip $(shell sed -n 's/^OPENCHIME_OS_VERSION=//p' $(OPENCH
 CHIME_CONFIG_VERSION = $(strip $(shell sed -n 's/^CHIME_CONFIG_VERSION=//p' $(OPENCHIME_VERSION_FILE)))
 CHIME_BUILD_ID = $(strip $(shell sed -n 's/^CHIME_BUILD_ID=//p' $(CHIME_BUILD_META_FILE) 2>/dev/null))
 CHIME_LICENSE = MIT, MIT
-CHIME_LICENSE_FILES = chime/README.md chime/third_party/cJSON/LICENSE
+CHIME_LICENSE_FILES = chime/README.md platform/third_party/cJSON/LICENSE
 CHIME_DEPENDENCIES = mosquitto openssl
 CHIME_SUPPORTS_IN_SOURCE_BUILD = NO
 

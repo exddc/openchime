@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+# shellcheck source=cmake_host_args.sh
+. "$SCRIPT_DIR/cmake_host_args.sh"
 
 BUILD_DIR="${BUILD_DIR:-$PROJECT_DIR/chime/build-ci}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
@@ -122,9 +124,10 @@ is_chime_format_file() {
   local path="$1"
   case "$path" in
     chime/third_party/*) return 1 ;;
+    platform/third_party/*) return 1 ;;
     chime/include/chime/generated/*) return 1 ;;
     chime/tests/config_schema_contract_test.cpp) return 1 ;;
-    chime/*|common/*) ;;
+    chime/*|platform/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -136,7 +139,7 @@ is_chime_format_file() {
 is_chime_tidy_file() {
   local path="$1"
   case "$path" in
-    chime/src/*|common/src/*) ;;
+    chime/src/*|platform/src/*) ;;
     *) return 1 ;;
   esac
   case "$path" in
@@ -147,7 +150,7 @@ is_chime_tidy_file() {
 
 collect_candidates() {
   if [ "$SCOPE" = "all" ]; then
-    git ls-files -z -- chime common
+    git ls-files -z -- chime platform
     return
   fi
 
@@ -161,10 +164,10 @@ collect_candidates() {
   log "Using merge-base $merge_base (base ref: $BASE_REF)" >&2
   if ! git diff --quiet "$merge_base" HEAD -- .clang-format .clang-tidy; then
     log "Clang configuration changed; checking all C/C++ files" >&2
-    git ls-files -z -- chime common
+    git ls-files -z -- chime platform
     return
   fi
-  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime common
+  git diff --name-only --diff-filter=ACMR -z "$merge_base" HEAD -- chime platform
 }
 
 collect_format_files() {
@@ -206,7 +209,7 @@ run_clang_format() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime/common C/C++ files found for clang-format"
+    log "No chime/platform C/C++ files found for clang-format"
     return
   fi
 
@@ -219,37 +222,6 @@ run_clang_format() {
   else
     "$CLANG_FORMAT_TOOL" -n -Werror "${files[@]}"
     log "clang-format check passed"
-  fi
-}
-
-discover_cmake_host_args() {
-  CMAKE_HOST_ARGS=()
-  if ! command -v brew >/dev/null 2>&1; then
-    return
-  fi
-
-  local openssl_prefix mosq_prefix prefixes=""
-  openssl_prefix="$(brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || true)"
-  mosq_prefix="$(brew --prefix mosquitto 2>/dev/null || true)"
-  if [ -n "$openssl_prefix" ] && [ -d "$openssl_prefix" ]; then
-    CMAKE_HOST_ARGS+=("-DOPENSSL_ROOT_DIR=$openssl_prefix")
-    prefixes="$openssl_prefix"
-    if [ -d "$openssl_prefix/lib/pkgconfig" ]; then
-      export PKG_CONFIG_PATH="$openssl_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-    fi
-  fi
-  if [ -n "$mosq_prefix" ] && [ -d "$mosq_prefix" ]; then
-    if [ -n "$prefixes" ]; then
-      prefixes="$prefixes;$mosq_prefix"
-    else
-      prefixes="$mosq_prefix"
-    fi
-    if [ -d "$mosq_prefix/lib/pkgconfig" ]; then
-      export PKG_CONFIG_PATH="$mosq_prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-    fi
-  fi
-  if [ -n "$prefixes" ]; then
-    CMAKE_HOST_ARGS+=("-DCMAKE_PREFIX_PATH=$prefixes")
   fi
 }
 
@@ -293,7 +265,7 @@ run_clang_tidy() {
   rm -f "$file_list"
 
   if [ "${#files[@]}" -eq 0 ]; then
-    log "No chime/common C++ sources found for clang-tidy"
+    log "No chime/platform C++ sources found for clang-tidy"
     return
   fi
 

@@ -14,14 +14,24 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-#include "chime/webd_json.h"
-#include "chime/webd_json_http.h"
-#include "chime/webd_json_validate.h"
 #include "oc/config/kv_config.h"
+#include "oc/config/validation.h"
+#include "oc/http/json_http.h"
+#include "oc/json/json.h"
+#include "oc/json/validate.h"
 #include "oc/logging/logger.h"
 #include "oc/util/filesystem.h"
 
 namespace chime::webd {
+
+using oc::config::ValidationError;
+using oc::http::JsonHttpBody;
+using oc::http::JsonHttpError;
+using oc::json::JsonParseResult;
+using oc::json::JsonValue;
+using oc::json::ParseJson;
+using oc::json::ReadRequiredString;
+
 namespace {
 
 constexpr mode_t kAuthFileMode = 0600;

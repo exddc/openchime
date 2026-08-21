@@ -11,16 +11,17 @@
 #include "chime/build_version.h"
 #include "chime/chime_config.h"
 #include "chime/config_migrate.h"
+#include "chime/webd_api.h"
 #include "chime/webd_apply_manager.h"
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
-#include "chime/webd_mdns.h"
-#include "chime/webd_web_server.h"
-#include "chime/webd_wifi_scan.h"
 #include "oc/config/kv_config.h"
+#include "oc/http/tls_server.h"
 #include "oc/logging/logger.h"
+#include "oc/mdns/responder.h"
 #include "oc/runtime/signal_handler.h"
 #include "oc/util/environment.h"
+#include "oc/wifi/scan.h"
 
 namespace {
 
@@ -186,7 +187,7 @@ int main(int argc, char *argv[]) {
     const bool mdns_enabled = EnvBoolOrDefault("CHIME_WEBD_MDNS_ENABLED", true);
 
     chime::webd::ConfigStore config_store(logger, chime_config_path, wpa_supplicant_path);
-    chime::webd::WifiScanner wifi_scanner(logger, wifi_interface);
+    oc::wifi::WifiScanner wifi_scanner(logger, wifi_interface);
     chime::webd::ApplyManager apply_manager(logger, network_restart_command, chime_restart_command);
     chime::webd::AuthStoreOptions auth_options;
     auth_options.auth_dir = auth_dir;
@@ -198,10 +199,20 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     auth_store.AnnounceSetupSecret();
-    chime::webd::WebServer web_server(logger, config_store, wifi_scanner, apply_manager, auth_store, bind_address,
-                                      listen_port, tls_cert_path, tls_key_path, ui_dist_dir, observed_topics_path,
-                                      ring_sounds_dir, active_ring_sound_path);
-    chime::webd::MdnsResponder mdns(logger, host_label, wifi_interface);
+    chime::webd::WebApi api(logger, config_store, wifi_scanner, apply_manager, auth_store, ui_dist_dir,
+                            observed_topics_path, ring_sounds_dir, active_ring_sound_path);
+    oc::http::TlsServerConfig tls;
+    tls.bind_address = bind_address;
+    tls.port = listen_port;
+    tls.cert_path = tls_cert_path;
+    tls.key_path = tls_key_path;
+    tls.cert_organization = "OpenChime";
+    tls.cert_common_name = "chime.local";
+    tls.log_component = "webd";
+    oc::http::TlsServer web_server(
+        logger, std::move(tls), [&api](const oc::http::HttpRequest &request) { return api.Handle(request); },
+        chime::webd::WebApi::OffloadToSlowWorker);
+    oc::mdns::MdnsResponder mdns(logger, host_label, wifi_interface);
 
     if (!web_server.Start()) {
         logger.Error("webd", "failed to start web server");

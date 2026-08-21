@@ -36,7 +36,7 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.8
+OPENCHIME_OS_VERSION=0.2.9
 CHIME_CONFIG_VERSION=5
 ```
 
@@ -111,7 +111,7 @@ Buildroot packages, boot files, image layout):
 ./scripts/docker_build.sh
 ```
 
-For app-only changes (`chime/` or `common/`), use:
+For app-only changes (`chime/` or `platform/`), use:
 
 ```bash
 ./scripts/deploy.sh chime <pi-ip>

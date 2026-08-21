@@ -4,10 +4,10 @@
 #include <string>
 
 #include "chime/webd_api.h"
-#include "chime/webd_http.h"
-#include "chime/webd_json.h"
-#include "chime/webd_json_http.h"
 #include "doctest.h"
+#include "oc/http/http.h"
+#include "oc/http/json_http.h"
+#include "oc/json/json.h"
 #include "web_test_harness.h"
 
 namespace {
@@ -35,18 +35,18 @@ std::string CorePostBody() {
     })";
 }
 
-chime::webd::JsonValue ParseBody(const chime::webd::HttpResponse &response) {
-    const auto parsed = chime::webd::ParseJson(response.body);
+oc::json::JsonValue ParseBody(const oc::http::HttpResponse &response) {
+    const auto parsed = oc::json::ParseJson(response.body);
     REQUIRE(parsed.success);
     return parsed.value;
 }
 
-bool HasField(const chime::webd::JsonValue &value, const std::string &key) {
-    return chime::webd::GetObjectField(value, key).has_value();
+bool HasField(const oc::json::JsonValue &value, const std::string &key) {
+    return oc::json::GetObjectField(value, key).has_value();
 }
 
-chime::webd::JsonValue RequireField(const chime::webd::JsonValue &value, const std::string &key) {
-    const auto field = chime::webd::GetObjectField(value, key);
+oc::json::JsonValue RequireField(const oc::json::JsonValue &value, const std::string &key) {
+    const auto field = oc::json::GetObjectField(value, key);
     REQUIRE(field.has_value());
     return *field;
 }
@@ -55,7 +55,7 @@ std::string MinimalWav() {
     return std::string("RIFF") + std::string("\x24\x00\x00\x00", 4) + "WAVE";
 }
 
-std::string RequireError(const chime::webd::HttpResponse &response) {
+std::string RequireError(const oc::http::HttpResponse &response) {
     std::string error;
     REQUIRE(RequireField(ParseBody(response), "error").AsString(&error));
     return error;
@@ -65,19 +65,19 @@ std::string RequireError(const chime::webd::HttpResponse &response) {
 
 TEST_SUITE("web_api") {
     TEST_CASE("JsonHttpBody does not substitute null on serialize failure") {
-        const auto ok_null = chime::webd::JsonHttpBody(200, chime::webd::JsonValue::Null());
+        const auto ok_null = oc::http::JsonHttpBody(200, oc::json::JsonValue::Null());
         CHECK(ok_null.status == 200);
         CHECK(ok_null.body == "null");
 
         std::string with_nul("a");
         with_nul.push_back('\0');
         with_nul.push_back('b');
-        const auto failed = chime::webd::JsonHttpBody(200, chime::webd::JsonValue::String(with_nul));
+        const auto failed = oc::http::JsonHttpBody(200, oc::json::JsonValue::String(with_nul));
         CHECK(failed.status != 200);
         CHECK(failed.body != "null");
-        const auto parsed = chime::webd::ParseJson(failed.body);
+        const auto parsed = oc::json::ParseJson(failed.body);
         REQUIRE(parsed.success);
-        CHECK(parsed.value.type() != chime::webd::JsonValue::Type::kNull);
+        CHECK(parsed.value.type() != oc::json::JsonValue::Type::kNull);
     }
 
     TEST_CASE("config GET/POST round trip redacts passwords and keeps UI field names") {
@@ -97,7 +97,7 @@ TEST_SUITE("web_api") {
         CHECK(HasField(get_body, "apply"));
         CHECK_FALSE(HasField(get_body, "volume_other"));
 
-        chime::webd::HttpRequest post;
+        oc::http::HttpRequest post;
         post.method = "POST";
         post.path = "/api/v1/config/core";
         post.body = CorePostBody();
