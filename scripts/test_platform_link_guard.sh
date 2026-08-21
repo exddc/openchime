@@ -19,9 +19,10 @@ require_tool() {
   command -v "$1" >/dev/null 2>&1 || error "Required tool not found: $1"
 }
 
-expect_product_link_rejected() {
+expect_configure_rejected() {
   local name="$1"
-  local chime_cmake="$2"
+  local needle="$2"
+  local chime_cmake="$3"
   local stage log_file
 
   stage="$(mktemp -d)"
@@ -49,13 +50,13 @@ expect_product_link_rejected() {
     echo "----- $name cmake log -----" >&2
     cat "$log_file" >&2
     rm -rf "$stage"
-    error "$name: configure succeeded despite a product link edge"
+    error "$name: configure succeeded despite a product boundary violation"
   fi
-  if ! grep -q 'must not link product target' "$log_file"; then
+  if ! grep -q "$needle" "$log_file"; then
     echo "----- $name cmake log -----" >&2
     cat "$log_file" >&2
     rm -rf "$stage"
-    error "$name: configure failed without the product-link diagnostic"
+    error "$name: configure failed without diagnostic '$needle'"
   fi
   rm -rf "$stage"
   log "$name rejected"
@@ -67,29 +68,39 @@ require_tool rsync
 require_tool grep
 discover_cmake_host_args
 
-expect_product_link_rejected "post-platform PUBLIC link" "$(cat <<'EOF'
+expect_configure_rejected "post-platform PUBLIC link" "must not link product target" "$(cat <<'EOF'
 add_library(chime_core INTERFACE)
 target_link_libraries(oc_platform PUBLIC chime_core)
 EOF
 )"
 
-expect_product_link_rejected "post-platform LINK_ONLY genex" "$(cat <<'EOF'
+expect_configure_rejected "post-platform LINK_ONLY genex" "must not link product target" "$(cat <<'EOF'
 add_library(chime_core INTERFACE)
 target_link_libraries(oc_platform PUBLIC "$<LINK_ONLY:chime_core>")
 EOF
 )"
 
-expect_product_link_rejected "post-platform IF genex" "$(cat <<'EOF'
+expect_configure_rejected "post-platform IF genex" "must not link product target" "$(cat <<'EOF'
 add_library(chime_core INTERFACE)
 target_link_libraries(oc_platform PUBLIC "$<IF:1,chime_core,unused>")
 EOF
 )"
 
-expect_product_link_rejected "post-platform alias" "$(cat <<'EOF'
+expect_configure_rejected "post-platform alias" "must not link product target" "$(cat <<'EOF'
 add_library(chime_core INTERFACE)
 add_library(product_alias ALIAS chime_core)
 target_link_libraries(oc_platform PUBLIC product_alias)
 EOF
 )"
 
-log "Product-link guard rejected late, genex, and alias edges"
+expect_configure_rejected "conditional CHIME compile definition" "must not compile with product definition" "$(cat <<'EOF'
+target_compile_definitions(oc_platform PRIVATE "$<$<CONFIG:Debug>:CHIME_LEAK=1>")
+EOF
+)"
+
+expect_configure_rejected "conditional oc_build_version genex" "must not depend on oc_build_version" "$(cat <<'EOF'
+target_link_libraries(oc_platform PUBLIC "$<IF:1,oc_build_version,unused>")
+EOF
+)"
+
+log "Product-link guard rejected late, genex, definition, and alias edges"

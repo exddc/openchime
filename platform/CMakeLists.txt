@@ -31,7 +31,7 @@ endif()
 
 if(OC_MQTT_TARGET)
   set(OC_MQTT_CLIENT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/mqtt/client.cpp")
-  message(STATUS "Open Chime: using libmosquitto (${OC_MQTT_TARGET})")
+  message(STATUS "oc_platform: using libmosquitto (${OC_MQTT_TARGET})")
 elseif(OC_REQUIRE_MQTT)
   message(FATAL_ERROR
     "libmosquitto is required for this build (pkg-config or find_library)")

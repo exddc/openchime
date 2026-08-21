@@ -1,12 +1,5 @@
-# Shared host-prefix discovery for native CMake configures.
-#
-# Sourced by:
-#   scripts/chime_ci.sh
-#   scripts/platform_only_ci.sh
-#   scripts/test_platform_link_guard.sh
-#
-# Sets CMAKE_HOST_ARGS (OpenSSL root + CMAKE_PREFIX_PATH) and extends
-# PKG_CONFIG_PATH for OpenSSL and Mosquitto when Homebrew is present.
+#!/usr/bin/env bash
+# Resolve Homebrew OpenSSL/Mosquitto prefixes for native CMake configures.
 
 discover_cmake_host_args() {
   CMAKE_HOST_ARGS=()

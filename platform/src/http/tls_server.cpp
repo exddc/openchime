@@ -187,7 +187,7 @@ constexpr std::size_t kMaxPendingClients = 16;
 constexpr std::size_t kMaxHashJobs = 4;
 
 void SetSocketTimeout(int fd, int seconds) {
-    struct timeval timeout{};
+    struct timeval timeout {};
     timeout.tv_sec = seconds;
     timeout.tv_usec = 0;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
@@ -250,7 +250,7 @@ bool TlsServer::Start() {
     const int reuse = 1;
     setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
-    struct sockaddr_in address{};
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port_));
     if (inet_pton(AF_INET, config_.bind_address.c_str(), &address.sin_addr) != 1) {
@@ -270,7 +270,7 @@ bool TlsServer::Start() {
     }
 
     if (port_ == 0) {
-        struct sockaddr_in actual{};
+        struct sockaddr_in actual {};
         socklen_t actual_len = sizeof(actual);
         if (getsockname(listen_fd_, reinterpret_cast<struct sockaddr *>(&actual), &actual_len) != 0) {
             logger_.Error(config_.log_component, "getsockname() failed after bind");
@@ -372,7 +372,7 @@ void TlsServer::Stop() {
 
 void TlsServer::AcceptLoop() {
     while (running_.load()) {
-        struct sockaddr_in client_addr{};
+        struct sockaddr_in client_addr {};
         socklen_t client_len = sizeof(client_addr);
         const int client_fd = accept(listen_fd_, reinterpret_cast<struct sockaddr *>(&client_addr), &client_len);
 
@@ -521,7 +521,7 @@ void TlsServer::HandleConnection(int client_fd) {
         return;
     }
 
-    struct sockaddr_in peer{};
+    struct sockaddr_in peer {};
     socklen_t peer_len = sizeof(peer);
     char ip[INET_ADDRSTRLEN] = {};
     if (getpeername(client_fd, reinterpret_cast<struct sockaddr *>(&peer), &peer_len) == 0 &&

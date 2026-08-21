@@ -44,13 +44,13 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     REQUIRE(fd >= 0);
 
-    struct timeval timeout_tv{};
+    struct timeval timeout_tv {};
     timeout_tv.tv_sec = static_cast<time_t>(timeout.count());
     timeout_tv.tv_usec = 0;
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout_tv, sizeof(timeout_tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout_tv, sizeof(timeout_tv));
 
-    struct sockaddr_in address{};
+    struct sockaddr_in address {};
     address.sin_family = AF_INET;
     address.sin_port = htons(static_cast<uint16_t>(port));
     REQUIRE(inet_pton(AF_INET, bind_address.c_str(), &address.sin_addr) == 1);
@@ -169,7 +169,7 @@ TEST_SUITE("tls_server") {
 
         int fd = socket(AF_INET, SOCK_STREAM, 0);
         REQUIRE(fd >= 0);
-        struct sockaddr_in address{};
+        struct sockaddr_in address {};
         address.sin_family = AF_INET;
         address.sin_port = htons(static_cast<uint16_t>(server.port()));
         REQUIRE(inet_pton(AF_INET, "127.0.0.1", &address.sin_addr) == 1);
