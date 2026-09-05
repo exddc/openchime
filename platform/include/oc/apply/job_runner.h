@@ -73,6 +73,7 @@ class JobRunner {
     unsigned long long next_job_id_ = 1;
     bool accepting_ = true;
     std::jthread worker_;
+    std::thread::id worker_thread_id_;
 };
 
 } // namespace oc::apply

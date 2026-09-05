@@ -77,6 +77,7 @@ Status JobRunner::Start(std::vector<Step> steps) {
     std::lock_guard<std::mutex> lifecycle_lock(lifecycle_mutex_);
     for (;;) {
         std::jthread previous;
+        std::thread::id previous_id;
         {
             std::lock_guard<std::mutex> lock(mutex_);
             if (!accepting_ || status_.state == "pending" || status_.state == "running") {
@@ -84,6 +85,7 @@ Status JobRunner::Start(std::vector<Step> steps) {
             }
             if (worker_.joinable()) {
                 previous = std::move(worker_);
+                previous_id = worker_thread_id_;
             } else {
                 status_.job_id = next_job_id_++;
                 status_.state = "pending";
@@ -96,6 +98,7 @@ Status JobRunner::Start(std::vector<Step> steps) {
                     worker_ = std::jthread([this, job_id, steps = std::move(steps)](std::stop_token stop) {
                         RunJob(std::move(stop), job_id, steps);
                     });
+                    worker_thread_id_ = worker_.get_id();
                 } catch (const std::exception &ex) {
                     FinishLocked("failed", std::string("failed to start worker: ") + ex.what());
                     return status_;
@@ -108,6 +111,10 @@ Status JobRunner::Start(std::vector<Step> steps) {
         }
         if (previous.joinable()) {
             previous.join();
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (worker_thread_id_ == previous_id) {
+                worker_thread_id_ = {};
+            }
         }
     }
 }
@@ -118,16 +125,26 @@ Status JobRunner::Current() const {
 }
 
 void JobRunner::Stop() {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        accepting_ = false;
+        if (worker_thread_id_ == std::this_thread::get_id()) {
+            if (worker_.joinable()) {
+                worker_.request_stop();
+            }
+            return;
+        }
+    }
+
     std::lock_guard<std::mutex> lifecycle_lock(lifecycle_mutex_);
     std::jthread to_join;
+    std::thread::id joining_id;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         accepting_ = false;
         if (worker_.joinable()) {
             worker_.request_stop();
-            if (worker_.get_id() == std::this_thread::get_id()) {
-                return;
-            }
+            joining_id = worker_thread_id_;
             to_join = std::move(worker_);
         }
     }
@@ -135,6 +152,9 @@ void JobRunner::Stop() {
         to_join.join();
     }
     std::lock_guard<std::mutex> lock(mutex_);
+    if (worker_thread_id_ == joining_id) {
+        worker_thread_id_ = {};
+    }
     if (status_.state == "pending" || status_.state == "running") {
         FinishLocked("failed", "cancelled");
         logger_.Error(log_component_, "apply job cancelled id=" + std::to_string(status_.job_id));

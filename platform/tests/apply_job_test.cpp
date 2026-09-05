@@ -208,4 +208,34 @@ TEST_SUITE("apply_job") {
         CHECK(status.error == "cancelled");
         CHECK_FALSE(status.finished_at_utc.empty());
     }
+
+    TEST_CASE("concurrent worker and external Stop calls do not deadlock") {
+        NullLogger logger;
+        oc::process::FakeRunner processes;
+        oc::apply::JobRunner runner(logger, processes, "test");
+        std::atomic<bool> entered{false};
+        const auto started = runner.Start({
+            {"stop",
+             [&runner, &entered](const oc::apply::StepContext &context, std::string *) {
+                 entered.store(true);
+                 while (!context.stop.stop_requested()) {
+                     std::this_thread::yield();
+                 }
+                 runner.Stop();
+                 return true;
+             }},
+        });
+        for (int i = 0; i < 100 && !entered.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        REQUIRE(entered.load());
+
+        std::thread stopper([&runner] { runner.Stop(); });
+        stopper.join();
+
+        const oc::apply::Status status = runner.Current();
+        CHECK(status.job_id == started.job_id);
+        CHECK(status.state == "failed");
+        CHECK(status.error == "cancelled");
+    }
 }

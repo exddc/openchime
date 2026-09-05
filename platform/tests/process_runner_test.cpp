@@ -35,7 +35,11 @@ bool IsExitedOrZombie(pid_t pid) {
     std::string line;
     std::getline(stat, line);
     const auto name_end = line.rfind(')');
-    return name_end != std::string::npos && name_end + 2 < line.size() && line[name_end + 2] == 'Z';
+    if (name_end == std::string::npos || name_end + 2 >= line.size()) {
+        return false;
+    }
+    const char state = line[name_end + 2];
+    return state == 'Z' || state == 'X';
 }
 #endif
 
