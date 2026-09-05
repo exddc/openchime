@@ -28,18 +28,6 @@ std::string Join(const std::vector<std::string> &values, std::string_view separa
     return out.str();
 }
 
-std::string EscapeShellDoubleQuotes(const std::string &value) {
-    std::string escaped;
-    escaped.reserve(value.size());
-    for (const char c : value) {
-        if (c == '"' || c == '\\' || c == '$' || c == '`') {
-            escaped.push_back('\\');
-        }
-        escaped.push_back(c);
-    }
-    return escaped;
-}
-
 std::string SanitizePayloadForLog(std::string_view payload) {
     std::string clean;
     clean.reserve(payload.size());

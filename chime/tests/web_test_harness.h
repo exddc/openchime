@@ -11,6 +11,7 @@
 #include "chime/webd_config_store.h"
 #include "doctest.h"
 #include "oc/http/http.h"
+#include "oc/process/fake_runner.h"
 #include "oc/wifi/scan.h"
 #include "test_support.h"
 
@@ -55,7 +56,7 @@ class WebHarness {
         store_ =
             std::make_unique<chime::webd::ConfigStore>(logger_, conf.string(), (tmp_.path() / "wpa.conf").string());
         scanner_ = std::make_unique<oc::wifi::WifiScanner>(logger_, "wlan0");
-        apply_ = std::make_unique<chime::webd::ApplyManager>(logger_, "true", "true");
+        apply_ = std::make_unique<chime::webd::ApplyManager>(logger_, process_runner_, "true", "true");
 
         chime::webd::AuthStoreOptions options;
         options.auth_dir = (tmp_.path() / "auth").string();
@@ -124,6 +125,7 @@ class WebHarness {
   private:
     ScopedTempDir tmp_;
     NullLogger logger_;
+    oc::process::FakeRunner process_runner_;
     std::string secret_;
     std::unique_ptr<chime::webd::ConfigStore> store_;
     std::unique_ptr<oc::wifi::WifiScanner> scanner_;

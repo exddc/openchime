@@ -11,6 +11,7 @@
 #include "doctest.h"
 #include "oc/http/http.h"
 #include "oc/json/json.h"
+#include "oc/process/fake_runner.h"
 #include "web_test_harness.h"
 
 namespace {
@@ -201,7 +202,8 @@ TEST_SUITE("web_auth") {
         const auto conf = tmp.WriteFile("chime.conf", kWebHarnessConfig);
         chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
         oc::wifi::WifiScanner scanner(logger, "wlan0");
-        chime::webd::ApplyManager apply(logger, "true", "true");
+        oc::process::FakeRunner process_runner;
+        chime::webd::ApplyManager apply(logger, process_runner, "true", "true");
         chime::webd::AuthStore auth(logger, options);
         chime::webd::WebApi api(logger, store, scanner, apply, auth, "", (tmp.path() / "topics.txt").string(),
                                 (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());

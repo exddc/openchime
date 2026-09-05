@@ -52,12 +52,14 @@ foreach(_oc_platform_file IN LISTS OC_PLATFORM_TREE)
 endforeach()
 
 # Core platform: logging, MQTT, signals, filesystem/env/time, schema/kv primitives,
-# apply-job infrastructure. No OpenSSL so the ring binary stays free of TLS.
+# process runner, apply-job infrastructure. No OpenSSL so the ring binary stays free of TLS.
 add_library(
   oc_platform STATIC
   src/apply/job_runner.cpp
   src/config/kv_document.cpp
   src/logging/logger.cpp
+  src/process/command.cpp
+  src/process/posix_runner.cpp
   ${OC_MQTT_CLIENT_SOURCE}
   src/runtime/signal_handler.cpp
   src/util/environment.cpp

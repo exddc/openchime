@@ -6,23 +6,25 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <fstream>
+#include <stop_token>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <cstdio>
 #include <unistd.h>
 
 #include "oc/logging/logger.h"
+#include "oc/process/runner.h"
 #include "oc/util/filesystem.h"
 #include "oc/util/platform.h"
-#include "oc/util/strings.h"
 
 namespace chime {
 namespace {
+
+constexpr auto kAmixerTimeout = std::chrono::seconds(3);
+constexpr auto kAplayTimeout = std::chrono::seconds(30);
 
 constexpr std::array<const char *, 9> kMixerControlCandidates = {
     "PCM",
@@ -262,15 +264,34 @@ bool CreateSoftwareScaledWav(const std::string &source_path, int effective_volum
     return true;
 }
 
-MixerSetResult TrySetVolumeWithAmixer(int effective_volume) {
+bool CommandSucceeded(const oc::process::Result &result) {
+    return result.outcome == oc::process::Outcome::Exited && result.exit_code == 0;
+}
+
+MixerSetResult TrySetVolumeWithAmixer(oc::process::Runner &runner, int effective_volume, std::stop_token stop) {
     for (const char *control_name : kMixerControlCandidates) {
-        const std::string set_volume_cmd = "amixer -q sset \"" + oc::util::EscapeShellDoubleQuotes(control_name) +
-                                           "\" \"" + std::to_string(effective_volume) + "%\" >/dev/null 2>&1";
-        if (std::system(set_volume_cmd.c_str()) == 0) {
+        if (stop.stop_requested()) {
+            return {};
+        }
+        oc::process::Request request;
+        request.command.executable = "amixer";
+        request.command.arguments = {"-q", "sset", control_name, std::to_string(effective_volume) + "%"};
+        request.timeout = kAmixerTimeout;
+        request.stop = stop;
+        if (CommandSucceeded(runner.Run(request))) {
             return {true, control_name};
         }
     }
     return {};
+}
+
+oc::process::Result PlayWithAplay(oc::process::Runner &runner, const std::string &path, std::stop_token stop) {
+    oc::process::Request request;
+    request.command.executable = "aplay";
+    request.command.arguments = {"-q", path};
+    request.timeout = kAplayTimeout;
+    request.stop = stop;
+    return runner.Run(request);
 }
 
 std::string MixerCandidatesForLog() {
@@ -286,11 +307,16 @@ std::string MixerCandidatesForLog() {
 
 } // namespace
 
-AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger) : logger_(logger) {}
+AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner)
+    : logger_(logger), runner_(runner), execute_commands_(oc::util::IsLinux()) {}
+
+AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner, ForTest)
+    : logger_(logger), runner_(runner), execute_commands_(true) {}
 
 AplayAudioPlayer::~AplayAudioPlayer() {
     std::lock_guard<std::mutex> lock(playback_thread_mutex_);
     if (playback_thread_.joinable()) {
+        playback_thread_.request_stop();
         playback_thread_.join();
     }
 }
@@ -302,7 +328,7 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
         return;
     }
 
-    if (!oc::util::IsLinux()) {
+    if (!execute_commands_) {
         logger_.Info("audio", "(local) would play '" + path + "' volume=" + std::to_string(volume_percent) + "%");
         playing_ = false;
         return;
@@ -317,13 +343,14 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
     const int effective_volume = std::clamp(volume_percent, 0, 100);
     auto *const logger = &logger_;
     auto *const playing = &playing_;
+    auto *const runner = &runner_;
 
     std::lock_guard<std::mutex> lock(playback_thread_mutex_);
     if (playback_thread_.joinable()) {
         playback_thread_.join();
     }
     try {
-        playback_thread_ = std::thread([logger, playing, path, effective_volume]() {
+        playback_thread_ = std::jthread([logger, playing, runner, path, effective_volume](std::stop_token stop) {
             std::string temporary_scaled_path;
             const PlaybackThreadCleanup cleanup{&temporary_scaled_path, playing};
 
@@ -331,7 +358,12 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
                 const auto started = std::chrono::steady_clock::now();
                 logger->Info("audio", "playing '" + path + "' at " + std::to_string(effective_volume) + "%");
 
-                const MixerSetResult mixer_result = TrySetVolumeWithAmixer(effective_volume);
+                const MixerSetResult mixer_result = TrySetVolumeWithAmixer(*runner, effective_volume, stop);
+                if (stop.stop_requested()) {
+                    logger->Info("audio", "playback cancelled");
+                    return;
+                }
+
                 std::string playback_path = path;
                 if (!mixer_result.success) {
                     logger->Warn("audio", "failed to set volume via amixer using known controls; ring volume "
@@ -353,15 +385,14 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
                                               std::to_string(effective_volume) + "%");
                 }
 
-                const std::string cmd =
-                    "aplay -q \"" + oc::util::EscapeShellDoubleQuotes(playback_path) + "\" 2>/dev/null";
-                const int rc = std::system(cmd.c_str());
-
+                const oc::process::Result play_result = PlayWithAplay(*runner, playback_path, stop);
                 const auto elapsed_ms =
                     std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started)
                         .count();
-                if (rc != 0) {
-                    logger->Error("audio", "aplay failed with code " + std::to_string(rc));
+                if (stop.stop_requested() || play_result.outcome == oc::process::Outcome::Cancelled) {
+                    logger->Info("audio", "playback cancelled");
+                } else if (!CommandSucceeded(play_result)) {
+                    logger->Error("audio", "aplay failed: " + oc::process::Describe(play_result));
                 } else {
                     logger->Info("audio", "playback complete in " + std::to_string(elapsed_ms) + "ms");
                 }

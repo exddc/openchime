@@ -9,6 +9,7 @@
 #include "chime/config_migrate.h"
 #include "chime/wifi_monitor.h"
 #include "oc/logging/logger.h"
+#include "oc/process/posix_runner.h"
 #include "oc/runtime/signal_handler.h"
 #include "oc/util/environment.h"
 
@@ -127,7 +128,8 @@ int main(int argc, char *argv[]) {
 
     logger.Info("chime", "loaded config from " + config_path);
 
-    chime::AplayAudioPlayer audio_player(logger);
+    oc::process::PosixRunner process_runner;
+    chime::AplayAudioPlayer audio_player(logger, process_runner);
     chime::LinuxWifiMonitor wifi_monitor;
     chime::ChimeService service(result.config, logger, audio_player, wifi_monitor);
 

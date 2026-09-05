@@ -1,14 +1,11 @@
 #include "oc/apply/job_runner.h"
 
 #include <chrono>
-#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <iomanip>
 #include <sstream>
 #include <utility>
-
-#include <sys/wait.h>
 
 #include "oc/logging/logger.h"
 
@@ -31,47 +28,45 @@ std::string NowIso8601Utc() {
     return out.str();
 }
 
-bool RunShell(const std::string &command, std::string *error) {
-    const int rc = std::system(command.c_str());
-    if (rc == 0) {
-        return true;
-    }
-
-    if (error == nullptr) {
-        return false;
-    }
-
-    if (rc < 0) {
-        *error = "system() failed";
-        return false;
-    }
-
-    if (WIFEXITED(rc)) {
-        *error = "exit code " + std::to_string(WEXITSTATUS(rc));
-        return false;
-    }
-
-    if (WIFSIGNALED(rc)) {
-        *error = "signal " + std::to_string(WTERMSIG(rc));
-        return false;
-    }
-
-    *error = "unknown failure";
-    return false;
-}
-
 } // namespace
 
-Step ShellCommand(std::string name, std::string command) {
+Step ArgvCommand(std::string name, std::string executable, std::vector<std::string> arguments,
+                 std::chrono::milliseconds timeout) {
     Step step;
     step.name = std::move(name);
-    step.run = [command = std::move(command)](std::string *error) { return RunShell(command, error); };
+    step.run = [executable = std::move(executable), arguments = std::move(arguments),
+                timeout](const StepContext &context, std::string *error) {
+        if (context.stop.stop_requested()) {
+            if (error != nullptr) {
+                *error = "cancelled";
+            }
+            return false;
+        }
+
+        oc::process::Request request;
+        request.command.executable = executable;
+        request.command.arguments = arguments;
+        request.timeout = timeout;
+        request.stop = context.stop;
+        const oc::process::Result result = context.runner.Run(request);
+        if (result.outcome == oc::process::Outcome::Exited && result.exit_code == 0) {
+            return true;
+        }
+        if (error != nullptr) {
+            *error = oc::process::Describe(result);
+        }
+        return false;
+    };
     return step;
 }
 
-JobRunner::JobRunner(oc::logging::Logger &logger, std::string log_component)
-    : logger_(logger), log_component_(std::move(log_component)) {
+JobRunner::JobRunner(oc::logging::Logger &logger, oc::process::Runner &process_runner, std::string log_component)
+    : logger_(logger), process_runner_(process_runner), log_component_(std::move(log_component)) {
     status_.state = "idle";
+}
+
+JobRunner::~JobRunner() {
+    Stop();
 }
 
 Status JobRunner::Start(const ProductApply &product) {
@@ -79,20 +74,42 @@ Status JobRunner::Start(const ProductApply &product) {
 }
 
 Status JobRunner::Start(std::vector<Step> steps) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (status_.state == "pending" || status_.state == "running") {
-        return status_;
+    std::lock_guard<std::mutex> lifecycle_lock(lifecycle_mutex_);
+    for (;;) {
+        std::jthread previous;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (!accepting_ || status_.state == "pending" || status_.state == "running") {
+                return status_;
+            }
+            if (worker_.joinable()) {
+                previous = std::move(worker_);
+            } else {
+                status_.job_id = next_job_id_++;
+                status_.state = "pending";
+                status_.error.clear();
+                status_.started_at_utc = NowIso8601Utc();
+                status_.finished_at_utc.clear();
+                const Status started = status_;
+                const unsigned long long job_id = started.job_id;
+                try {
+                    worker_ = std::jthread([this, job_id, steps = std::move(steps)](std::stop_token stop) {
+                        RunJob(std::move(stop), job_id, steps);
+                    });
+                } catch (const std::exception &ex) {
+                    FinishLocked("failed", std::string("failed to start worker: ") + ex.what());
+                    return status_;
+                } catch (...) {
+                    FinishLocked("failed", "failed to start worker");
+                    return status_;
+                }
+                return started;
+            }
+        }
+        if (previous.joinable()) {
+            previous.join();
+        }
     }
-
-    status_.job_id = next_job_id_.fetch_add(1, std::memory_order_relaxed);
-    status_.state = "pending";
-    status_.error.clear();
-    status_.started_at_utc = NowIso8601Utc();
-    status_.finished_at_utc.clear();
-    const Status started = status_;
-    const unsigned long long job_id = started.job_id;
-    worker_ = std::jthread([this, job_id, steps = std::move(steps)]() { RunJob(job_id, steps); });
-    return started;
 }
 
 Status JobRunner::Current() const {
@@ -100,7 +117,53 @@ Status JobRunner::Current() const {
     return status_;
 }
 
-void JobRunner::RunJob(unsigned long long job_id, std::vector<Step> steps) {
+void JobRunner::Stop() {
+    std::lock_guard<std::mutex> lifecycle_lock(lifecycle_mutex_);
+    std::jthread to_join;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        accepting_ = false;
+        if (worker_.joinable()) {
+            worker_.request_stop();
+            to_join = std::move(worker_);
+        }
+    }
+    if (to_join.joinable()) {
+        to_join.join();
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (status_.state == "pending" || status_.state == "running") {
+        FinishLocked("failed", "cancelled");
+        logger_.Error(log_component_, "apply job cancelled id=" + std::to_string(status_.job_id));
+    }
+}
+
+void JobRunner::FinishLocked(const std::string &state, const std::string &error) {
+    status_.state = state;
+    status_.finished_at_utc = NowIso8601Utc();
+    status_.error = error;
+}
+
+bool JobRunner::CancelIfStopping(std::stop_token stop, unsigned long long job_id) {
+    if (!stop.stop_requested()) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (status_.job_id != job_id) {
+        return true;
+    }
+    if (status_.state != "pending" && status_.state != "running") {
+        return true;
+    }
+    FinishLocked("failed", "cancelled");
+    logger_.Error(log_component_, "apply job cancelled id=" + std::to_string(job_id));
+    return true;
+}
+
+void JobRunner::RunJob(std::stop_token stop, unsigned long long job_id, std::vector<Step> steps) {
+    if (CancelIfStopping(stop, job_id)) {
+        return;
+    }
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (status_.job_id != job_id) {
@@ -113,10 +176,15 @@ void JobRunner::RunJob(unsigned long long job_id, std::vector<Step> steps) {
     logger_.Info(log_component_, "apply job started id=" + std::to_string(job_id));
 
     for (const auto &step : steps) {
+        if (CancelIfStopping(stop, job_id)) {
+            return;
+        }
+
         std::string error;
         bool ok = false;
         try {
-            ok = static_cast<bool>(step.run) && step.run(&error);
+            const StepContext context{process_runner_, stop};
+            ok = static_cast<bool>(step.run) && step.run(context, &error);
         } catch (const std::exception &ex) {
             error = ex.what();
         } catch (...) {
@@ -126,9 +194,7 @@ void JobRunner::RunJob(unsigned long long job_id, std::vector<Step> steps) {
             continue;
         }
         std::lock_guard<std::mutex> lock(mutex_);
-        status_.state = "failed";
-        status_.finished_at_utc = NowIso8601Utc();
-        status_.error = step.name + " failed: " + error;
+        FinishLocked("failed", step.name + " failed: " + error);
         logger_.Error(log_component_,
                       "apply job failed id=" + std::to_string(job_id) + " error='" + status_.error + "'");
         return;
@@ -136,9 +202,11 @@ void JobRunner::RunJob(unsigned long long job_id, std::vector<Step> steps) {
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        status_.state = "succeeded";
-        status_.finished_at_utc = NowIso8601Utc();
-        status_.error.clear();
+        if (stop.stop_requested()) {
+            FinishLocked("failed", "cancelled");
+            return;
+        }
+        FinishLocked("succeeded", "");
     }
 
     logger_.Info(log_component_, "apply job succeeded id=" + std::to_string(job_id));

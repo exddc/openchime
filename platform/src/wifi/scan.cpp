@@ -44,6 +44,8 @@ struct CommandResult {
 
 std::string SecurityFromFlags(const std::string &flags);
 
+// Looks up binaries in /usr/sbin and /sbin outside PATH. Move onto oc::process::Runner
+// once that lookup lives in the runner or the device PATH includes those directories.
 CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, std::size_t max_output_bytes) {
     CommandResult result;
     if (args.empty()) {
