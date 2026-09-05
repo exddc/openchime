@@ -70,6 +70,10 @@ bool ParseCommand(std::string_view spec, Command *command, std::string *error) {
     return true;
 }
 
+bool Succeeded(const Result &result) {
+    return result.outcome == Outcome::Exited && result.exit_code == 0;
+}
+
 std::string Describe(const Result &result) {
     switch (result.outcome) {
     case Outcome::Exited:

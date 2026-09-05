@@ -6,8 +6,8 @@
 #include <vector>
 
 #include "doctest.h"
+#include "fake_process_runner.h"
 #include "oc/apply/job_runner.h"
-#include "oc/process/fake_runner.h"
 #include "process_test_support.h"
 #include "test_support.h"
 

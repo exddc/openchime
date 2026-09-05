@@ -320,10 +320,6 @@ void TlsServer::Stop() {
         listen_fd_ = -1;
     }
 
-    if (config_.stop_work) {
-        config_.stop_work();
-    }
-
     InterruptClients();
     connection_cv_.notify_all();
     hash_cv_.notify_all();

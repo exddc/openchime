@@ -9,9 +9,9 @@
 
 #include "chime/webd_auth.h"
 #include "doctest.h"
+#include "fake_process_runner.h"
 #include "oc/http/http.h"
 #include "oc/json/json.h"
-#include "oc/process/fake_runner.h"
 #include "web_test_harness.h"
 
 namespace {
@@ -203,7 +203,8 @@ TEST_SUITE("web_auth") {
         chime::webd::ConfigStore store(logger, conf.string(), (tmp.path() / "wpa.conf").string());
         oc::wifi::WifiScanner scanner(logger, "wlan0");
         oc::process::FakeRunner process_runner;
-        chime::webd::ApplyManager apply(logger, process_runner, "true", "true");
+        chime::webd::ApplyManager apply(logger, process_runner, oc::process::Command{"true", {}},
+                                        oc::process::Command{"true", {}});
         chime::webd::AuthStore auth(logger, options);
         chime::webd::WebApi api(logger, store, scanner, apply, auth, "", (tmp.path() / "topics.txt").string(),
                                 (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string());

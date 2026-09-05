@@ -284,8 +284,7 @@ Result PosixRunner::Run(const Request &request) {
     }
 
     Result result;
-    const auto started = std::chrono::steady_clock::now();
-    const auto timeout_at = started + request.timeout;
+    const auto timeout_at = std::chrono::steady_clock::now() + request.timeout;
     const auto graceful = request.graceful_shutdown;
 
     enum class StopReason { None, Timeout, Cancel };
@@ -294,37 +293,46 @@ Result PosixRunner::Run(const Request &request) {
     bool sent_kill = false;
     auto term_deadline = std::chrono::steady_clock::time_point::max();
     int wait_status = 0;
-    bool reaped = false;
 
     auto consume = [&]() {
         ConsumeOutput(stdout_read, &result.stdout_data, &result.stdout_truncated, request.max_output_bytes);
         ConsumeOutput(stderr_read, &result.stderr_data, &result.stderr_truncated, request.max_output_bytes);
     };
 
-    while (!reaped) {
-        const auto now = std::chrono::steady_clock::now();
-
-        consume();
-
-        // Reap normal completion before checking the stop token or deadline. Once the
-        // group leader is reaped, its process-group ID can be reused, so no later
-        // group signal is safe.
-        if (stop_reason == StopReason::None) {
+    enum class Reap { Pending, Done, Failed };
+    auto try_reap = [&]() {
+        for (;;) {
             const pid_t waited = waitpid(pid, &wait_status, WNOHANG);
             if (waited == pid) {
-                reaped = true;
-                continue;
+                return Reap::Done;
             }
-            if (waited < 0) {
-                if (errno == EINTR) {
-                    continue;
-                }
+            if (waited == 0) {
+                return Reap::Pending;
+            }
+            if (errno != EINTR) {
+                return Reap::Failed;
+            }
+        }
+    };
+
+    for (;;) {
+        consume();
+
+        // Reaping the leader frees its process-group ID for reuse, so during escalation
+        // it stays unreaped until SIGKILL has gone to the group.
+        if (stop_reason == StopReason::None || sent_kill) {
+            const Reap reap = try_reap();
+            if (reap == Reap::Done) {
+                break;
+            }
+            if (reap == Reap::Failed) {
                 result.outcome = Outcome::SpawnFailed;
                 result.error = std::string("waitpid failed: ") + std::strerror(errno);
                 return result;
             }
         }
 
+        const auto now = std::chrono::steady_clock::now();
         if (stop_reason == StopReason::None) {
             if (request.stop.stop_requested()) {
                 stop_reason = StopReason::Cancel;
@@ -340,29 +348,7 @@ Result PosixRunner::Run(const Request &request) {
         if (sent_term && !sent_kill && now >= term_deadline) {
             SendSignal(pid, SIGKILL);
             sent_kill = true;
-        }
-
-        // Keep the leader unreaped during escalation. Its unreaped PID holds the
-        // process-group ID, so SIGKILL cannot target a reused group. Reap only
-        // after escalation is complete.
-        if (stop_reason == StopReason::None || sent_kill) {
-            const pid_t waited = waitpid(pid, &wait_status, WNOHANG);
-            if (waited == pid) {
-                reaped = true;
-                continue;
-            }
-            if (waited < 0) {
-                if (errno == EINTR) {
-                    continue;
-                }
-                result.outcome = Outcome::SpawnFailed;
-                result.error = std::string("waitpid failed: ") + std::strerror(errno);
-                return result;
-            }
-        }
-
-        if (reaped) {
-            break;
+            continue;
         }
 
         auto wake_in = kWaitQuantum;
@@ -400,34 +386,28 @@ Result PosixRunner::Run(const Request &request) {
 
     consume();
 
+    if (WIFEXITED(wait_status)) {
+        result.exit_code = WEXITSTATUS(wait_status);
+    } else if (WIFSIGNALED(wait_status)) {
+        result.terminating_signal = WTERMSIG(wait_status);
+    }
+
     if (stop_reason == StopReason::Timeout) {
         result.outcome = Outcome::TimedOut;
         result.error = "timed out";
-        if (WIFSIGNALED(wait_status)) {
-            result.terminating_signal = WTERMSIG(wait_status);
-        } else if (WIFEXITED(wait_status)) {
-            result.exit_code = WEXITSTATUS(wait_status);
-        }
         return result;
     }
     if (stop_reason == StopReason::Cancel) {
         result.outcome = Outcome::Cancelled;
         result.error = "cancelled";
-        if (WIFSIGNALED(wait_status)) {
-            result.terminating_signal = WTERMSIG(wait_status);
-        } else if (WIFEXITED(wait_status)) {
-            result.exit_code = WEXITSTATUS(wait_status);
-        }
         return result;
     }
     if (WIFEXITED(wait_status)) {
         result.outcome = Outcome::Exited;
-        result.exit_code = WEXITSTATUS(wait_status);
         return result;
     }
     if (WIFSIGNALED(wait_status)) {
         result.outcome = Outcome::Signaled;
-        result.terminating_signal = WTERMSIG(wait_status);
         result.error = "signal " + std::to_string(result.terminating_signal);
         return result;
     }

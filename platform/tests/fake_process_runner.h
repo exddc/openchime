@@ -1,5 +1,5 @@
-#ifndef OC_PROCESS_FAKE_RUNNER_H
-#define OC_PROCESS_FAKE_RUNNER_H
+#ifndef OC_TESTS_FAKE_PROCESS_RUNNER_H
+#define OC_TESTS_FAKE_PROCESS_RUNNER_H
 
 #include <functional>
 #include <mutex>

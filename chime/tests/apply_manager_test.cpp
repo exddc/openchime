@@ -7,16 +7,24 @@
 
 #include "chime/webd_apply_manager.h"
 #include "doctest.h"
-#include "oc/process/fake_runner.h"
+#include "fake_process_runner.h"
 #include "process_test_support.h"
 #include "test_support.h"
+
+namespace {
+
+oc::process::Command Restart(std::string executable) {
+    return oc::process::Command{std::move(executable), {"restart"}};
+}
+
+} // namespace
 
 TEST_SUITE("apply_manager") {
     TEST_CASE("restart commands are argv arrays with a 30s step timeout") {
         NullLogger logger;
         oc::process::FakeRunner processes;
-        chime::webd::ApplyManager apply(logger, processes, "/etc/init.d/S40network restart",
-                                        "/etc/init.d/S99chime restart");
+        chime::webd::ApplyManager apply(logger, processes, Restart("/etc/init.d/S40network"),
+                                        Restart("/etc/init.d/S99chime"));
 
         const auto started = apply.StartApply();
         CHECK(started.state == "pending");
@@ -35,22 +43,21 @@ TEST_SUITE("apply_manager") {
         CHECK(calls[1].timeout == oc::process::kDefaultTimeout);
     }
 
-    TEST_CASE("empty or shell commands fail at construction") {
+    TEST_CASE("an empty executable fails at construction") {
         NullLogger logger;
         oc::process::FakeRunner processes;
-        CHECK_THROWS_AS(chime::webd::ApplyManager(logger, processes, "", "true"), std::invalid_argument);
-        CHECK_THROWS_AS(chime::webd::ApplyManager(logger, processes, "true && reboot", "true"), std::invalid_argument);
-        CHECK_THROWS_AS(
-            chime::webd::ApplyManager(logger, processes, "/etc/init.d/S40network restart >/dev/null", "true"),
-            std::invalid_argument);
+        CHECK_THROWS_AS(chime::webd::ApplyManager(logger, processes, Restart(""), Restart("true")),
+                        std::invalid_argument);
+        CHECK_THROWS_AS(chime::webd::ApplyManager(logger, processes, Restart("true"), Restart("")),
+                        std::invalid_argument);
     }
 
     TEST_CASE("network failure skips the chime restart") {
         NullLogger logger;
         oc::process::FakeRunner processes;
         processes.Queue(oc::process::Exited(1));
-        chime::webd::ApplyManager apply(logger, processes, "/etc/init.d/S40network restart",
-                                        "/etc/init.d/S99chime restart");
+        chime::webd::ApplyManager apply(logger, processes, Restart("/etc/init.d/S40network"),
+                                        Restart("/etc/init.d/S99chime"));
 
         const auto started = apply.StartApply();
         const oc::apply::Status status = WaitTerminal([&] { return apply.CurrentStatus(); });
@@ -77,7 +84,7 @@ TEST_SUITE("apply_manager") {
             return oc::process::Exited(0);
         });
 
-        chime::webd::ApplyManager apply(logger, processes, "true", "true");
+        chime::webd::ApplyManager apply(logger, processes, Restart("true"), Restart("true"));
         const auto started = apply.StartApply();
         for (int i = 0; i < 50 && !entered.load(); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -92,32 +99,41 @@ TEST_SUITE("apply_manager") {
         CHECK(WaitTerminal([&] { return apply.CurrentStatus(); }).state == "succeeded");
     }
 
-    TEST_CASE("Stop cancels a running apply job") {
+    TEST_CASE("Stop cancels a running apply job and refuses later work") {
         NullLogger logger;
         oc::process::FakeRunner processes;
         std::atomic<bool> entered{false};
+        std::atomic<bool> finished{false};
         processes.SetHandler([&](const oc::process::Request &request) {
             entered.store(true);
             while (!request.stop.stop_requested()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
+            finished.store(true);
             oc::process::Result result;
             result.outcome = oc::process::Outcome::Cancelled;
             result.error = "cancelled";
             return result;
         });
 
-        chime::webd::ApplyManager apply(logger, processes, "sleep 30", "true");
+        chime::webd::ApplyManager apply(logger, processes, Restart("sleep"), Restart("true"));
         const auto started = apply.StartApply();
         for (int i = 0; i < 50 && !entered.load(); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         REQUIRE(entered.load());
 
+        const auto stop_started = std::chrono::steady_clock::now();
         apply.Stop();
+        CHECK(std::chrono::steady_clock::now() - stop_started < std::chrono::seconds(1));
+        CHECK(finished.load());
+
         const oc::apply::Status status = apply.CurrentStatus();
         CHECK(status.job_id == started.job_id);
         CHECK(status.state == "failed");
         CHECK(status.error.find("cancelled") != std::string::npos);
+        CHECK_FALSE(status.finished_at_utc.empty());
+        CHECK(apply.StartApply().job_id == started.job_id);
+        CHECK(processes.Calls().size() == 1);
     }
 }

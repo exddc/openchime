@@ -4,18 +4,6 @@
 #include <utility>
 
 namespace chime::webd {
-namespace {
-
-oc::process::Command ParseOrThrow(const char *label, const std::string &spec) {
-    oc::process::Command command;
-    std::string error;
-    if (!oc::process::ParseCommand(spec, &command, &error)) {
-        throw std::invalid_argument(std::string(label) + ": " + error);
-    }
-    return command;
-}
-
-} // namespace
 
 ApplyManager::ApplyManager(oc::logging::Logger &logger, oc::process::Runner &process_runner,
                            oc::process::Command network_restart, oc::process::Command chime_restart)
@@ -25,11 +13,6 @@ ApplyManager::ApplyManager(oc::logging::Logger &logger, oc::process::Runner &pro
         throw std::invalid_argument("restart command executable is empty");
     }
 }
-
-ApplyManager::ApplyManager(oc::logging::Logger &logger, oc::process::Runner &process_runner,
-                           std::string network_restart_command, std::string chime_restart_command)
-    : ApplyManager(logger, process_runner, ParseOrThrow("network restart", network_restart_command),
-                   ParseOrThrow("chime restart", chime_restart_command)) {}
 
 std::vector<oc::apply::Step> ApplyManager::Steps() const {
     return {

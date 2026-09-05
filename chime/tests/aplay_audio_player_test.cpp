@@ -1,5 +1,8 @@
 #include <atomic>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -8,8 +11,8 @@
 
 #include "chime/audio_player.h"
 #include "doctest.h"
+#include "fake_process_runner.h"
 #include "oc/logging/logger.h"
-#include "oc/process/fake_runner.h"
 #include "test_support.h"
 
 namespace {
@@ -76,7 +79,7 @@ TEST_SUITE("aplay_audio_player") {
             return oc::process::Exited(0);
         });
         {
-            chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+            chime::AplayAudioPlayer player(logger, processes, true);
             player.Play(wav.string(), 150);
             for (int i = 0; i < 100 && !entered.load(); ++i) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -115,7 +118,7 @@ TEST_SUITE("aplay_audio_player") {
             scaled.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
             return oc::process::Exited(0);
         });
-        chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+        chime::AplayAudioPlayer player(logger, processes, true);
         player.Play(path.string(), 50);
         REQUIRE(WaitIdle(player));
         REQUIRE(scaled.size() == 46);
@@ -131,7 +134,7 @@ TEST_SUITE("aplay_audio_player") {
         const auto wav = tmp.WriteFile("ring.wav", "RIFF");
         RecordingLogger logger;
         oc::process::FakeRunner processes;
-        chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+        chime::AplayAudioPlayer player(logger, processes, true);
 
         player.Play(wav.string(), 80);
         REQUIRE(WaitIdle(player));
@@ -163,7 +166,7 @@ TEST_SUITE("aplay_audio_player") {
             }
             return oc::process::Exited(0);
         });
-        chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+        chime::AplayAudioPlayer player(logger, processes, true);
 
         player.Play(wav.string(), 40);
         REQUIRE(WaitIdle(player));
@@ -182,7 +185,7 @@ TEST_SUITE("aplay_audio_player") {
             }
             return oc::process::Exited(0);
         });
-        chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+        chime::AplayAudioPlayer player(logger, processes, true);
 
         player.Play(wav.string(), 100);
         REQUIRE(WaitIdle(player));
@@ -210,7 +213,7 @@ TEST_SUITE("aplay_audio_player") {
         });
 
         {
-            chime::AplayAudioPlayer player(logger, processes, chime::AplayAudioPlayer::ForTest{});
+            chime::AplayAudioPlayer player(logger, processes, true);
             player.Play(wav.string(), 80);
             for (int i = 0; i < 50 && !entered.load(); ++i) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));

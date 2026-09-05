@@ -223,7 +223,6 @@ int main(int argc, char *argv[]) {
     tls.cert_organization = "OpenChime";
     tls.cert_common_name = "chime.local";
     tls.log_component = "webd";
-    tls.stop_work = [&apply_manager] { apply_manager.Stop(); };
     oc::http::TlsServer web_server(
         logger, std::move(tls), [&api](const oc::http::HttpRequest &request) { return api.Handle(request); },
         chime::webd::WebApi::OffloadToSlowWorker);
@@ -248,6 +247,7 @@ int main(int argc, char *argv[]) {
 
     mdns.Stop();
     web_server.Stop();
+    apply_manager.Stop();
 
     logger.Info("webd", "chime-webd stopped");
     return 0;

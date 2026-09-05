@@ -49,7 +49,7 @@ Step ArgvCommand(std::string name, std::string executable, std::vector<std::stri
         request.timeout = timeout;
         request.stop = context.stop;
         const oc::process::Result result = context.runner.Run(request);
-        if (result.outcome == oc::process::Outcome::Exited && result.exit_code == 0) {
+        if (oc::process::Succeeded(result)) {
             return true;
         }
         if (error != nullptr) {
@@ -141,7 +141,6 @@ void JobRunner::Stop() {
     std::thread::id joining_id;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        accepting_ = false;
         if (worker_.joinable()) {
             worker_.request_stop();
             joining_id = worker_thread_id_;

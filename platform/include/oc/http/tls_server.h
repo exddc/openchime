@@ -30,7 +30,6 @@ struct TlsServerConfig {
     std::string cert_organization;
     std::string cert_common_name = "localhost";
     std::string log_component = "http";
-    std::function<void()> stop_work;
 };
 
 class TlsServer {

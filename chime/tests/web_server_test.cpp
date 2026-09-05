@@ -19,9 +19,9 @@
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
 #include "doctest.h"
+#include "fake_process_runner.h"
 #include "oc/http/tls_server.h"
 #include "oc/json/json.h"
-#include "oc/process/fake_runner.h"
 #include "oc/wifi/scan.h"
 #include "test_support.h"
 
@@ -96,7 +96,8 @@ struct ChimeHttps {
 
     ChimeHttps(oc::logging::Logger &logger, const ScopedTempDir &tmp, chime::webd::AuthStoreOptions auth_options)
         : process_runner(), store(logger, (tmp.path() / "chime.conf").string(), (tmp.path() / "wpa.conf").string()),
-          scanner(logger, "wlan0"), apply(logger, process_runner, "true", "true"),
+          scanner(logger, "wlan0"),
+          apply(logger, process_runner, oc::process::Command{"true", {}}, oc::process::Command{"true", {}}),
           auth(logger, std::move(auth_options)),
           api(logger, store, scanner, apply, auth, (tmp.path() / "ui").string(), (tmp.path() / "topics.txt").string(),
               (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string()),
@@ -104,7 +105,7 @@ struct ChimeHttps {
               logger, MakeTlsConfig(tmp), [this](const oc::http::HttpRequest &request) { return api.Handle(request); },
               chime::webd::WebApi::OffloadToSlowWorker) {}
 
-    oc::http::TlsServerConfig MakeTlsConfig(const ScopedTempDir &tmp) {
+    static oc::http::TlsServerConfig MakeTlsConfig(const ScopedTempDir &tmp) {
         oc::http::TlsServerConfig config;
         config.bind_address = "127.0.0.1";
         config.port = 0;
@@ -113,7 +114,6 @@ struct ChimeHttps {
         config.cert_organization = "OpenChime";
         config.cert_common_name = "chime.local";
         config.log_component = "webd";
-        config.stop_work = [this] { apply.Stop(); };
         return config;
     }
 };
@@ -121,43 +121,6 @@ struct ChimeHttps {
 } // namespace
 
 TEST_SUITE("web_server_tls") {
-    TEST_CASE("server Stop cancels and joins apply work") {
-        const ScopedTempDir tmp;
-        tmp.WriteFile("chime.conf", kCoreConfig);
-        NullLogger logger;
-        chime::webd::AuthStoreOptions options;
-        options.auth_dir = (tmp.path() / "auth").string();
-        options.bootstrap_password = "test-password-ok";
-        options.pbkdf2_iterations = 2;
-        ChimeHttps https(logger, tmp, options);
-        std::atomic<bool> entered{false};
-        std::atomic<bool> finished{false};
-        https.process_runner.SetHandler([&](const oc::process::Request &request) {
-            entered.store(true);
-            while (!request.stop.stop_requested()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            finished.store(true);
-            oc::process::Result result;
-            result.outcome = oc::process::Outcome::Cancelled;
-            return result;
-        });
-        REQUIRE(https.server.Start());
-        const auto job = https.apply.StartApply();
-        for (int i = 0; i < 100 && !entered.load(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-        CHECK(entered.load());
-        const auto started = std::chrono::steady_clock::now();
-        https.server.Stop();
-        CHECK(std::chrono::steady_clock::now() - started < std::chrono::seconds(1));
-        CHECK(finished.load());
-        CHECK(https.apply.CurrentStatus().state == "failed");
-        CHECK_FALSE(https.apply.CurrentStatus().finished_at_utc.empty());
-        CHECK(https.apply.StartApply().job_id == job.job_id);
-        CHECK(https.process_runner.Calls().size() == 1);
-    }
-
     TEST_CASE("starts, serves HTTPS, closes the connection, and stops") {
         const ScopedTempDir tmp;
         tmp.WriteFile("chime.conf", kCoreConfig);

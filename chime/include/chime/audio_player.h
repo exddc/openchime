@@ -25,10 +25,7 @@ class AudioPlayer {
 
 class AplayAudioPlayer final : public AudioPlayer {
   public:
-    struct ForTest {};
-
-    AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner);
-    AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner, ForTest);
+    AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner, bool execute_commands);
     ~AplayAudioPlayer() override;
 
     AplayAudioPlayer(const AplayAudioPlayer &) = delete;
@@ -42,7 +39,7 @@ class AplayAudioPlayer final : public AudioPlayer {
   private:
     oc::logging::Logger &logger_;
     oc::process::Runner &runner_;
-    bool execute_commands_ = false;
+    bool execute_commands_;
     std::atomic<bool> playing_{false};
     std::mutex playback_thread_mutex_;
     std::jthread playback_thread_;

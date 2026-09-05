@@ -55,6 +55,7 @@ class Runner {
 };
 
 bool ParseCommand(std::string_view spec, Command *command, std::string *error);
+bool Succeeded(const Result &result);
 std::string Describe(const Result &result);
 
 } // namespace oc::process

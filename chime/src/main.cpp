@@ -12,6 +12,7 @@
 #include "oc/process/posix_runner.h"
 #include "oc/runtime/signal_handler.h"
 #include "oc/util/environment.h"
+#include "oc/util/platform.h"
 
 namespace {
 constexpr const char *kDefaultConfigPath = "/etc/chime.conf";
@@ -129,7 +130,7 @@ int main(int argc, char *argv[]) {
     logger.Info("chime", "loaded config from " + config_path);
 
     oc::process::PosixRunner process_runner;
-    chime::AplayAudioPlayer audio_player(logger, process_runner);
+    chime::AplayAudioPlayer audio_player(logger, process_runner, oc::util::IsLinux());
     chime::LinuxWifiMonitor wifi_monitor;
     chime::ChimeService service(result.config, logger, audio_player, wifi_monitor);
 

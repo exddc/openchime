@@ -17,8 +17,6 @@ class ApplyManager final : public oc::apply::ProductApply {
   public:
     ApplyManager(oc::logging::Logger &logger, oc::process::Runner &process_runner, oc::process::Command network_restart,
                  oc::process::Command chime_restart);
-    ApplyManager(oc::logging::Logger &logger, oc::process::Runner &process_runner, std::string network_restart_command,
-                 std::string chime_restart_command);
     ApplyManager(const ApplyManager &) = delete;
     ApplyManager &operator=(const ApplyManager &) = delete;
 

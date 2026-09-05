@@ -18,7 +18,6 @@
 #include "oc/logging/logger.h"
 #include "oc/process/runner.h"
 #include "oc/util/filesystem.h"
-#include "oc/util/platform.h"
 
 namespace chime {
 namespace {
@@ -264,10 +263,6 @@ bool CreateSoftwareScaledWav(const std::string &source_path, int effective_volum
     return true;
 }
 
-bool CommandSucceeded(const oc::process::Result &result) {
-    return result.outcome == oc::process::Outcome::Exited && result.exit_code == 0;
-}
-
 MixerSetResult TrySetVolumeWithAmixer(oc::process::Runner &runner, int effective_volume, std::stop_token stop) {
     for (const char *control_name : kMixerControlCandidates) {
         if (stop.stop_requested()) {
@@ -278,7 +273,7 @@ MixerSetResult TrySetVolumeWithAmixer(oc::process::Runner &runner, int effective
         request.command.arguments = {"-q", "sset", control_name, std::to_string(effective_volume) + "%"};
         request.timeout = kAmixerTimeout;
         request.stop = stop;
-        if (CommandSucceeded(runner.Run(request))) {
+        if (oc::process::Succeeded(runner.Run(request))) {
             return {true, control_name};
         }
     }
@@ -307,11 +302,8 @@ std::string MixerCandidatesForLog() {
 
 } // namespace
 
-AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner)
-    : logger_(logger), runner_(runner), execute_commands_(oc::util::IsLinux()) {}
-
-AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner, ForTest)
-    : logger_(logger), runner_(runner), execute_commands_(true) {}
+AplayAudioPlayer::AplayAudioPlayer(oc::logging::Logger &logger, oc::process::Runner &runner, bool execute_commands)
+    : logger_(logger), runner_(runner), execute_commands_(execute_commands) {}
 
 AplayAudioPlayer::~AplayAudioPlayer() {
     std::lock_guard<std::mutex> lock(playback_thread_mutex_);
@@ -391,7 +383,7 @@ void AplayAudioPlayer::Play(const std::string &path, int volume_percent) {
                         .count();
                 if (stop.stop_requested() || play_result.outcome == oc::process::Outcome::Cancelled) {
                     logger->Info("audio", "playback cancelled");
-                } else if (!CommandSucceeded(play_result)) {
+                } else if (!oc::process::Succeeded(play_result)) {
                     logger->Error("audio", "aplay failed: " + oc::process::Describe(play_result));
                 } else {
                     logger->Info("audio", "playback complete in " + std::to_string(elapsed_ms) + "ms");

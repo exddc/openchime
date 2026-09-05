@@ -27,7 +27,7 @@ oc::process::Request Helper(std::vector<std::string> arguments) {
 }
 
 #if defined(__linux__)
-bool IsExitedOrZombie(pid_t pid) {
+bool HasExited(pid_t pid) {
     std::ifstream stat("/proc/" + std::to_string(pid) + "/stat");
     if (!stat.is_open()) {
         return true;
@@ -35,11 +35,21 @@ bool IsExitedOrZombie(pid_t pid) {
     std::string line;
     std::getline(stat, line);
     const auto name_end = line.rfind(')');
-    if (name_end == std::string::npos || name_end + 2 >= line.size()) {
-        return false;
-    }
+    REQUIRE(name_end != std::string::npos);
+    REQUIRE(name_end + 2 < line.size());
     const char state = line[name_end + 2];
     return state == 'Z' || state == 'X';
+}
+
+bool WaitForExit(pid_t pid) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (!HasExited(pid)) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    return true;
 }
 #endif
 
@@ -189,7 +199,7 @@ TEST_SUITE("process_runner") {
         CHECK(parent_pgid == parent);
         CHECK(grandchild_pgid == parent);
 #if defined(__linux__)
-        CHECK(IsExitedOrZombie(grandchild));
+        CHECK(WaitForExit(grandchild));
 #endif
     }
 
