@@ -120,7 +120,9 @@ CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, s
     constexpr int kPollStepMs = 100;
 
     while (true) {
-        struct pollfd pfd{pipe_fds[0], POLLIN, 0};
+        struct pollfd pfd {
+            pipe_fds[0], POLLIN, 0
+        };
 
         const int poll_rc = poll(&pfd, 1, kPollStepMs);
         if (poll_rc > 0 && (pfd.revents & POLLIN)) {
