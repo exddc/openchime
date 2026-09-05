@@ -125,6 +125,9 @@ void JobRunner::Stop() {
         accepting_ = false;
         if (worker_.joinable()) {
             worker_.request_stop();
+            if (worker_.get_id() == std::this_thread::get_id()) {
+                return;
+            }
             to_join = std::move(worker_);
         }
     }

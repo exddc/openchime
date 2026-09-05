@@ -189,4 +189,23 @@ TEST_SUITE("apply_job") {
             CHECK(refused.state != "running");
         }
     }
+
+    TEST_CASE("Stop from a step cancels without joining itself") {
+        NullLogger logger;
+        oc::process::FakeRunner processes;
+        oc::apply::JobRunner runner(logger, processes, "test");
+        const auto started = runner.Start({
+            {"stop",
+             [&runner](const oc::apply::StepContext &, std::string *) {
+                 runner.Stop();
+                 return true;
+             }},
+        });
+
+        const oc::apply::Status status = WaitTerminal(runner);
+        CHECK(status.job_id == started.job_id);
+        CHECK(status.state == "failed");
+        CHECK(status.error == "cancelled");
+        CHECK_FALSE(status.finished_at_utc.empty());
+    }
 }

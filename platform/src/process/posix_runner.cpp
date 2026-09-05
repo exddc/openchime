@@ -162,26 +162,6 @@ void SendSignal(pid_t pid, int sig) {
     kill(-pid, sig);
 }
 
-void KillGroupAndReap(pid_t pid, int *wait_status) {
-    SendSignal(pid, SIGKILL);
-    int status = 0;
-    for (;;) {
-        const pid_t waited = waitpid(pid, &status, 0);
-        if (waited == pid) {
-            if (wait_status != nullptr) {
-                *wait_status = status;
-            }
-            return;
-        }
-        if (waited < 0 && errno == ECHILD) {
-            return;
-        }
-        if (waited < 0 && errno != EINTR) {
-            return;
-        }
-    }
-}
-
 } // namespace
 
 Result PosixRunner::Run(const Request &request) {
@@ -321,8 +301,30 @@ Result PosixRunner::Run(const Request &request) {
         ConsumeOutput(stderr_read, &result.stderr_data, &result.stderr_truncated, request.max_output_bytes);
     };
 
-    while (!reaped || (stop_reason != StopReason::None && !sent_kill)) {
+    while (!reaped) {
         const auto now = std::chrono::steady_clock::now();
+
+        consume();
+
+        // Reap normal completion before checking the stop token or deadline. Once the
+        // group leader is reaped, its process-group ID can be reused, so no later
+        // group signal is safe.
+        if (stop_reason == StopReason::None) {
+            const pid_t waited = waitpid(pid, &wait_status, WNOHANG);
+            if (waited == pid) {
+                reaped = true;
+                continue;
+            }
+            if (waited < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                result.outcome = Outcome::SpawnFailed;
+                result.error = std::string("waitpid failed: ") + std::strerror(errno);
+                return result;
+            }
+        }
+
         if (stop_reason == StopReason::None) {
             if (request.stop.stop_requested()) {
                 stop_reason = StopReason::Cancel;
@@ -340,9 +342,10 @@ Result PosixRunner::Run(const Request &request) {
             sent_kill = true;
         }
 
-        consume();
-
-        if (!reaped) {
+        // Keep the leader unreaped during escalation. Its unreaped PID holds the
+        // process-group ID, so SIGKILL cannot target a reused group. Reap only
+        // after escalation is complete.
+        if (stop_reason == StopReason::None || sent_kill) {
             const pid_t waited = waitpid(pid, &wait_status, WNOHANG);
             if (waited == pid) {
                 reaped = true;
@@ -352,15 +355,13 @@ Result PosixRunner::Run(const Request &request) {
                 if (errno == EINTR) {
                     continue;
                 }
-                const int wait_error = errno;
-                KillGroupAndReap(pid, &wait_status);
                 result.outcome = Outcome::SpawnFailed;
-                result.error = std::string("waitpid failed: ") + std::strerror(wait_error);
+                result.error = std::string("waitpid failed: ") + std::strerror(errno);
                 return result;
             }
         }
 
-        if (reaped && (stop_reason == StopReason::None || sent_kill)) {
+        if (reaped) {
             break;
         }
 
@@ -395,11 +396,6 @@ Result PosixRunner::Run(const Request &request) {
         } else if (wake_in.count() > 0) {
             std::this_thread::sleep_for(wake_in);
         }
-    }
-
-    if (!reaped) {
-        KillGroupAndReap(pid, &wait_status);
-        reaped = true;
     }
 
     consume();

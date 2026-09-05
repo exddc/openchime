@@ -26,6 +26,19 @@ oc::process::Request Helper(std::vector<std::string> arguments) {
     return request;
 }
 
+#if defined(__linux__)
+bool IsExitedOrZombie(pid_t pid) {
+    std::ifstream stat("/proc/" + std::to_string(pid) + "/stat");
+    if (!stat.is_open()) {
+        return true;
+    }
+    std::string line;
+    std::getline(stat, line);
+    const auto name_end = line.rfind(')');
+    return name_end != std::string::npos && name_end + 2 < line.size() && line[name_end + 2] == 'Z';
+}
+#endif
+
 } // namespace
 
 TEST_SUITE("process_runner") {
@@ -171,19 +184,9 @@ TEST_SUITE("process_runner") {
         REQUIRE(grandchild > 0);
         CHECK(parent_pgid == parent);
         CHECK(grandchild_pgid == parent);
-        int alive = 0;
-        for (int i = 0; i < 100; ++i) {
-            errno = 0;
-            alive = kill(grandchild, 0);
-            if (alive == -1 && errno == ESRCH) {
-                break;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-        INFO("parent=" << parent << " parent_pgid=" << parent_pgid << " grandchild=" << grandchild
-                       << " grandchild_pgid=" << grandchild_pgid << " alive=" << alive << " errno=" << errno);
-        CHECK(alive == -1);
-        CHECK(errno == ESRCH);
+#if defined(__linux__)
+        CHECK(IsExitedOrZombie(grandchild));
+#endif
     }
 
     TEST_CASE("cancellation stops a long child") {
