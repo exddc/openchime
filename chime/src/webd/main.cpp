@@ -19,6 +19,7 @@
 #include "oc/http/tls_server.h"
 #include "oc/logging/logger.h"
 #include "oc/mdns/responder.h"
+#include "oc/process/posix_runner.h"
 #include "oc/runtime/signal_handler.h"
 #include "oc/util/environment.h"
 #include "oc/wifi/scan.h"
@@ -33,8 +34,8 @@ constexpr const char *kUiDistDir = "/usr/local/share/chime-web-ui/dist";
 constexpr const char *kBindAddress = "0.0.0.0";
 constexpr int kListenPort = 8443;
 constexpr const char *kHostLabel = "chime";
-constexpr const char *kNetworkRestartCommand = "/etc/init.d/S40network restart >/dev/null 2>&1";
-constexpr const char *kChimeRestartCommand = "/etc/init.d/S99chime restart >/dev/null 2>&1";
+constexpr const char *kNetworkRestartCommand = "/etc/init.d/S40network restart";
+constexpr const char *kChimeRestartCommand = "/etc/init.d/S99chime restart";
 constexpr const char *kObservedTopicsPath = "/var/lib/chime/observed_topics.txt";
 constexpr const char *kRingSoundsDir = "/var/lib/chime/ring_sounds";
 constexpr const char *kActiveRingSoundPath = "/usr/local/share/chime/ring.wav";
@@ -115,8 +116,8 @@ void PrintUsage(const char *program) {
     std::cout << "  CHIME_WEBD_PORT\n";
     std::cout << "  CHIME_WEBD_HOST_LABEL\n";
     std::cout << "  CHIME_WEBD_WIFI_INTERFACE\n";
-    std::cout << "  CHIME_WEBD_NETWORK_RESTART_CMD\n";
-    std::cout << "  CHIME_WEBD_CHIME_RESTART_CMD\n";
+    std::cout << "  CHIME_WEBD_NETWORK_RESTART_CMD  (executable + argv, no shell)\n";
+    std::cout << "  CHIME_WEBD_CHIME_RESTART_CMD    (executable + argv, no shell)\n";
     std::cout << "  CHIME_WEBD_MDNS_ENABLED\n";
     std::cout << "  CHIME_WEBD_UI_DIST_DIR\n";
     std::cout << "  CHIME_WEBD_OBSERVED_TOPICS_PATH\n";
@@ -188,7 +189,20 @@ int main(int argc, char *argv[]) {
 
     chime::webd::ConfigStore config_store(logger, chime_config_path, wpa_supplicant_path);
     oc::wifi::WifiScanner wifi_scanner(logger, wifi_interface);
-    chime::webd::ApplyManager apply_manager(logger, network_restart_command, chime_restart_command);
+    oc::process::PosixRunner process_runner;
+    oc::process::Command network_restart;
+    oc::process::Command chime_restart;
+    std::string command_error;
+    if (!oc::process::ParseCommand(network_restart_command, &network_restart, &command_error)) {
+        logger.Error("webd", "CHIME_WEBD_NETWORK_RESTART_CMD: " + command_error);
+        return 1;
+    }
+    if (!oc::process::ParseCommand(chime_restart_command, &chime_restart, &command_error)) {
+        logger.Error("webd", "CHIME_WEBD_CHIME_RESTART_CMD: " + command_error);
+        return 1;
+    }
+    chime::webd::ApplyManager apply_manager(logger, process_runner, std::move(network_restart),
+                                            std::move(chime_restart));
     chime::webd::AuthStoreOptions auth_options;
     auth_options.auth_dir = auth_dir;
     auth_options.bootstrap_password = oc::util::GetEnv("CHIME_WEBD_BOOTSTRAP_PASSWORD");
@@ -233,6 +247,7 @@ int main(int argc, char *argv[]) {
 
     mdns.Stop();
     web_server.Stop();
+    apply_manager.Stop();
 
     logger.Info("webd", "chime-webd stopped");
     return 0;

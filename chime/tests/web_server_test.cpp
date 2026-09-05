@@ -19,6 +19,7 @@
 #include "chime/webd_auth.h"
 #include "chime/webd_config_store.h"
 #include "doctest.h"
+#include "fake_process_runner.h"
 #include "oc/http/tls_server.h"
 #include "oc/json/json.h"
 #include "oc/wifi/scan.h"
@@ -85,6 +86,7 @@ std::string TlsExchange(const std::string &bind_address, int port, const std::st
 }
 
 struct ChimeHttps {
+    oc::process::FakeRunner process_runner;
     chime::webd::ConfigStore store;
     oc::wifi::WifiScanner scanner;
     chime::webd::ApplyManager apply;
@@ -93,8 +95,10 @@ struct ChimeHttps {
     oc::http::TlsServer server;
 
     ChimeHttps(oc::logging::Logger &logger, const ScopedTempDir &tmp, chime::webd::AuthStoreOptions auth_options)
-        : store(logger, (tmp.path() / "chime.conf").string(), (tmp.path() / "wpa.conf").string()),
-          scanner(logger, "wlan0"), apply(logger, "true", "true"), auth(logger, std::move(auth_options)),
+        : process_runner(), store(logger, (tmp.path() / "chime.conf").string(), (tmp.path() / "wpa.conf").string()),
+          scanner(logger, "wlan0"),
+          apply(logger, process_runner, oc::process::Command{"true", {}}, oc::process::Command{"true", {}}),
+          auth(logger, std::move(auth_options)),
           api(logger, store, scanner, apply, auth, (tmp.path() / "ui").string(), (tmp.path() / "topics.txt").string(),
               (tmp.path() / "sounds").string(), (tmp.path() / "ring.wav").string()),
           server(
