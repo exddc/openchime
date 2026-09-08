@@ -32,9 +32,9 @@ The first rewritten product - a purpose-built IoT speaker that plays doorbell so
 
 See [Chime README](chime/README.md) for detailed technical specifications.
 
-### Bell (Doorbell)
+### Ring (Doorbell)
 
-The doorbell unit. Next product after Chime.
+The doorbell unit. Next product after Chime. Sources live in `bell/` until that directory is renamed.
 
 ### Base
 
@@ -61,7 +61,7 @@ A future product.
 - [Chime README](chime/README.md) — Chime runtime, webd, and config keys
 - [Buildroot README](buildroot/README.md) — Image build, flash, and deploy
 - [Reliability runbook](docs/reliability-runbook.md) — On-device logs, MQTT, webd/TLS, persistent data, OTA, recovery
-- [Hardware README](hardware/chime/README.md) — CAD, BOM, and wiring
+- [Hardware README](hardware/chime/README.md) — CAD, BOM, wiring, and interface
 
 ## License
 
