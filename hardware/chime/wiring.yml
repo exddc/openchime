@@ -1,0 +1,58 @@
+# Chime I2S speaker harness (Pi J8 → MAX98357A → speaker).
+
+metadata:
+  title: Chime
+  description: Pi Zero W J8 to MAX98357A to speaker
+  notes: AMP_SD is J8 pin 4 looped VIN to SD on the amplifier. GAIN is unconnected.
+
+connectors:
+  J8:
+    type: Raspberry Pi GPIO
+    subtype: male
+    ignore_in_bom: true
+    notes: Pin 1 is nearest the microSD slot, inner row (square pad on the underside).
+    pins: [1, 4, 6, 12, 35, 40]
+    pinlabels: [3V3, 5V, GND, I2S_BCLK, I2S_LRCLK, I2S_DIN]
+    hide_disconnected_pins: false
+
+  U1:
+    type: MAX98357A
+    ignore_in_bom: true
+    notes: Loop VIN to SD (dtoverlay=max98357a,no-sdmode). GAIN unconnected.
+    pins: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    pinlabels: [VIN, GND, SD, GAIN, DIN, BCLK, LRC, "SPK+", "SPK-"]
+    hide_disconnected_pins: false
+    loops:
+      - [1, 3]
+
+  SP1:
+    type: Speaker
+    ignore_in_bom: true
+    notes: Amplifier + to speaker +.
+    pins: ["SPK+", "SPK-"]
+    pinlabels: ["SPK+", "SPK-"]
+
+cables:
+  W1:
+    category: bundle
+    type: Dupont jumper
+    gauge: 26 AWG
+    colors: [RD, BK, YE, GN, BU]
+    wirelabels: [5V, GND, I2S_BCLK, I2S_LRCLK, I2S_DIN]
+
+  W2:
+    category: bundle
+    type: Speaker leads
+    gauge: 24 AWG
+    colors: [RD, BK]
+    wirelabels: ["SPK+", "SPK-"]
+
+connections:
+  -
+    - J8: [4, 6, 12, 35, 40]
+    - W1: [1, 2, 3, 4, 5]
+    - U1: [VIN, GND, BCLK, LRC, DIN]
+  -
+    - U1: ["SPK+", "SPK-"]
+    - W2: [1, 2]
+    - SP1: ["SPK+", "SPK-"]
