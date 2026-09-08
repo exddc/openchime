@@ -61,7 +61,7 @@ A future product.
 - [Chime README](chime/README.md) — Chime runtime, webd, and config keys
 - [Buildroot README](buildroot/README.md) — Image build, flash, and deploy
 - [Reliability runbook](docs/reliability-runbook.md) — On-device logs, MQTT, webd/TLS, persistent data, OTA, recovery
-- [Hardware README](hardware/chime/README.md) — CAD and variant notes
+- [Hardware README](hardware/chime/README.md) — CAD, BOM, and wiring
 
 ## License
 
