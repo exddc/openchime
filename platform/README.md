@@ -20,7 +20,7 @@ platform (oc_platform, oc_platform_http)    # no chime/ includes or links
 - Product binaries stay `chime` (ring) and `chime-webd` (configuration). They remain separate processes.
 - A platform-only graph is `cmake -DOC_BUILD_CHIME=OFF`. A TLS-free core is `cmake -DOC_BUILD_CHIME=OFF -DOC_BUILD_HTTP=OFF`. Native CI runs `./scripts/platform_only_ci.sh`, which configures, builds, and tests a staged tree that does not contain `chime/`, then repeats that for a core-only OpenSSL-free configure. `./scripts/test_platform_link_guard.sh` checks that a Chime target added after `platform/` still fails configure.
 
-Board-specific work (kernel, device tree, rootfs overlay, Pi quirks) stays in `buildroot/` until TW-356 documents that boundary. Do not add Bell here.
+Board-specific work (kernel, device tree, rootfs overlay, Pi quirks) stays in `buildroot/` until TW-356 documents that boundary. Do not add Ring here.
 
 ## Product hooks
 

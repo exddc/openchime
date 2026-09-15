@@ -30,7 +30,7 @@ namespace {
 constexpr const char *kCoreConfig = R"(
 mqtt_host=broker.local
 mqtt_port=1883
-mqtt_topics=doorbell/ring
+mqtt_topics=ring/pressed
 )";
 
 std::string TlsExchange(const std::string &bind_address, int port, const std::string &request,

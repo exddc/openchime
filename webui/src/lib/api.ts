@@ -324,7 +324,7 @@ export async function saveCoreConfig(
     ring_topic: input.ring_topic,
     notification_success_sound_path: input.notification_success_sound_path,
     notification_failure_sound_path: input.notification_failure_sound_path,
-    volume_bell: input.volume_bell,
+    volume_ring: input.volume_ring,
     volume_notifications: input.volume_notifications,
   };
   if (input.wifi_password != null && input.wifi_password.length > 0) {

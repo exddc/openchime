@@ -26,11 +26,11 @@ std::string CorePostBody() {
       "mqtt_tls_ca_file": "",
       "mqtt_tls_cert_file": "",
       "mqtt_tls_key_file": "",
-      "mqtt_topics": ["doorbell/ring"],
-      "ring_topic": "doorbell/ring",
+      "mqtt_topics": ["ring/pressed"],
+      "ring_topic": "ring/pressed",
       "notification_success_sound_path": "/usr/local/share/chime/test.wav",
       "notification_failure_sound_path": "/usr/local/share/chime/ring.wav",
-      "volume_bell": 40,
+      "volume_ring": 40,
       "volume_notifications": 30
     })";
 }
@@ -114,7 +114,7 @@ TEST_SUITE("web_api") {
         REQUIRE(RequireField(post_body, "mqtt_host").AsString(&host));
         CHECK(host == "mqtt.example");
         double volume = 0;
-        REQUIRE(RequireField(post_body, "volume_bell").AsNumber(&volume));
+        REQUIRE(RequireField(post_body, "volume_ring").AsNumber(&volume));
         CHECK(volume == 40.0);
 
         const auto get_after = ParseBody(harness.api().Handle(harness.Request("GET", "/api/v1/config/core")));
@@ -187,8 +187,8 @@ TEST_SUITE("web_api") {
         CHECK(client_id.status == 400);
         CHECK(RequireError(client_id) == "validation_failed");
 
-        const auto topics = post_replaced("\"mqtt_topics\": [\"doorbell/ring\"]",
-                                          "\"mqtt_topics\": [\"doorbell/ring\\naudio_enabled=false\"]");
+        const auto topics = post_replaced("\"mqtt_topics\": [\"ring/pressed\"]",
+                                          "\"mqtt_topics\": [\"ring/pressed\\naudio_enabled=false\"]");
         CHECK(topics.status == 400);
         CHECK(RequireError(topics) == "validation_failed");
 

@@ -12,8 +12,8 @@ TEST_SUITE("mqtt_topic") {
         const Case cases[] = {
             {"a/b", "a/b", true},
             {"a/b", "a/c", false},
-            {"doorbell/ring", "doorbell/ring", true},
-            {"doorbell/ring", "doorbell/status", false},
+            {"ring/pressed", "ring/pressed", true},
+            {"ring/pressed", "ring/status", false},
 
             {"a/+/c", "a/b/c", true},
             {"a/+/c", "a/x/c", true},
@@ -25,8 +25,8 @@ TEST_SUITE("mqtt_topic") {
             {"+", "a", true},
             {"+", "a/b", false},
             {"a/+/+", "a/b/c", true},
-            {"doorbell/+/ring", "doorbell/2OG/ring", true},
-            {"doorbell/+/ring", "doorbell/ring", false},
+            {"ring/+/pressed", "ring/2OG/pressed", true},
+            {"ring/+/pressed", "ring/pressed", false},
 
             {"#", "a", true},
             {"#", "a/b/c", true},
@@ -38,8 +38,8 @@ TEST_SUITE("mqtt_topic") {
             {"a/b/#", "a/b", true},
             {"a/b/#", "a/b/c", true},
             {"sport/tennis/#", "sport/tennis/player1/ranking", true},
-            {"doorbell/2OG/#", "doorbell/2OG/ring", true},
-            {"doorbell/2OG/#", "doorbell/1OG/ring", false},
+            {"ring/2OG/#", "ring/2OG/pressed", true},
+            {"ring/2OG/#", "ring/1OG/pressed", false},
 
             {"a//b", "a//b", true},
             {"a/+/b", "a//b", true},

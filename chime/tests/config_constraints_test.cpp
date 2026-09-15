@@ -25,7 +25,7 @@ std::string FileWithOverride(std::string_view key, std::string_view value) {
         text += "mqtt_port=1883\n";
     }
     if (key != "mqtt_topics") {
-        text += "mqtt_topics=doorbell/ring\n";
+        text += "mqtt_topics=ring/pressed\n";
     }
     text += std::string(key) + "=" + std::string(value) + "\n";
     return text;
@@ -63,7 +63,7 @@ chime::webd::SaveRequest ValidApiSaveRequest() {
     chime::webd::SaveRequest request;
     request.config.wifi_ssid = "net";
     request.config.mqtt_host = "broker";
-    request.config.mqtt_topics = {"doorbell/ring"};
+    request.config.mqtt_topics = {"ring/pressed"};
     return request;
 }
 
@@ -87,7 +87,7 @@ TEST_SUITE("config_constraints") {
                 if (std::string(example.key) == "mqtt_client_id") {
                     CHECK(loaded.config.mqtt_client_id == "chime");
                 } else if (std::string(example.key) == "ring_topic") {
-                    CHECK(loaded.config.ring_topic == "doorbell/ring");
+                    CHECK(loaded.config.ring_topic == "ring/pressed");
                 } else if (std::string(example.key) == "heartbeat_topic") {
                     CHECK(loaded.config.heartbeat_topic == "chime/heartbeat");
                 } else if (std::string(example.key) == "notification_success_sound_path") {

@@ -5,7 +5,7 @@
 namespace {
 
 std::string RequiredKeys() {
-    return "mqtt_host=broker.local\nmqtt_port=1883\nmqtt_topics=doorbell/ring,doorbell/status\n";
+    return "mqtt_host=broker.local\nmqtt_port=1883\nmqtt_topics=ring/pressed,ring/status\n";
 }
 
 } // namespace
@@ -19,8 +19,8 @@ TEST_SUITE("chime_config") {
         CHECK(result.config.mqtt_host == "broker.local");
         CHECK(result.config.mqtt_port == 1883);
         REQUIRE(result.config.mqtt_topics.size() == 2);
-        CHECK(result.config.mqtt_topics[0] == "doorbell/ring");
-        CHECK(result.config.mqtt_topics[1] == "doorbell/status");
+        CHECK(result.config.mqtt_topics[0] == "ring/pressed");
+        CHECK(result.config.mqtt_topics[1] == "ring/status");
         CHECK(result.config.mqtt_client_id == "chime");
         CHECK(result.config.mqtt_username.empty());
         CHECK(result.config.mqtt_password.empty());
@@ -29,11 +29,11 @@ TEST_SUITE("chime_config") {
         CHECK(result.config.mqtt_subscribe_qos == 0);
         CHECK(result.config.heartbeat_interval == 60);
         CHECK(result.config.heartbeat_topic == "chime/heartbeat");
-        CHECK(result.config.ring_topic == "doorbell/ring");
+        CHECK(result.config.ring_topic == "ring/pressed");
         CHECK(result.config.sound_path == "/usr/local/share/chime/ring.wav");
         CHECK(result.config.notification_success_sound_path == "/usr/local/share/chime/test.wav");
         CHECK(result.config.notification_failure_sound_path == "/usr/local/share/chime/ring.wav");
-        CHECK(result.config.volume_bell == 80);
+        CHECK(result.config.volume_ring == 80);
         CHECK(result.config.volume_notifications == 70);
         CHECK(result.config.audio_enabled == true);
         CHECK(result.config.wifi_interface == "wlan0");
@@ -49,8 +49,8 @@ mqtt_password=secret
 mqtt_tls_enabled=true
 mqtt_subscribe_qos=2
 heartbeat_interval=0
-ring_topic=doorbell/+/ring
-volume_bell=0
+ring_topic=ring/+/pressed
+volume_ring=0
 audio_enabled=false
 wifi_check_interval=0
 )");
@@ -62,8 +62,8 @@ wifi_check_interval=0
         CHECK(result.config.mqtt_tls_enabled == true);
         CHECK(result.config.mqtt_subscribe_qos == 2);
         CHECK(result.config.heartbeat_interval == 0);
-        CHECK(result.config.ring_topic == "doorbell/+/ring");
-        CHECK(result.config.volume_bell == 0);
+        CHECK(result.config.ring_topic == "ring/+/pressed");
+        CHECK(result.config.volume_ring == 0);
         CHECK(result.config.audio_enabled == false);
         CHECK(result.config.wifi_check_interval == 0);
     }
@@ -77,7 +77,7 @@ wifi_check_interval=0
 
     TEST_CASE("accepts empty mqtt_host as not configured") {
         const ScopedTempDir tmp;
-        const auto path = tmp.WriteFile("empty-host.conf", "mqtt_host=\nmqtt_port=1883\nmqtt_topics=doorbell/ring\n");
+        const auto path = tmp.WriteFile("empty-host.conf", "mqtt_host=\nmqtt_port=1883\nmqtt_topics=ring/pressed\n");
         const auto result = chime::LoadConfig(path.string());
         REQUIRE(result);
         CHECK(result.config.mqtt_host.empty());
@@ -95,22 +95,23 @@ wifi_check_interval=0
     TEST_CASE("ignores invalid optional values and keeps defaults") {
         const ScopedTempDir tmp;
         const auto path = tmp.WriteFile(
-            "invalid-optional.conf", RequiredKeys() + "volume_bell=101\nmqtt_subscribe_qos=3\naudio_enabled=maybe\n");
+            "invalid-optional.conf", RequiredKeys() + "volume_ring=101\nmqtt_subscribe_qos=3\naudio_enabled=maybe\n");
         const auto result = chime::LoadConfig(path.string());
         REQUIRE(result);
-        CHECK(result.config.volume_bell == 80);
+        CHECK(result.config.volume_ring == 80);
         CHECK(result.config.mqtt_subscribe_qos == 0);
         CHECK(result.config.audio_enabled == true);
     }
 
     TEST_CASE("ignores init-only, unknown, and removed keys") {
         const ScopedTempDir tmp;
-        const auto path =
-            tmp.WriteFile("legacy.conf", RequiredKeys() + "volume_other=12\nntp_servers=example.invalid\nlab_flag=1\n");
+        const auto path = tmp.WriteFile(
+            "legacy.conf",
+            RequiredKeys() + "volume_other=12\nvolume_bell=12\nntp_servers=example.invalid\nlab_flag=1\n");
         const auto result = chime::LoadConfig(path.string());
         REQUIRE(result);
         CHECK(result.config.mqtt_host == "broker.local");
-        CHECK(result.config.volume_bell == 80);
+        CHECK(result.config.volume_ring == 80);
     }
 
     TEST_CASE("rejects an invalid required port") {

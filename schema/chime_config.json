@@ -1,28 +1,35 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "legacy_unversioned": 4,
+  "version_notes": "Shipped MQTT topics are `ring/pressed` and `ring/status`; `ring_topic` defaults to `ring/pressed`. Existing files keep their topics.",
   "unknown_key_policy": "preserve",
   "unknown_key_policy_notes": "Unknown assignment keys and comments are kept as written. Removed keys are dropped. Missing known keys are filled with schema defaults during migration.",
   "removed": {
     "5": [
       {
         "key": "volume_other",
-        "reason": "Persisted and shown in the UI but never consumed by the audio path. Bell playback uses volume_bell; notification playback uses volume_notifications. There is no third audio category."
+        "reason": "Persisted and shown in the UI but never consumed by the audio path. Ring playback uses volume_ring; notification playback uses volume_notifications. There is no third audio category."
       }
-    ]
+    ],
+    "6": []
   },
   "migrations": [
     {
       "to": 5,
       "remove": ["volume_other"],
       "rename": []
+    },
+    {
+      "to": 6,
+      "remove": [],
+      "rename": [{ "from": "volume_bell", "to": "volume_ring" }]
     }
   ],
   "fields": [
     {
       "key": "schema_version",
       "type": "int",
-      "default": 5,
+      "default": 6,
       "persist": "file",
       "runtime": false,
       "api": false,
@@ -222,7 +229,7 @@
       "key": "mqtt_topics",
       "type": "csv",
       "default": [],
-      "shipped": ["doorbell/ring", "doorbell/status"],
+      "shipped": ["ring/pressed", "ring/status"],
       "persist": "file",
       "runtime": true,
       "api": true,
@@ -234,7 +241,8 @@
       "json_post": "required",
       "forbid_whitespace": true,
       "owners": ["runtime", "webd"],
-      "consumers": ["runtime", "webd", "ui"]
+      "consumers": ["runtime", "webd", "ui"],
+      "notes": "Shipped subscribe list uses product/event names. ring/pressed is the Ring press; ring/status is reserved for Ring status. Existing files keep their topics."
     },
     {
       "key": "mqtt_subscribe_qos",
@@ -285,7 +293,7 @@
       "max_len": 256,
       "owners": ["runtime"],
       "consumers": ["runtime"],
-      "notes": "Not exposed in the web UI."
+      "notes": "Chime reports it is alive. Default chime/heartbeat. Not exposed in the web UI."
     },
     {
       "key": "ntp_servers",
@@ -375,7 +383,7 @@
     {
       "key": "ring_topic",
       "type": "string",
-      "default": "doorbell/ring",
+      "default": "ring/pressed",
       "persist": "file",
       "runtime": true,
       "api": true,
@@ -389,7 +397,8 @@
       "max_len": 256,
       "forbid_whitespace": true,
       "owners": ["runtime", "webd"],
-      "consumers": ["runtime", "webd", "ui"]
+      "consumers": ["runtime", "webd", "ui"],
+      "notes": "Filter that triggers audio. Shipped default is ring/pressed (Ring reports a press). Payload has no required schema. Existing files keep their topic."
     },
     {
       "key": "sound_path",
@@ -446,7 +455,7 @@
       "consumers": ["runtime", "webd", "ui"]
     },
     {
-      "key": "volume_bell",
+      "key": "volume_ring",
       "type": "int",
       "default": 80,
       "persist": "file",
@@ -462,7 +471,7 @@
       "max": 100,
       "owners": ["runtime", "webd"],
       "consumers": ["runtime", "webd", "ui"],
-      "notes": "Software volume for ring/bell playback."
+      "notes": "Software volume for ring playback."
     },
     {
       "key": "volume_notifications",

@@ -1,6 +1,6 @@
 <script lang="ts">
   import MessageBanner from "../../components/MessageBanner.svelte";
-  import { CORE_CONFIG_INT_BOUNDS } from "../../generated/config_schema";
+  import { CORE_CONFIG_DEFAULTS, CORE_CONFIG_INT_BOUNDS } from "../../generated/config_schema";
 
   export let mqttHost: string;
   export let mqttPort: number;
@@ -68,7 +68,12 @@
     </div>
     <div>
       <label for="ring_topic">Ring Topic</label>
-      <input id="ring_topic" bind:value={ringTopic} list="observed_topics" placeholder="doorbell/ring" />
+      <input
+        id="ring_topic"
+        bind:value={ringTopic}
+        list="observed_topics"
+        placeholder={CORE_CONFIG_DEFAULTS.ring_topic}
+      />
       <datalist id="observed_topics">
         {#each observedTopics as topic}
           <option value={topic}></option>
@@ -127,7 +132,7 @@
   <p class="hint">Client cert/key are optional, but must be provided together.</p>
 
   <label for="mqtt_topics">Subscribe Topics (comma-separated)</label>
-  <input id="mqtt_topics" bind:value={mqttTopics} placeholder="doorbell/ring,doorbell/status" />
+  <input id="mqtt_topics" bind:value={mqttTopics} placeholder="ring/pressed,ring/status" />
 
   <div class="button-row">
     {#if showRetry}

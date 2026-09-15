@@ -9,9 +9,9 @@ TEST_SUITE("chime_service_ring") {
         const ScopedTempDir tmp;
         chime::ChimeConfig config;
         config.audio_enabled = true;
-        config.ring_topic = "doorbell/+/ring";
+        config.ring_topic = "ring/+/pressed";
         config.sound_path = "/usr/local/share/chime/ring.wav";
-        config.volume_bell = 80;
+        config.volume_ring = 80;
 
         NullLogger logger;
         RecordingAudioPlayer audio;
@@ -19,7 +19,7 @@ TEST_SUITE("chime_service_ring") {
         chime::ChimeService service(config, logger, audio, wifi, (tmp.path() / "observed_topics.txt").string());
 
         oc::mqtt::Message matching;
-        matching.topic = "doorbell/2OG/ring";
+        matching.topic = "ring/2OG/pressed";
         matching.payload = "ding";
         service.OnMessage(matching);
 
@@ -28,7 +28,7 @@ TEST_SUITE("chime_service_ring") {
         CHECK(audio.calls()[0].volume_percent == 80);
 
         oc::mqtt::Message non_matching;
-        non_matching.topic = "doorbell/status";
+        non_matching.topic = "ring/status";
         service.OnMessage(non_matching);
         CHECK(audio.calls().size() == 1);
     }
@@ -37,7 +37,7 @@ TEST_SUITE("chime_service_ring") {
         const ScopedTempDir tmp;
         chime::ChimeConfig config;
         config.audio_enabled = false;
-        config.ring_topic = "doorbell/ring";
+        config.ring_topic = "ring/pressed";
 
         NullLogger logger;
         RecordingAudioPlayer audio;
@@ -45,7 +45,7 @@ TEST_SUITE("chime_service_ring") {
         chime::ChimeService service(config, logger, audio, wifi, (tmp.path() / "observed_topics.txt").string());
 
         oc::mqtt::Message matching;
-        matching.topic = "doorbell/ring";
+        matching.topic = "ring/pressed";
         service.OnMessage(matching);
         CHECK(audio.calls().empty());
     }

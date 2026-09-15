@@ -42,8 +42,8 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 1. Loads config from `/etc/chime.conf` (or `$CHIME_CONFIG`).
 2. If `mqtt_host` is empty, waits without connecting and logs that MQTT is not configured. `chime-webd` remains available for setup.
 3. Otherwise connects to the MQTT broker and subscribes to configured topics.
-4. When a message arrives on `ring_topic`, plays `sound_path` using `aplay`.
-5. Publishes `heartbeat_topic` every `heartbeat_interval` seconds.
+4. When a message arrives on `ring_topic` (shipped `ring/pressed`), plays `sound_path` using `aplay`.
+5. Publishes `heartbeat_topic` (shipped `chime/heartbeat`) every `heartbeat_interval` seconds.
 6. Automatically reconnects to MQTT after disconnect or loop errors.
 
 ## Web Platform (`chime-webd`)
@@ -104,14 +104,15 @@ Daemon keys:
 - `mqtt_username`, `mqtt_password` (optional broker auth; password is redacted on API reads)
 - `mqtt_tls_enabled`, `mqtt_tls_validate_certificate`
 - `mqtt_tls_ca_file`, `mqtt_tls_cert_file`, `mqtt_tls_key_file`
-- `mqtt_topics` (comma-separated)
+- `mqtt_topics` (comma-separated; shipped `ring/pressed,ring/status`)
 - `mqtt_subscribe_qos` (0-2)
 - `heartbeat_interval` (0 disables)
-- `heartbeat_topic`
-- `ring_topic`
+- `heartbeat_topic` (shipped `chime/heartbeat`)
+- `ring_topic` (shipped `ring/pressed`: Ring reports a press)
   - Supports MQTT topic filters (`+` and `#`) for matching incoming message topics
+  - Existing files keep their topic; do not rewrite live `doorbell/…` contracts
 - `sound_path`
-- `volume_bell` (0-100, bell/ring events)
+- `volume_ring` (0-100, ring events)
 - `volume_notifications` (0-100, startup/notification playback)
 - `audio_enabled`
 - `wifi_interface`
@@ -123,4 +124,4 @@ Init-service keys (used by `S41timesync` and `S99chime`, not by the daemons):
 - `time_sync_retries`, `time_sync_retry_delay`, `time_sync_interval`
 - `log_max_bytes`, `log_rotate_keep`, `log_rotate_check_interval`
 
-`schema_version` is written by `chime-migrate`. `volume_other` was removed in schema 5. Malformed or future `schema_version` values make `chime-migrate`, `chime`, and `chime-webd` exit 78 so the init supervisors do not restart-loop.
+`schema_version` is written by `chime-migrate`. `volume_other` was removed in schema 5. `volume_bell` was renamed to `volume_ring` in schema 6. Malformed or future `schema_version` values make `chime-migrate`, `chime`, and `chime-webd` exit 78 so the init supervisors do not restart-loop.

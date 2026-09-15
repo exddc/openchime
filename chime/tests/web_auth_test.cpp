@@ -56,11 +56,11 @@ std::string CorePostBody() {
       "mqtt_tls_ca_file": "",
       "mqtt_tls_cert_file": "",
       "mqtt_tls_key_file": "",
-      "mqtt_topics": ["doorbell/ring"],
-      "ring_topic": "doorbell/ring",
+      "mqtt_topics": ["ring/pressed"],
+      "ring_topic": "ring/pressed",
       "notification_success_sound_path": "/usr/local/share/chime/test.wav",
       "notification_failure_sound_path": "/usr/local/share/chime/ring.wav",
-      "volume_bell": 40,
+      "volume_ring": 40,
       "volume_notifications": 30
     })";
 }
@@ -425,7 +425,7 @@ TEST_SUITE("web_auth") {
         WebHarness harness(WebHarness::Mode::Paired, "correct-horse");
         const auto verifier = harness.path() / "auth" / chime::webd::kVerifierFileName;
         REQUIRE(std::filesystem::is_regular_file(verifier));
-        struct stat st {};
+        struct stat st{};
         REQUIRE(::stat(verifier.c_str(), &st) == 0);
         CHECK((st.st_mode & 0777) == 0600);
         std::ifstream file(verifier);
