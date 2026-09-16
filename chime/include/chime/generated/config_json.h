@@ -44,7 +44,7 @@ inline std::map<std::string, JsonValue> CoreConfigFieldsToJson(const CoreConfig 
         {"ring_topic", JsonValue::String(config.ring_topic)},
         {"notification_success_sound_path", JsonValue::String(config.notification_success_sound_path)},
         {"notification_failure_sound_path", JsonValue::String(config.notification_failure_sound_path)},
-        {"volume_bell", JsonValue::Number(static_cast<double>(config.volume_bell))},
+        {"volume_ring", JsonValue::Number(static_cast<double>(config.volume_ring))},
         {"volume_notifications", JsonValue::Number(static_cast<double>(config.volume_notifications))},
         {"wifi_ssid", JsonValue::String(config.wifi_ssid)},
     };
@@ -125,9 +125,9 @@ inline void ReadSaveRequestFromJson(const JsonValue &object, SaveRequest *reques
         request->config.notification_failure_sound_path = *notification_failure_sound_path;
     }
 
-    const auto volume_bell = ReadRequiredInt(object, "volume_bell", errors);
-    if (volume_bell.has_value()) {
-        request->config.volume_bell = *volume_bell;
+    const auto volume_ring = ReadRequiredInt(object, "volume_ring", errors);
+    if (volume_ring.has_value()) {
+        request->config.volume_ring = *volume_ring;
     }
 
     const auto volume_notifications = ReadRequiredInt(object, "volume_notifications", errors);
@@ -228,7 +228,7 @@ inline void ValidateSaveRequest(const SaveRequest &request, std::vector<Validati
     ValidateApiString(::chime::FindConfigField("ring_topic"), request.config.ring_topic, errors);
     ValidateApiString(::chime::FindConfigField("notification_success_sound_path"), request.config.notification_success_sound_path, errors);
     ValidateApiString(::chime::FindConfigField("notification_failure_sound_path"), request.config.notification_failure_sound_path, errors);
-    ValidateApiInt(::chime::FindConfigField("volume_bell"), request.config.volume_bell, errors);
+    ValidateApiInt(::chime::FindConfigField("volume_ring"), request.config.volume_ring, errors);
     ValidateApiInt(::chime::FindConfigField("volume_notifications"), request.config.volume_notifications, errors);
     ValidateApiString(::chime::FindConfigField("wifi_ssid"), request.config.wifi_ssid, errors);
     if (request.wifi_password.has_value() && !request.wifi_password->empty()) {

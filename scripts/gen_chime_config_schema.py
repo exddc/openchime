@@ -186,7 +186,7 @@ def invalid_value_examples() -> list[tuple[str, str]]:
     return [
         ("mqtt_host", "bad host"),
         ("mqtt_client_id", "x" * 129),
-        ("ring_topic", "doorbell/ring\ninjected"),
+        ("ring_topic", "ring/pressed\ninjected"),
         ("mqtt_topics", "bad topic"),
         ("heartbeat_topic", "chime/heartbeat\n"),
         ("notification_success_sound_path", ""),
@@ -733,12 +733,51 @@ def inventory_row(field: dict[str, Any]) -> str:
     )
 
 
+def current_version_notes(schema: dict[str, Any]) -> str:
+    version = int(schema["schema_version"])
+    bits: list[str] = []
+    for item in (schema.get("removed") or {}).get(str(version), []):
+        bits.append(
+            f"`{item['key']}` is removed in this version. Existing files lose that key during migration."
+        )
+    for mig in schema.get("migrations") or []:
+        if int(mig["to"]) != version:
+            continue
+        for item in mig.get("rename") or []:
+            bits.append(f"`{item['from']}` is renamed to `{item['to']}` in this version.")
+    extra = schema.get("version_notes")
+    if extra:
+        bits.append(str(extra))
+    return " ".join(bits)
+
+
+def removed_inventory_rows(schema: dict[str, Any]) -> str:
+    rows: list[str] = []
+    removed = schema.get("removed") or {}
+    for version in sorted(removed, key=lambda value: int(value)):
+        for item in removed[version]:
+            rows.append(f"| `{item['key']}` | dropped in v{version} | {item['reason']} |")
+    return "\n".join(rows)
+
+
+def renamed_inventory_section(schema: dict[str, Any]) -> str:
+    rows: list[str] = []
+    for mig in schema.get("migrations") or []:
+        for item in mig.get("rename") or []:
+            rows.append(f"| `{item['from']}` | renamed in v{mig['to']} | `{item['to']}` |")
+    if not rows:
+        return ""
+    return (
+        "## Renamed keys\n\n"
+        "| Key | When | New name |\n"
+        "| --- | --- | --- |\n" + "\n".join(rows) + "\n\n"
+    )
+
+
 def generate_doc(schema: dict[str, Any]) -> str:
     rows = "\n".join(inventory_row(field) for field in schema["fields"])
-    removed = schema["removed"][str(schema["schema_version"])]
-    removed_rows = "\n".join(
-        f"| `{item['key']}` | dropped in v{schema['schema_version']} | {item['reason']} |" for item in removed
-    )
+    removed_rows = removed_inventory_rows(schema)
+    renamed_section = renamed_inventory_section(schema)
     return f"""# Chime config schema
 
 Product schema version **{schema["schema_version"]}**. `buildroot/version.env` `CHIME_CONFIG_VERSION` is the release-level gate and must equal this integer. The persisted file key is `schema_version`.
@@ -764,7 +803,7 @@ Regenerate with `python3 scripts/gen_chime_config_schema.py`. `scripts/check_con
 
 Unknown assignment keys: **{schema["unknown_key_policy"]}**. {schema["unknown_key_policy_notes"]}
 
-`volume_other` is removed in this version. Existing files lose that key during migration. Bell volume is `volume_bell`; notification volume is `volume_notifications`.
+{current_version_notes(schema)}
 
 ## Key inventory
 
@@ -778,7 +817,7 @@ Unknown assignment keys: **{schema["unknown_key_policy"]}**. {schema["unknown_ke
 | --- | --- | --- |
 {removed_rows}
 
-## Before / after samples
+{renamed_section}## Before / after samples
 
 Before (shipped schema 4, no persisted version key): [`docs/config-samples/chime.conf.v4`](config-samples/chime.conf.v4).
 
@@ -873,7 +912,7 @@ chime::webd::SaveRequest ValidApiSaveRequest() {{
     chime::webd::SaveRequest request;
     request.config.wifi_ssid = "net";
     request.config.mqtt_host = "broker";
-    request.config.mqtt_topics = {{"doorbell/ring"}};
+    request.config.mqtt_topics = {{"ring/pressed"}};
     return request;
 }}
 
@@ -902,6 +941,8 @@ TEST_SUITE("config_schema_contract") {{
         }}
         CHECK(found);
         CHECK(chime::FindConfigField("volume_other") == nullptr);
+        CHECK(chime::FindConfigField("volume_bell") == nullptr);
+        CHECK(chime::FindConfigField("volume_ring") != nullptr);
         CHECK(chime::FindConfigField("mqtt_host") != nullptr);
         CHECK(chime::FindConfigField("ntp_servers")->init_only);
         CHECK_FALSE(chime::FindConfigField("ntp_servers")->runtime);
@@ -920,11 +961,11 @@ TEST_SUITE("config_schema_contract") {{
         CHECK(host->forbid_newline);
         CHECK(host->max_len == 256);
 
-        const auto *volume = chime::FindConfigField("volume_bell");
+        const auto *volume = chime::FindConfigField("volume_ring");
         REQUIRE(volume != nullptr);
         CHECK(volume->min_value == 0);
         CHECK(volume->max_value == 100);
-        CHECK(std::string(chime::FindConfigField("mqtt_topics")->repair_text) == "doorbell/ring,doorbell/status");
+        CHECK(std::string(chime::FindConfigField("mqtt_topics")->repair_text) == "ring/pressed,ring/status");
         CHECK(std::string(chime::FindConfigField("mqtt_topics")->default_text).empty());
     }}
 
@@ -944,7 +985,7 @@ TEST_SUITE("config_schema_contract") {{
         CHECK(HasFieldError(errors, "mqtt_client_id"));
 
         request = valid;
-        request.config.mqtt_topics = {{"doorbell/ring\\naudio_enabled=false"}};
+        request.config.mqtt_topics = {{"ring/pressed\\naudio_enabled=false"}};
         errors.clear();
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
         CHECK(HasFieldError(errors, "mqtt_topics"));
@@ -1092,6 +1133,17 @@ def check_product(schema: dict[str, Any]) -> int:
     if "volume_other" in shipped:
         print("volume_other still present in chime.conf", file=sys.stderr)
         failed = True
+    if "volume_bell" in shipped:
+        print("volume_bell still present in chime.conf", file=sys.stderr)
+        failed = True
+
+    for path in (REPO / "webui" / "src").rglob("*"):
+        if path.suffix not in {".ts", ".svelte"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "volume_bell" in text or "volumeBell" in text:
+            print(f"volume_bell still present in {path.relative_to(REPO)}", file=sys.stderr)
+            failed = True
 
     timesync = (
         REPO

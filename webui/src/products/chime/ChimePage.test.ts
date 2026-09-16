@@ -110,6 +110,8 @@ describe("ChimePage", () => {
     expect(hydrated.save.disabled).toBe(false);
     expect(buttonByLabel(target, "Retry")).toBeUndefined();
     expect(coreCalls).toBe(2);
+    expect(target.textContent).toContain("Ring (%)");
+    expect(target.textContent).not.toContain("Bell (%)");
     expect(document.body.contains(target)).toBe(true);
 
     unmount(app);

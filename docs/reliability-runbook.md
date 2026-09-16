@@ -73,7 +73,7 @@ Publish a test ring from a machine that can reach the broker (not from an unconf
 ./scripts/ring.sh
 
 # Against an explicit broker:
-./scripts/ring.sh doorbell/ring ring <broker-host> 1883
+./scripts/ring.sh ring/pressed pressed <broker-host> 1883
 ```
 
 On-device, a successful ring logs `ring received` in `/var/log/chime.log`.

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { CORE_CONFIG_INT_BOUNDS } from "../../generated/config_schema";
 
-  export let volumeBell: number;
+  export let volumeRing: number;
   export let volumeNotifications: number;
 </script>
 
@@ -9,14 +9,14 @@
   <h2>Volume</h2>
   <div class="row">
     <div>
-      <label for="volume_bell">Bell (%)</label>
+      <label for="volume_ring">Ring (%)</label>
       <input
-        id="volume_bell"
+        id="volume_ring"
         type="number"
-        min={CORE_CONFIG_INT_BOUNDS.volume_bell.min}
-        max={CORE_CONFIG_INT_BOUNDS.volume_bell.max}
+        min={CORE_CONFIG_INT_BOUNDS.volume_ring.min}
+        max={CORE_CONFIG_INT_BOUNDS.volume_ring.max}
         step="1"
-        bind:value={volumeBell}
+        bind:value={volumeRing}
       />
     </div>
     <div>

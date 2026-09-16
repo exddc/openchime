@@ -45,7 +45,7 @@ Jumper MAX98357A VIN to SD so the shutdown pin stays high. The boot config uses 
 
 ## Volume
 
-The MAX98357A has no volume register and no volume GPIO; its analog gain is only the GAIN pad. `volume_bell` and `volume_notifications` in Chime config change loudness by adjusting the PCM.
+The MAX98357A has no volume register and no volume GPIO; its analog gain is only the GAIN pad. `volume_ring` and `volume_notifications` in Chime config change loudness by adjusting the PCM.
 
 ## Interface
 
@@ -126,10 +126,10 @@ Pins 27 and 28 are the HAT ID EEPROM I2C bus. Every pin marked `free` is availab
 
 Keys and validation stay in `schema/chime_config.json`. Ring publishes into these contracts:
 
-- MQTT `ring_topic` (default `doorbell/ring`): any message whose topic matches the filter plays `sound_path`. The payload has no required schema.
-- MQTT `heartbeat_topic` (default `chime/heartbeat`): Chime publishes `alive` or `degraded`.
+- MQTT `ring_topic` (default `ring/pressed`): Ring reports a press. Any message whose topic matches the filter plays `sound_path`. The payload has no required schema.
+- MQTT `heartbeat_topic` (default `chime/heartbeat`): Chime reports it is alive (`alive` or `degraded`).
 - HTTPS `chime-webd` on port 8443: pair, then session. See [chime/README.md](../../../../chime/README.md).
-- Audio: `aplay` plays the WAV. `volume_bell` / `volume_notifications` scale PCM on the Pi. Amp analog gain is the GAIN strap only.
+- Audio: `aplay` plays the WAV. `volume_ring` / `volume_notifications` scale PCM on the Pi. Amp analog gain is the GAIN strap only.
 
 ### Mechanical
 

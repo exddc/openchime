@@ -322,7 +322,7 @@ void ChimeService::OnMessage(const oc::mqtt::Message &message) {
     if (config_.audio_enabled && RingTopicMatches(message.topic)) {
         ring_messages_received_.fetch_add(1, std::memory_order_relaxed);
         logger_.Info("chime", "ring received");
-        audio_player_.Play(config_.sound_path, config_.volume_bell);
+        audio_player_.Play(config_.sound_path, config_.volume_ring);
     }
 }
 

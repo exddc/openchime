@@ -23,7 +23,7 @@ chime::webd::SaveRequest ValidApiSaveRequest() {
     chime::webd::SaveRequest request;
     request.config.wifi_ssid = "net";
     request.config.mqtt_host = "broker";
-    request.config.mqtt_topics = {"doorbell/ring"};
+    request.config.mqtt_topics = {"ring/pressed"};
     return request;
 }
 
@@ -31,7 +31,7 @@ chime::webd::SaveRequest ValidApiSaveRequest() {
 
 TEST_SUITE("config_schema_contract") {
     TEST_CASE("schema version matches generated constant") {
-        CHECK(chime::kConfigSchemaVersion == 5);
+        CHECK(chime::kConfigSchemaVersion == 6);
         CHECK(chime::kLegacyUnversionedSchema == 4);
         CHECK(chime::FileConfig{}.schema_version == chime::kConfigSchemaVersion);
     }
@@ -66,8 +66,8 @@ TEST_SUITE("config_schema_contract") {
         CHECK(runtime.notification_success_sound_path == file.notification_success_sound_path);
         CHECK(runtime.notification_failure_sound_path == core.notification_failure_sound_path);
         CHECK(runtime.notification_failure_sound_path == file.notification_failure_sound_path);
-        CHECK(runtime.volume_bell == core.volume_bell);
-        CHECK(runtime.volume_bell == file.volume_bell);
+        CHECK(runtime.volume_ring == core.volume_ring);
+        CHECK(runtime.volume_ring == file.volume_ring);
         CHECK(runtime.volume_notifications == core.volume_notifications);
         CHECK(runtime.volume_notifications == file.volume_notifications);
     }
@@ -81,6 +81,8 @@ TEST_SUITE("config_schema_contract") {
         }
         CHECK(found);
         CHECK(chime::FindConfigField("volume_other") == nullptr);
+        CHECK(chime::FindConfigField("volume_bell") == nullptr);
+        CHECK(chime::FindConfigField("volume_ring") != nullptr);
         CHECK(chime::FindConfigField("mqtt_host") != nullptr);
         CHECK(chime::FindConfigField("ntp_servers")->init_only);
         CHECK_FALSE(chime::FindConfigField("ntp_servers")->runtime);
@@ -99,11 +101,11 @@ TEST_SUITE("config_schema_contract") {
         CHECK(host->forbid_newline);
         CHECK(host->max_len == 256);
 
-        const auto *volume = chime::FindConfigField("volume_bell");
+        const auto *volume = chime::FindConfigField("volume_ring");
         REQUIRE(volume != nullptr);
         CHECK(volume->min_value == 0);
         CHECK(volume->max_value == 100);
-        CHECK(std::string(chime::FindConfigField("mqtt_topics")->repair_text) == "doorbell/ring,doorbell/status");
+        CHECK(std::string(chime::FindConfigField("mqtt_topics")->repair_text) == "ring/pressed,ring/status");
         CHECK(std::string(chime::FindConfigField("mqtt_topics")->default_text).empty());
     }
 
@@ -195,10 +197,10 @@ TEST_SUITE("config_schema_contract") {
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
         CHECK(HasFieldError(errors, "notification_failure_sound_path"));
         request = valid;
-        request.config.volume_bell = 101;
+        request.config.volume_ring = 101;
         errors.clear();
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
-        CHECK(HasFieldError(errors, "volume_bell"));
+        CHECK(HasFieldError(errors, "volume_ring"));
         request = valid;
         request.config.volume_notifications = 101;
         errors.clear();
@@ -222,7 +224,7 @@ TEST_SUITE("config_schema_contract") {
         CHECK(HasFieldError(errors, "mqtt_client_id"));
 
         request = valid;
-        request.config.mqtt_topics = {"doorbell/ring\naudio_enabled=false"};
+        request.config.mqtt_topics = {"ring/pressed\naudio_enabled=false"};
         errors.clear();
         chime::webd::generated_config_json::ValidateSaveRequest(request, &errors);
         CHECK(HasFieldError(errors, "mqtt_topics"));

@@ -11,7 +11,7 @@
 
 namespace chime {
 
-constexpr int kConfigSchemaVersion = 5;
+constexpr int kConfigSchemaVersion = 6;
 constexpr int kLegacyUnversionedSchema = 4;
 
 enum class ConfigValueType { kString, kInt, kBool, kCsv };
@@ -58,7 +58,7 @@ struct ConfigInvalidValueExample {
 };
 
 constexpr ConfigFieldSpec kAllConfigFields[] = {
-    {"schema_version", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, false, false, false, false, false, false, false, false, false, false, 1, 1000000, 0, 0},
+    {"schema_version", ConfigValueType::kInt, "6", "6", ConfigPersist::kFile, false, false, false, false, false, false, false, false, false, false, 1, 1000000, 0, 0},
     {"mqtt_host", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, true, 0, 0, 0, 256},
     {"mqtt_port", ConfigValueType::kInt, "1883", "1883", ConfigPersist::kFile, true, true, true, false, false, true, true, false, false, false, 1, 65535, 0, 0},
     {"mqtt_client_id", ConfigValueType::kString, "chime", "chime", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, true, 0, 0, 0, 128},
@@ -69,7 +69,7 @@ constexpr ConfigFieldSpec kAllConfigFields[] = {
     {"mqtt_tls_ca_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
     {"mqtt_tls_cert_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
     {"mqtt_tls_key_file", ConfigValueType::kString, "", "", ConfigPersist::kFile, true, true, true, false, false, false, true, true, false, true, 0, 0, 0, 256},
-    {"mqtt_topics", ConfigValueType::kCsv, "", "doorbell/ring,doorbell/status", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, true, 0, 0, 0, 0},
+    {"mqtt_topics", ConfigValueType::kCsv, "", "ring/pressed,ring/status", ConfigPersist::kFile, true, true, true, false, false, true, true, false, true, true, 0, 0, 0, 0},
     {"mqtt_subscribe_qos", ConfigValueType::kInt, "0", "0", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 2, 0, 0},
     {"heartbeat_interval", ConfigValueType::kInt, "60", "60", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 3600, 0, 0},
     {"heartbeat_topic", ConfigValueType::kString, "chime/heartbeat", "chime/heartbeat", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 256},
@@ -78,11 +78,11 @@ constexpr ConfigFieldSpec kAllConfigFields[] = {
     {"time_sync_retries", ConfigValueType::kInt, "6", "6", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 100, 0, 0},
     {"time_sync_retry_delay", ConfigValueType::kInt, "5", "5", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 1, 3600, 0, 0},
     {"time_sync_interval", ConfigValueType::kInt, "3600", "3600", ConfigPersist::kFile, false, false, false, true, false, false, false, false, false, false, 0, 86400, 0, 0},
-    {"ring_topic", ConfigValueType::kString, "doorbell/ring", "doorbell/ring", ConfigPersist::kFile, true, true, true, false, false, false, true, false, true, true, 0, 0, 0, 256},
+    {"ring_topic", ConfigValueType::kString, "ring/pressed", "ring/pressed", ConfigPersist::kFile, true, true, true, false, false, false, true, false, true, true, 0, 0, 0, 256},
     {"sound_path", ConfigValueType::kString, "/usr/local/share/chime/ring.wav", "/usr/local/share/chime/ring.wav", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 256},
     {"notification_success_sound_path", ConfigValueType::kString, "/usr/local/share/chime/test.wav", "/usr/local/share/chime/test.wav", ConfigPersist::kFile, true, true, true, false, false, false, false, false, false, true, 0, 0, 1, 256},
     {"notification_failure_sound_path", ConfigValueType::kString, "/usr/local/share/chime/ring.wav", "/usr/local/share/chime/ring.wav", ConfigPersist::kFile, true, true, true, false, false, false, false, false, false, true, 0, 0, 1, 256},
-    {"volume_bell", ConfigValueType::kInt, "80", "80", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 100, 0, 0},
+    {"volume_ring", ConfigValueType::kInt, "80", "80", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 100, 0, 0},
     {"volume_notifications", ConfigValueType::kInt, "70", "70", ConfigPersist::kFile, true, true, true, false, false, false, true, false, false, false, 0, 100, 0, 0},
     {"audio_enabled", ConfigValueType::kBool, "true", "true", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, false, 0, 0, 0, 0},
     {"wifi_interface", ConfigValueType::kString, "wlan0", "wlan0", ConfigPersist::kFile, true, false, false, false, false, false, false, false, false, true, 0, 0, 0, 32},
@@ -97,15 +97,17 @@ constexpr ConfigFieldSpec kAllConfigFields[] = {
 inline constexpr const char *kRemovedConfigKeys[] = {"volume_other"};
 
 inline constexpr const char *kConfigMigrationRemove5[] = {"volume_other"};
+inline constexpr ConfigRenameSpec kConfigMigrationRename6[] = {{"volume_bell", "volume_ring"}};
 
 inline constexpr ConfigMigrationStep kConfigMigrationSteps[] = {
-    {5, kConfigMigrationRemove5, 1, nullptr, 0}
+    {5, kConfigMigrationRemove5, 1, nullptr, 0},
+    {6, nullptr, 0, kConfigMigrationRename6, 1}
 };
 
 inline constexpr ConfigInvalidValueExample kConfigInvalidValueExamples[] = {
     {"mqtt_host", "bad host"},
     {"mqtt_client_id", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},
-    {"ring_topic", "doorbell/ring\ninjected"},
+    {"ring_topic", "ring/pressed\ninjected"},
     {"mqtt_topics", "bad topic"},
     {"heartbeat_topic", "chime/heartbeat\n"},
     {"notification_success_sound_path", ""}
@@ -161,11 +163,11 @@ struct ChimeConfig {
     int mqtt_subscribe_qos = 0;
     int heartbeat_interval = 60;
     std::string heartbeat_topic = "chime/heartbeat";
-    std::string ring_topic = "doorbell/ring";
+    std::string ring_topic = "ring/pressed";
     std::string sound_path = "/usr/local/share/chime/ring.wav";
     std::string notification_success_sound_path = "/usr/local/share/chime/test.wav";
     std::string notification_failure_sound_path = "/usr/local/share/chime/ring.wav";
-    int volume_bell = 80;
+    int volume_ring = 80;
     int volume_notifications = 70;
     bool audio_enabled = true;
     std::string wifi_interface = "wlan0";
@@ -191,7 +193,7 @@ inline const oc::config::Field<ChimeConfig> kChimeConfigFields[] = {
     {"sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::sound_path, 0, 256, false, true>, false},
     {"notification_success_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_success_sound_path, 1, 256, false, true>, false},
     {"notification_failure_sound_path", oc::config::parse_string<ChimeConfig, &ChimeConfig::notification_failure_sound_path, 1, 256, false, true>, false},
-    {"volume_bell", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_bell, 0, 100>, false},
+    {"volume_ring", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_ring, 0, 100>, false},
     {"volume_notifications", oc::config::parse_int<ChimeConfig, &ChimeConfig::volume_notifications, 0, 100>, false},
     {"audio_enabled", oc::config::parse_bool<ChimeConfig, &ChimeConfig::audio_enabled>, false},
     {"wifi_interface", oc::config::parse_string<ChimeConfig, &ChimeConfig::wifi_interface, 0, 32, false, true>, false},
@@ -199,7 +201,7 @@ inline const oc::config::Field<ChimeConfig> kChimeConfigFields[] = {
 };
 
 struct FileConfig {
-    int schema_version = 5;
+    int schema_version = 6;
     std::string mqtt_host{};
     int mqtt_port = 1883;
     std::string mqtt_client_id = "chime";
@@ -219,11 +221,11 @@ struct FileConfig {
     int time_sync_retries = 6;
     int time_sync_retry_delay = 5;
     int time_sync_interval = 3600;
-    std::string ring_topic = "doorbell/ring";
+    std::string ring_topic = "ring/pressed";
     std::string sound_path = "/usr/local/share/chime/ring.wav";
     std::string notification_success_sound_path = "/usr/local/share/chime/test.wav";
     std::string notification_failure_sound_path = "/usr/local/share/chime/ring.wav";
-    int volume_bell = 80;
+    int volume_ring = 80;
     int volume_notifications = 70;
     bool audio_enabled = true;
     std::string wifi_interface = "wlan0";
@@ -258,7 +260,7 @@ inline const oc::config::Field<FileConfig> kFileConfigFields[] = {
     {"sound_path", oc::config::parse_string<FileConfig, &FileConfig::sound_path, 0, 256, false, true>, false},
     {"notification_success_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_success_sound_path, 1, 256, false, true>, false},
     {"notification_failure_sound_path", oc::config::parse_string<FileConfig, &FileConfig::notification_failure_sound_path, 1, 256, false, true>, false},
-    {"volume_bell", oc::config::parse_int<FileConfig, &FileConfig::volume_bell, 0, 100>, false},
+    {"volume_ring", oc::config::parse_int<FileConfig, &FileConfig::volume_ring, 0, 100>, false},
     {"volume_notifications", oc::config::parse_int<FileConfig, &FileConfig::volume_notifications, 0, 100>, false},
     {"audio_enabled", oc::config::parse_bool<FileConfig, &FileConfig::audio_enabled>, false},
     {"wifi_interface", oc::config::parse_string<FileConfig, &FileConfig::wifi_interface, 0, 32, false, true>, false},
@@ -282,10 +284,10 @@ struct CoreConfig {
     std::string mqtt_tls_cert_file{};
     std::string mqtt_tls_key_file{};
     std::vector<std::string> mqtt_topics{};
-    std::string ring_topic = "doorbell/ring";
+    std::string ring_topic = "ring/pressed";
     std::string notification_success_sound_path = "/usr/local/share/chime/test.wav";
     std::string notification_failure_sound_path = "/usr/local/share/chime/ring.wav";
-    int volume_bell = 80;
+    int volume_ring = 80;
     int volume_notifications = 70;
     std::string wifi_ssid{};
 };
@@ -312,7 +314,7 @@ inline ChimeConfig RuntimeConfigFromFile(const FileConfig &file) {
     out.sound_path = file.sound_path;
     out.notification_success_sound_path = file.notification_success_sound_path;
     out.notification_failure_sound_path = file.notification_failure_sound_path;
-    out.volume_bell = file.volume_bell;
+    out.volume_ring = file.volume_ring;
     out.volume_notifications = file.volume_notifications;
     out.audio_enabled = file.audio_enabled;
     out.wifi_interface = file.wifi_interface;
@@ -336,7 +338,7 @@ inline webd::CoreConfig CoreConfigFromFile(const FileConfig &file) {
     out.ring_topic = file.ring_topic;
     out.notification_success_sound_path = file.notification_success_sound_path;
     out.notification_failure_sound_path = file.notification_failure_sound_path;
-    out.volume_bell = file.volume_bell;
+    out.volume_ring = file.volume_ring;
     out.volume_notifications = file.volume_notifications;
     return out;
 }
@@ -359,7 +361,7 @@ inline void ApplyCoreConfigToFile(const webd::CoreConfig &core, FileConfig *file
     file->ring_topic = core.ring_topic;
     file->notification_success_sound_path = core.notification_success_sound_path;
     file->notification_failure_sound_path = core.notification_failure_sound_path;
-    file->volume_bell = core.volume_bell;
+    file->volume_ring = core.volume_ring;
     file->volume_notifications = core.volume_notifications;
 }
 
@@ -381,7 +383,7 @@ inline std::map<std::string, std::string> CoreConfigFileReplacements(const webd:
         {"ring_topic", config.ring_topic},
         {"notification_success_sound_path", config.notification_success_sound_path},
         {"notification_failure_sound_path", config.notification_failure_sound_path},
-        {"volume_bell", std::to_string(config.volume_bell)},
+        {"volume_ring", std::to_string(config.volume_ring)},
         {"volume_notifications", std::to_string(config.volume_notifications)},
     };
 }

@@ -93,11 +93,11 @@ function sampleWrite(
     mqtt_tls_ca_file: "",
     mqtt_tls_cert_file: "",
     mqtt_tls_key_file: "",
-    mqtt_topics: ["doorbell/ring"],
-    ring_topic: "doorbell/ring",
+    mqtt_topics: ["ring/pressed"],
+    ring_topic: "ring/pressed",
     notification_success_sound_path: "/usr/local/share/chime/test.wav",
     notification_failure_sound_path: "/usr/local/share/chime/ring.wav",
-    volume_bell: 80,
+    volume_ring: 80,
     volume_notifications: 70,
     ...overrides,
   };
@@ -130,9 +130,9 @@ describe("apiUrl", () => {
 
 describe("parseTopicList", () => {
   test("trims and drops empty entries", () => {
-    expect(parseTopicList(" doorbell/ring , , doorbell/status ")).toEqual([
-      "doorbell/ring",
-      "doorbell/status",
+    expect(parseTopicList(" ring/pressed , , ring/status ")).toEqual([
+      "ring/pressed",
+      "ring/status",
     ]);
   });
 });

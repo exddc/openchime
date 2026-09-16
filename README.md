@@ -34,7 +34,7 @@ See [Chime README](chime/README.md) for detailed technical specifications.
 
 ### Ring (Doorbell)
 
-The doorbell unit. Next product after Chime. Sources live in `bell/` until that directory is renamed.
+The doorbell unit. Next product after Chime.
 
 ### Base
 
@@ -51,7 +51,7 @@ A future product.
 ├── scripts/            # Build, CI, flash, deploy, and local-run helpers
 ├── docs/               # Operational documentation
 ├── mosquitto/          # Local Mosquitto config for docker-compose
-├── bell/               # Doorbell (next product)
+├── ring/               # Doorbell (next product)
 └── base/               # Future product
 ```
 

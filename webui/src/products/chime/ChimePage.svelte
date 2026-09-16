@@ -47,7 +47,7 @@
     CORE_CONFIG_DEFAULTS.notification_success_sound_path ?? "";
   let notificationFailureSoundPath =
     CORE_CONFIG_DEFAULTS.notification_failure_sound_path ?? "";
-  let volumeBell = CORE_CONFIG_DEFAULTS.volume_bell;
+  let volumeRing = CORE_CONFIG_DEFAULTS.volume_ring;
   let volumeNotifications = CORE_CONFIG_DEFAULTS.volume_notifications;
   let mqttTopics = "";
   let observedTopics: string[] = [];
@@ -118,7 +118,7 @@
       data.notification_failure_sound_path ??
       CORE_CONFIG_DEFAULTS.notification_failure_sound_path ??
       "";
-    volumeBell = data.volume_bell ?? CORE_CONFIG_DEFAULTS.volume_bell;
+    volumeRing = data.volume_ring ?? CORE_CONFIG_DEFAULTS.volume_ring;
     volumeNotifications =
       data.volume_notifications ?? CORE_CONFIG_DEFAULTS.volume_notifications;
     mqttTopics = (data.mqtt_topics ?? []).join(",");
@@ -237,16 +237,16 @@
     isSaving = true;
     setMessage("Saving and applying changes...", false);
 
-    const safeVolumeBell = clampVolumeValue(
-      volumeBell,
-      CORE_CONFIG_DEFAULTS.volume_bell,
+    const safeVolumeRing = clampVolumeValue(
+      volumeRing,
+      CORE_CONFIG_DEFAULTS.volume_ring,
     );
     const safeVolumeNotifications = clampVolumeValue(
       volumeNotifications,
       CORE_CONFIG_DEFAULTS.volume_notifications,
     );
 
-    volumeBell = safeVolumeBell;
+    volumeRing = safeVolumeRing;
     volumeNotifications = safeVolumeNotifications;
 
     try {
@@ -268,7 +268,7 @@
           ring_topic: ringTopic.trim(),
           notification_success_sound_path: notificationSuccessSoundPath.trim(),
           notification_failure_sound_path: notificationFailureSoundPath.trim(),
-          volume_bell: safeVolumeBell,
+          volume_ring: safeVolumeRing,
           volume_notifications: safeVolumeNotifications,
         },
         requestInit(),
@@ -328,7 +328,7 @@
   bind:notificationFailureSoundPath
 />
 
-<VolumeCard bind:volumeBell bind:volumeNotifications />
+<VolumeCard bind:volumeRing bind:volumeNotifications />
 
 <MqttCard
   bind:mqttHost

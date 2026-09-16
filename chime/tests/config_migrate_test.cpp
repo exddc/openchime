@@ -76,6 +76,11 @@ TEST_SUITE("config_migrate") {
 
         const std::string migrated = ReadText(path);
         CHECK(migrated.find("volume_other=") == std::string::npos);
+        CHECK(migrated.find("volume_bell=") == std::string::npos);
+        CHECK(migrated.find("volume_ring=80") != std::string::npos);
+        CHECK(migrated.find("mqtt_topics=doorbell/ring,doorbell/status") != std::string::npos);
+        CHECK(migrated.find("ring_topic=doorbell/ring") != std::string::npos);
+        CHECK(migrated.find("ring/pressed") == std::string::npos);
         CHECK(migrated.find("schema_version=" + std::to_string(chime::kConfigSchemaVersion)) != std::string::npos);
         CHECK(migrated.find("mqtt_password=") != std::string::npos);
         CHECK(migrated.find("# MQTT broker settings") != std::string::npos);
@@ -156,17 +161,17 @@ TEST_SUITE("config_migrate") {
         const auto missing = tmp.WriteFile("missing.conf", "mqtt_host=broker\nmqtt_port=1883\n");
         REQUIRE(chime::MigratePersistedConfig(missing.string()).success);
         const auto missing_doc = oc::config::ParseKvDocument(ReadText(missing));
-        CHECK(oc::config::KvDocumentValue(missing_doc, "mqtt_topics") == "doorbell/ring,doorbell/status");
+        CHECK(oc::config::KvDocumentValue(missing_doc, "mqtt_topics") == "ring/pressed,ring/status");
         const auto loaded_missing = chime::LoadConfig(missing.string());
         REQUIRE(loaded_missing);
         REQUIRE(loaded_missing.config.mqtt_topics.size() == 2);
-        CHECK(loaded_missing.config.mqtt_topics[0] == "doorbell/ring");
-        CHECK(loaded_missing.config.mqtt_topics[1] == "doorbell/status");
+        CHECK(loaded_missing.config.mqtt_topics[0] == "ring/pressed");
+        CHECK(loaded_missing.config.mqtt_topics[1] == "ring/status");
 
         const auto empty = tmp.WriteFile("empty.conf", "mqtt_host=broker\nmqtt_port=1883\nmqtt_topics=\n");
         REQUIRE(chime::MigratePersistedConfig(empty.string()).success);
         const auto empty_doc = oc::config::ParseKvDocument(ReadText(empty));
-        CHECK(oc::config::KvDocumentValue(empty_doc, "mqtt_topics") == "doorbell/ring,doorbell/status");
+        CHECK(oc::config::KvDocumentValue(empty_doc, "mqtt_topics") == "ring/pressed,ring/status");
         const auto loaded_empty = chime::LoadConfig(empty.string());
         REQUIRE(loaded_empty);
         REQUIRE(loaded_empty.config.mqtt_topics.size() == 2);
@@ -183,6 +188,23 @@ TEST_SUITE("config_migrate") {
         const auto document = oc::config::ParseKvDocument(ReadText(path));
         CHECK(oc::config::KvDocumentValue(document, "schema_version") == std::to_string(chime::kConfigSchemaVersion));
         CHECK_FALSE(oc::config::KvDocumentHasKey(document, "volume_other"));
+    }
+
+    TEST_CASE("renames volume_bell to volume_ring") {
+        const ScopedTempDir tmp;
+        const auto path = tmp.WriteFile(
+            "v5.conf", "schema_version=5\nmqtt_host=broker\nmqtt_port=1883\nmqtt_topics=a\nvolume_bell=40\n");
+        const auto result = chime::MigratePersistedConfig(path.string());
+        REQUIRE(result.success);
+        CHECK(result.from_version == 5);
+        CHECK(result.to_version == chime::kConfigSchemaVersion);
+        const auto document = oc::config::ParseKvDocument(ReadText(path));
+        CHECK(oc::config::KvDocumentValue(document, "schema_version") == std::to_string(chime::kConfigSchemaVersion));
+        CHECK_FALSE(oc::config::KvDocumentHasKey(document, "volume_bell"));
+        CHECK(oc::config::KvDocumentValue(document, "volume_ring") == "40");
+        const auto loaded = chime::LoadConfig(path.string());
+        REQUIRE(loaded);
+        CHECK(loaded.config.volume_ring == 40);
     }
 
     TEST_CASE("runs every intermediate step on a skipped-version upgrade") {
@@ -219,6 +241,8 @@ TEST_SUITE("config_migrate") {
         const std::string persisted = ReadText(backing);
         CHECK(persisted == ReadText(link));
         CHECK(persisted.find("volume_other=") == std::string::npos);
+        CHECK(persisted.find("volume_bell=") == std::string::npos);
+        CHECK(persisted.find("volume_ring=80") != std::string::npos);
         CHECK(persisted.find("schema_version=" + std::to_string(chime::kConfigSchemaVersion)) != std::string::npos);
         CHECK(std::filesystem::is_regular_file(backing.string() + ".bak"));
         CHECK(ReadText(backing.string() + ".bak") == std::string(kShippedV4Config));
