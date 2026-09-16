@@ -745,7 +745,6 @@ def current_version_notes(schema: dict[str, Any]) -> str:
             continue
         for item in mig.get("rename") or []:
             bits.append(f"`{item['from']}` is renamed to `{item['to']}` in this version.")
-    bits.append("Ring volume is `volume_ring`; notification volume is `volume_notifications`.")
     extra = schema.get("version_notes")
     if extra:
         bits.append(str(extra))

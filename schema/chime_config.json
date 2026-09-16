@@ -1,7 +1,7 @@
 {
   "schema_version": 6,
   "legacy_unversioned": 4,
-  "version_notes": "Shipped MQTT topics are `ring/pressed` and `ring/status`; `ring_topic` defaults to `ring/pressed`. Existing files keep their topics.",
+  "version_notes": "Ring volume is `volume_ring`; notification volume is `volume_notifications`. Shipped MQTT topics are `ring/pressed` and `ring/status`; `ring_topic` defaults to `ring/pressed`. Existing files keep their topics.",
   "unknown_key_policy": "preserve",
   "unknown_key_policy_notes": "Unknown assignment keys and comments are kept as written. Removed keys are dropped. Missing known keys are filled with schema defaults during migration.",
   "removed": {

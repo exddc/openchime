@@ -36,7 +36,7 @@ chime/VERSION
 
 `buildroot/version.env`
 ```bash
-OPENCHIME_OS_VERSION=0.2.9
+OPENCHIME_OS_VERSION=0.2.10
 CHIME_CONFIG_VERSION=6
 ```
 
