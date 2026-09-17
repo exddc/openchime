@@ -1,7 +1,7 @@
 metadata:
   title: Ring power and strike
-  description: Power board U7 with the mains inlet and both Class II modules, 5 V and 12 V distribution, strike and gate outputs; estimated lengths for the 300 x 150 mm casing
-  notes: Prototype; protection and insulation qualification pending. Installation cable terminates on U7 in the mains compartment; circuits in boards.md.
+  description: Yoke power board with the mains inlet and both Class II modules, 5 V and 12 V distribution, strike and gate outputs; estimated lengths for the 300 x 150 mm casing
+  notes: Prototype; protection and insulation qualification pending. Installation cable terminates on the Yoke in the mains compartment; circuits in boards.md.
     Lengths include service slack; the supply cable, strike cable, and gate cable are excluded.
 connectors:
   SUPPLY:
@@ -12,14 +12,14 @@ connectors:
       230 V AC through M20 gland. Installation length excluded;
       electrician termination.
     pins: [L, N, PE]
-  U7:
+  YOKE:
     type: Ring power board
     ignore_in_bom: true
     notes: |
       Prototype; see boards.md. Mains under insulating cover. PE1
       bonds backplate; JP1 bonds 5 V return to PE. Logical terminals;
       protection qualification pending.
-    pins: [L, N, PE, PE_FRONT, 5V_PI, GND_PI, 5V_AMP, GND_AMP, 5V_LED, GND_LED, JD-VCC, GND_RLY, 12V_FUSED, 12V_RTN]
+    pins: [L, N, PE, PE_FRONT, 5V_PI, GND_PI, 5V_AMP, GND_AMP, JD-VCC, GND_RLY, 12V_FUSED, 12V_RTN]
     hide_disconnected_pins: false
   FRONT:
     type: Metal front plate
@@ -46,17 +46,11 @@ connectors:
       Adafruit 3006. C1 470 uF and C2 100 nF at VIN/GND. Signals:
       wiring-audio.
     pins: [VIN, GND]
-  U5:
-    type: Ring key board
-    ignore_in_bom: true
-    notes: |
-      J52 backlight supply. Circuit: boards.md; logic: wiring-io.
-    pins: [5V_LED, GND_LED]
   U3:
     type: 2-ch 5V relay
     ignore_in_bom: true
     notes: |
-      E4 deferred. Remove JD-VCC jumper. Strike: COM1/NO1; dry gate
+      Module qualification deferred. Remove JD-VCC jumper. Strike: COM1/NO1; dry gate
       contact: COM2/NO2. Logic: wiring-io.
     pins: [JD-VCC, GND, COM1, NO1, COM2, NO2]
   JOUT1:
@@ -109,35 +103,28 @@ cables:
     colors: [RD, BK]
     wirelabels: [JD-VCC, GND_RLY]
     length: 0.2
-  W6:
-    category: bundle
-    type: 22 AWG pigtail
-    gauge: 22 AWG
-    colors: [RD, BK]
-    wirelabels: [5V_LED, GND_LED]
-    length: 0.1
-  W7:
+  W5:
     category: bundle
     type: 22 AWG
     gauge: 22 AWG
     colors: [RD]
     wirelabels: [12V_FUSED]
     length: 0.15
-  W8:
+  W6:
     category: bundle
     type: 22 AWG
     gauge: 22 AWG
     colors: [RD]
     wirelabels: [STRIKE+]
     length: 0.1
-  W9:
+  W7:
     category: bundle
     type: 22 AWG
     gauge: 22 AWG
     colors: [BK]
     wirelabels: [STRIKE-]
     length: 0.15
-  W10:
+  W8:
     category: bundle
     type: 22 AWG pigtail
     gauge: 22 AWG
@@ -147,31 +134,28 @@ cables:
 connections:
 - - SUPPLY: [L, N, PE]
   - WAC: [1, 2, 3]
-  - U7: [L, N, PE]
-- - U7: [PE_FRONT]
+  - YOKE: [L, N, PE]
+- - YOKE: [PE_FRONT]
   - W1: [1]
   - FRONT: [1]
-- - U7: [5V_PI, GND_PI]
+- - YOKE: [5V_PI, GND_PI]
   - W2: [1, 2]
   - J8: [2, 6]
-- - U7: [5V_AMP, GND_AMP]
+- - YOKE: [5V_AMP, GND_AMP]
   - W3: [1, 2]
   - U1: [VIN, GND]
-- - U7: [JD-VCC, GND_RLY]
+- - YOKE: [JD-VCC, GND_RLY]
   - W4: [1, 2]
   - U3: [JD-VCC, GND]
-- - U7: [5V_LED, GND_LED]
-  - W6: [1, 2]
-  - U5: [5V_LED, GND_LED]
-- - U7: [12V_FUSED]
-  - W7: [1]
+- - YOKE: [12V_FUSED]
+  - W5: [1]
   - U3: [COM1]
 - - U3: [NO1]
-  - W8: [1]
+  - W6: [1]
   - JOUT1: [STRIKE+]
-- - U7: [12V_RTN]
-  - W9: [1]
+- - YOKE: [12V_RTN]
+  - W7: [1]
   - JOUT1: [STRIKE-]
 - - U3: [COM2, NO2]
-  - W10: [1, 2]
+  - W8: [1, 2]
   - JOUT2: [GATE_A, GATE_B]

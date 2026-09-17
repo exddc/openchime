@@ -2,12 +2,12 @@
 
 Hardware specification for the Raspberry Pi Zero 2 W doorbell with Camera Module 3 Wide, I2S audio, two relays, one to four Kailh BOX buttons, and a sealed outdoor enclosure.
 
-Prototype architecture: U7 carries two encapsulated mains supplies inside a partitioned compartment; U5 carries the keys and backlight. Electrical and environmental qualification remain open. E4 (relay) and E7 (antenna) stay deferred to casing design.
+Prototype architecture: the Yoke power board carries two encapsulated mains supplies inside a partitioned compartment; the Clapper key board carries the keys. Electrical and environmental qualification remain open. Relay module qualification and antenna keep-out stay deferred to casing design.
 
 | Document | Owns |
 | --- | --- |
 | [Electrical interface](variants/rpi02w_cm3/README.md) | Pin assignments, load budget, device and firmware requirements |
-| [Board definitions](boards.md) | U5/U7 circuits, connectors, and PCB targets |
+| [Board definitions](boards.md) | Clapper and Yoke circuits, connectors, and PCB targets |
 | [Assembly BOM](bom.md) | Parts, quantities, and 300 × 150 mm casing harness estimates |
 
 ## Wiring
@@ -22,11 +22,11 @@ Audio and camera, source [wiring-audio.yml](wiring-audio.yml):
 
 ![Ring audio and camera](wiring-audio.svg)
 
-Key board, relays, and sensor, source [wiring-io.yml](wiring-io.yml):
+Clapper, relays, and sensor, source [wiring-io.yml](wiring-io.yml):
 
-![Ring key board, relays, and sensor](wiring-io.svg)
+![Ring Clapper, relays, and sensor](wiring-io.svg)
 
-Regenerate the committed SVGs with WireViz 0.4.1 and Graphviz 15.1.1:
+Regenerate the committed SVGs with WireViz 0.4.1 and Graphviz 14 or newer; each SVG records the Graphviz version in its header comment:
 
 ```sh
 wireviz -f s hardware/ring/wiring-power.yml hardware/ring/wiring-audio.yml hardware/ring/wiring-io.yml

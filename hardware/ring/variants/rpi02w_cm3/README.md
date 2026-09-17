@@ -1,18 +1,18 @@
 # Raspberry Pi Zero 2 W with Camera Module 3 Wide
 
-Pin assignments and operating requirements. Circuits are in [boards.md](../../boards.md), parts and harness lengths in the [BOM](../../bom.md).
+Pin assignments and operating requirements. The Clapper key board and the Yoke power board are defined in [boards.md](../../boards.md); parts and harness lengths are in the [BOM](../../bom.md).
 
 ## Power architecture
 
-The installation cable terminates on U7 inside a partitioned mains compartment. Two encapsulated modules supply the loads; the Pi generates 3.3 V.
+The installation cable terminates on the Yoke inside a partitioned mains compartment. Two encapsulated modules supply the loads; the Pi generates 3.3 V.
 
 | Rail | Source | Consumers |
 | --- | --- | --- |
-| 5 V | PSU5 on U7, Mean Well IRM-30-5, 5 V / 6 A | Pi through J8 pin 2, U1 amplifier, U3 relay coils through F2, U5 backlight LEDs |
-| 12 V | PSU12 on U7, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
-| 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, U5 button pull-ups |
+| 5 V | PSU5 on the Yoke, Mean Well IRM-30-5, 5 V / 6 A | Pi through J8 pin 2, U1 amplifier, U3 relay coils through F2 |
+| 12 V | PSU12 on the Yoke, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
+| 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, Clapper button pull-ups |
 
-[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. U7 distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to PE. The 12 V return connects only to the strike circuit.
+[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. The Yoke distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to PE. The 12 V return connects only to the strike circuit.
 
 Mains layout and protective bonding are defined in [boards.md](../../boards.md). Installation requires a qualified electrician, a three-core 1.5 mm² supply cable through a strain-relieved IP68 gland, and an approved upstream protection plan. The provisional installation assumption is a breaker of at most 10 A and a 30 mA RCD; suitability remains part of the electrical assessment.
 
@@ -20,27 +20,26 @@ Mains layout and protective bonding are defined in [boards.md](../../boards.md).
 
 J8 uses physical pin numbers; BCM identifies GPIOs. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
 
-5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from U7. Use a polarized harness and U7 as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
+5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from the Yoke. Use a polarized harness and the Yoke as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
 
 | J8 | BCM | Net | Endpoint |
 | --- | --- | --- | --- |
-| 1 | n/a | 3V3 | U2 supply, U5 pull-ups, U6 supply; three branches spliced within 30 mm of J8 |
-| 2 | n/a | 5V_IN | U7 J71 |
+| 1 | n/a | 3V3 | U2 supply, Clapper pull-ups, U6 supply; three branches spliced within 30 mm of J8 |
+| 2 | n/a | 5V_IN | Yoke JY1 |
 | 3 | 2 | I2C_SDA | U6 SDA |
 | 5 | 3 | I2C_SCL | U6 SCL |
-| 6 | n/a | GND_IN | U7 J71 |
+| 6 | n/a | GND_IN | Yoke JY1 |
 | 9 | n/a | GND_MIC | U2 GND |
-| 11 | 17 | BUTTON1 | U5 J51, switch position 1 |
+| 11 | 17 | BUTTON1 | Clapper JC1, switch position 1 |
 | 12 | 18 | I2S_BCLK | U1 BCLK and U2 BCLK |
-| 13 | 27 | BUTTON2 | U5 J51, switch position 2 |
-| 15 | 22 | BUTTON3 | U5 J51, switch position 3 |
-| 16 | 23 | BUTTON4 | U5 J51, switch position 4 |
+| 13 | 27 | BUTTON2 | Clapper JC1, switch position 2 |
+| 15 | 22 | BUTTON3 | Clapper JC1, switch position 3 |
+| 16 | 23 | BUTTON4 | Clapper JC1, switch position 4 |
 | 17 | n/a | 3V3_RLY | U3 VCC |
-| 20 | n/a | GND_BTN | U5 J51 |
+| 20 | n/a | GND_BTN | Clapper JC1 |
 | 25 | n/a | GND_ENV | U6 GND |
 | 29 | 5 | RELAY1 | U3 IN1, strike |
 | 31 | 6 | RELAY2 | U3 IN2, gate |
-| 32 | 12 | LED_PWM | U5 J51, backlight dimmer |
 | 35 | 19 | I2S_LRCLK | U1 LRC and U2 LRCL |
 | 38 | 20 | I2S_MIC | U2 DOUT |
 | 40 | 21 | I2S_DIN | U1 DIN |
@@ -50,18 +49,17 @@ Required `config.txt` GPIO settings:
 ```
 gpio=17,27,22,23=ip,pu
 gpio=5,6=op,dh
-gpio=12=op,dl
 ```
 
-These settings do not guarantee safe relay states during power sequencing. E4 must verify startup, shutdown, and loss of either supply. R41 pulls the backlight gate low while GPIO12 floats.
+These settings do not guarantee safe relay states during power sequencing. Relay module qualification must verify startup, shutdown, and loss of either supply.
 
-Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 and 28 remain unwired because the camera uses the corresponding I2C interface. Pins 8 and 10 carry the bench console on the mini-UART, because Bluetooth stays enabled and owns the PL011. Pin 4 and the remaining ground pins are free.
+Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 and 28 remain unwired because the camera uses the corresponding I2C interface. Pins 8 and 10 carry the bench console on the mini-UART, because Bluetooth stays enabled and owns the PL011. Pins 4 and 32 and the remaining ground pins are free.
 
 ## Audio and camera
 
 | Device | Required configuration |
 | --- | --- |
-| U1, Adafruit MAX98357A 3006 | VIN to SD selects left playback; VIN to GAIN selects 6 dB; supply from U7 J72 with C1 and C2 at VIN |
+| U1, Adafruit MAX98357A 3006 | VIN to SD selects left playback; VIN to GAIN selects 6 dB; supply from the Yoke JY2 with C1 and C2 at VIN |
 | U2, Adafruit SPH0645 3421 | 3.3 V supply; header pad 6 (SEL) to pad 2 (GND) selects left capture |
 | SP1, Adafruit 3351 | 4 Ω / 3 W; twisted speaker pair, maximum 100 mm; foam or rubber decoupling |
 | CAM1, Camera Module 3 Wide | 200 mm Standard-Mini ribbon; Pi Zero 22-pin to camera 15-pin CSI; 102° horizontal field of view; infrared-cut filter |
@@ -80,8 +78,8 @@ The [camera product brief](https://datasheets.raspberrypi.com/camera/camera-modu
 
 | Interface | Requirement |
 | --- | --- |
-| Buttons | U5 positions 1–4 map to BUTTON1–4 and MQTT suffixes 1–4. Populate consecutively from the top; circuitry and plate geometry are in [boards.md](../../boards.md). |
-| Relays | U3 VCC from J8 pin 17; active-low IN1/IN2 from GPIO5/6; JD-VCC from U7 J74 through F2, with C3; coil return to U7; JD-VCC jumper removed. Module qualification remains deferred under E4. |
+| Buttons | Clapper positions 1–4 map to BUTTON1–4 and MQTT suffixes 1–4. Populate consecutively from the top; circuitry and plate geometry are in [boards.md](../../boards.md). |
+| Relays | U3 VCC from J8 pin 17; active-low IN1/IN2 from GPIO5/6; JD-VCC from the Yoke JY3 through F2, with C3; coil return to the Yoke; JD-VCC jumper removed. Module qualification remains open. |
 | Strike | effeff 118 A7 winding, 12 V DC, 1–3 s pulse. PSU12 → F1 → U3 COM1/NO1 → JOUT1. D1 at the coil: cathode to STRIKE+, anode to STRIKE-. Exclude the D1 winding. |
 | Gate | U3 COM2/NO2 to JOUT2, potential-free contact; design limit 30 V DC / 1 A, pulse 0.5–1 s. |
 | Environment | U6 SHT40 at I2C1 address 0x44, beside the camera window; VIN from 3.3 V, breakout 3V output unconnected. |
@@ -99,8 +97,7 @@ No load or temperature measurements exist. Values below are planning inputs, not
 | 5 V: Pi board | 0.7 A allocation; verify camera, encoder, Wi-Fi, and Bluetooth transients |
 | 3.3 V: camera | 0.3 A allocation; measure CSI demand and regulator input power before adding to the 5 V budget |
 | 5 V: amplifier | Supply current unmeasured; speaker current below is not supply current |
-| 5 V: relay coils | 0.18 A assumed for two 0.45 W coils; E4 |
-| 5 V: backlight | 36 mA nominal with four LEDs |
+| 5 V: relay coils | 0.18 A assumed for two 0.45 W coils; relay module qualification open |
 | 3.3 V: button pull-ups | 1.32 mA nominal; 1.40 mA at +5% supply and -1% resistance, excluding internal pulls |
 | Other loads | Include microphone, relay inputs, sensor, indicator, and regulator losses in measurements |
 | 12 V: strike | 0.28 A nominal; verify cold coil; 0.5 A reserved for future infrared |
@@ -128,13 +125,12 @@ Requirements only; firmware and overlays are outside this step.
 | Interface | Required behavior |
 | --- | --- |
 | Platform | Zero 2 W image; Bluetooth enabled; bench console on the mini-UART; hardware watchdog serviced; read-only root with RAM logs; brown-out flag logging |
-| Boot GPIO state | `config.txt` directives: buttons input with pull-up, GPIO5 and GPIO6 output high, GPIO12 output low |
+| Boot GPIO state | `config.txt` directives: buttons input with pull-up, GPIO5 and GPIO6 output high |
 | Audio | One duplex sound card: PCM_DOUT playback, PCM_DIN capture; no SD GPIO. Standard I2S, 48 kHz, two 32-bit slots, 3.072 MHz BCLK; S32_LE capture/playback in the left slot. |
 | Intercom | Full duplex with acoustic echo cancellation using the delay-aligned playback reference; automatic voice switching only as fallback; configurable output clamps, defaults -6 dBFS talkback and -3 dBFS acknowledgement |
 | Test endpoint | WebRTC endpoint with Opus and hardware H.264; signaling over the MQTT broker; browser test page for phone and PC |
 | Camera | IMX708 Wide through libcamera; 1280 × 720 initial target; fixed lens position fallback within the qualified temperature range |
 | Buttons | Active low; ≥ 50 ms debounce and 3 s repeat suppression per input; state ignored for 3 s after boot |
-| Backlight | Hardware PWM on GPIO12; off at boot; configurable level and schedule; brief flash as press acknowledgement |
 | Relay outputs | High when idle, during startup, and on shutdown; strike low pulse 1–3 s; gate low pulse 0.5–1 s; maximum on-time; no output commands until time sync and authentication are ready |
 | Environment sensor | SHT40 on I2C1 at 0x44; temperature and humidity logged |
 | Button notification | `ring/<unit>/pressed/1` through `ring/<unit>/pressed/4`; QoS 1, retain false |
@@ -156,12 +152,12 @@ The planning envelope is 300 mm high × 150 mm wide; depth and mounting position
 | [MAX98357A](https://www.adafruit.com/product/3006) | 19.4 × 17.8 × 3 mm; within 100 mm cable route of the speaker |
 | [SPH0645 breakout](https://www.adafruit.com/product/3421) | 16.7 × 12.7 × 1.8 mm; bottom port, gasket, membrane; at least 100 mm from the speaker grille; within 200 mm of J8 |
 | [Adafruit 3351](https://www.adafruit.com/product/3351) | 70 × 30 × 17 mm; vertical long axis; decoupled mounting; verify against the purchased unit |
-| Relay module | Reserve 55 × 45 × 22 mm provisionally; E4 |
-| U5 key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending casing design |
-| U7 power board | About 160 × 90 mm on metal standoffs inside the rear mains compartment; 30 mm module height plus cover |
+| Relay module | Reserve 55 × 45 × 22 mm provisionally; qualification open |
+| Clapper key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending casing design |
+| Yoke power board | About 160 × 90 mm on metal standoffs inside the rear mains compartment; 30 mm module height plus cover |
 | U6 sensor | 25.4 × 17.8 mm beside the camera window |
 | Entries | One IP68 M20 gland for mains, two M16 glands for strike and gate; PTFE vent M12 |
 
-Layout from the top: camera and U6, microphone, Pi with U1, speaker, key board behind the lower face. The mains compartment with U7 sits at the rear bottom behind its partition.
+Layout from the top: camera and U6, microphone, Pi with U1, speaker, Clapper behind the lower face. The mains compartment with the Yoke sits at the rear bottom behind its partition.
 
-Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations are specified in the BOM; keep microphone ports, sensor openings, optics, connectors, and switch sockets clear. Antenna keep-out geometry and installed RF performance remain deferred under E7.
+Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations are specified in the BOM; keep microphone ports, sensor openings, optics, connectors, and switch sockets clear. Antenna keep-out geometry and installed RF performance remain open for casing design.

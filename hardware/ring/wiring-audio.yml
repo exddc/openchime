@@ -9,7 +9,7 @@ connectors:
     subtype: male
     ignore_in_bom: true
     notes: |
-      Zero 2 W physical pins. Pin 1 also feeds U5/U6; see wiring-io.
+      Zero 2 W physical pins. Pin 1 also feeds the Clapper and U6; see wiring-io.
     pins: [1, 9, 12, 35, 38, 40]
     pinlabels: [3V3, GND_MIC, I2S_BCLK, I2S_LRCLK, I2S_MIC, I2S_DIN]
     hide_disconnected_pins: false
@@ -56,42 +56,42 @@ connectors:
     pins: [1]
     pinlabels: [CSI-2]
 cables:
-  W11:
+  W9:
     category: bundle
     type: Soldered or latching loom
     gauge: 26 AWG
     colors: [YE, GN, BU]
     wirelabels: [I2S_BCLK, I2S_LRCLK, I2S_DIN]
     length: 0.1
-  W12:
+  W10:
     category: bundle
     type: 3351 factory lead
     gauge: 28 AWG
     colors: [RD, BK]
     wirelabels: [SPK+, SPK-]
     length: 0.1
-  W13:
+  W11:
     category: bundle
     type: Soldered or latching loom
     gauge: 26 AWG
     colors: [OG, BK, YE, GN, VT]
     wirelabels: [3V3, GND_MIC, I2S_BCLK, I2S_LRCLK, I2S_MIC]
     length: 0.2
-  W14:
+  W12:
     category: bundle
     type: Standard-Mini CSI
     gauge: 30 AWG
     colors: [GY]
     wirelabels: [CSI-2]
     length: 0.2
-  W15:
+  W13:
     category: bundle
     type: Local strap
     gauge: 26 AWG
     colors: [RD]
     wirelabels: [SD]
     length: 0.02
-  W16:
+  W14:
     category: bundle
     type: Local strap
     gauge: 26 AWG
@@ -100,20 +100,20 @@ cables:
     length: 0.02
 connections:
 - - J8: [12, 35, 40]
-  - W11: [1, 2, 3]
+  - W9: [1, 2, 3]
   - U1: [BCLK, LRC, DIN]
 - - U1: [SPK+, SPK-]
-  - W12: [1, 2]
+  - W10: [1, 2]
   - SP1: [SPK+, SPK-]
 - - J8: [1, 9, 12, 35, 38]
-  - W13: [1, 2, 3, 4, 5]
+  - W11: [1, 2, 3, 4, 5]
   - U2: [3V, GND, BCLK, LRCL, DOUT]
 - - J_CSI: [1]
-  - W14: [1]
+  - W12: [1]
   - CAM1: [1]
 - - U1: [VIN]
-  - W15: [1]
+  - W13: [1]
   - U1: [SD]
 - - U1: [VIN]
-  - W16: [1]
+  - W14: [1]
   - U1: [GAIN]

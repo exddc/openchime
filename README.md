@@ -36,7 +36,7 @@ See [Chime README](chime/README.md) for detailed technical specifications.
 
 The doorbell unit. Next product after Chime.
 
-**Hardware:** Raspberry Pi Zero 2 W, I2S audio, Camera Module 3 Wide, two relays, 1–4 Kailh BOX buttons on a key board, and a power board with two Class II mains modules in a sealed enclosure. See [Ring hardware](hardware/ring/README.md).
+**Hardware:** Raspberry Pi Zero 2 W, I2S audio, Camera Module 3 Wide, two relays, 1–4 Kailh BOX buttons on the Clapper key board, and the Yoke power board with two Class II mains modules in a sealed enclosure. See [Ring hardware](hardware/ring/README.md).
 
 ### Base
 

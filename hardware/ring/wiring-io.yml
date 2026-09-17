@@ -1,7 +1,7 @@
 metadata:
-  title: Ring key board, relays, and sensor
-  description: Key board logic loom, relay logic and the environment sensor
-  notes: Prototype. The Kailh BOX switches, their pull-ups, protection, and backlight LEDs sit on the key board U5; see boards.md. Relay coil and LED supplies are in wiring-power.
+  title: Ring Clapper, relays, and sensor
+  description: Clapper key board logic loom, relay logic, and the environment sensor
+  notes: Prototype. The Kailh BOX switches, their pull-ups, and protection sit on the Clapper key board; see boards.md. Relay coil supply is in wiring-power.
 connectors:
   J8:
     type: Raspberry Pi GPIO
@@ -9,21 +9,20 @@ connectors:
     ignore_in_bom: true
     notes: |
       Zero 2 W physical pins. Pin 1 also feeds U2; see wiring-audio.
-    pins: [1, 3, 5, 11, 13, 15, 16, 17, 20, 25, 29, 31, 32]
-    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, BUTTON3, BUTTON4, 3V3_RLY, GND_BTN, GND_ENV, RELAY1, RELAY2, LED_PWM]
+    pins: [1, 3, 5, 11, 13, 15, 16, 17, 20, 25, 29, 31]
+    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, BUTTON3, BUTTON4, 3V3_RLY, GND_BTN, GND_ENV, RELAY1, RELAY2]
     hide_disconnected_pins: false
-  U5:
+  CLAPPER:
     type: Ring key board
     ignore_in_bom: true
     notes: |
-      J51 logic. Inputs and PWM backlight: boards.md. J52 supply:
-      wiring-power.
-    pins: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
+      JC1 logic. Inputs: boards.md.
+    pins: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4]
   U3:
     type: 2-ch 5V relay
     ignore_in_bom: true
     notes: |
-      E4 deferred. VCC 3.3 V; inputs active low. Idle GPIO5/6 high
+      Module qualification deferred. VCC 3.3 V; inputs active low. Idle GPIO5/6 high
       required; power sequencing unverified.
       Coils/contacts: wiring-power.
     pins: [VCC, IN1, IN2]
@@ -36,21 +35,21 @@ connectors:
     pins: [VIN, 3V, GND, SCL, SDA]
     hide_disconnected_pins: false
 cables:
-  W17:
+  W15:
     category: bundle
     type: Logic loom
     gauge: 26 AWG
-    colors: [OG, BK, WH, PK, YE, VT, RD]
-    wirelabels: [3V3, GND_BTN, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
+    colors: [OG, BK, WH, PK, YE, VT]
+    wirelabels: [3V3, GND_BTN, BUTTON1, BUTTON2, BUTTON3, BUTTON4]
     length: 0.25
-  W18:
+  W16:
     category: bundle
     type: Soldered or latching loom
     gauge: 26 AWG
     colors: [OG, BN, GY]
     wirelabels: [3V3_RLY, RELAY1, RELAY2]
     length: 0.2
-  W19:
+  W17:
     category: bundle
     type: Sensor loom
     gauge: 26 AWG
@@ -58,12 +57,12 @@ cables:
     wirelabels: [3V3, GND_ENV, I2C_SDA, I2C_SCL]
     length: 0.25
 connections:
-- - J8: [1, 20, 11, 13, 15, 16, 32]
-  - W17: [1, 2, 3, 4, 5, 6, 7]
-  - U5: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
+- - J8: [1, 20, 11, 13, 15, 16]
+  - W15: [1, 2, 3, 4, 5, 6]
+  - CLAPPER: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4]
 - - J8: [17, 29, 31]
-  - W18: [1, 2, 3]
+  - W16: [1, 2, 3]
   - U3: [VCC, IN1, IN2]
 - - J8: [1, 25, 3, 5]
-  - W19: [1, 2, 3, 4]
+  - W17: [1, 2, 3, 4]
   - U6: [VIN, GND, SDA, SCL]
