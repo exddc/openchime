@@ -7,30 +7,40 @@ connectors:
     type: Raspberry Pi GPIO
     subtype: male
     ignore_in_bom: true
-    notes: Zero 2 W. Pin 1 is nearest the microSD slot, inner row (square pad on the underside). Pin 1 also feeds U2; see wiring-audio.
+    notes: |
+      Zero 2 W physical pins. Pin 1 also feeds U2; see wiring-audio.
     pins: [1, 3, 5, 11, 13, 14, 15, 16, 17, 18, 20, 25, 29, 31, 32]
     pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, GND_HTR, BUTTON3, BUTTON4, 3V3_RLY, HEATER, GND_BTN, GND_ENV, RELAY1, RELAY2, LED_PWM]
     hide_disconnected_pins: false
   U5:
     type: Ring key board
     ignore_in_bom: true
-    notes: Custom board in boards.md. Up to four Kailh BOX switches in hot-swap sockets, 10k pull-ups, 1k series, RC and TVS per channel, SMD backlight LEDs with one PWM MOSFET. J51 shown; J52 LED supply is in wiring-power.
+    notes: |
+      J51 logic. Inputs and PWM backlight: boards.md. J52 supply:
+      wiring-power.
     pins: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
   U3:
     type: 2-ch 5V relay
     ignore_in_bom: true
-    notes: Retained module; E4 open. VCC 3.3 V. IN LOW energizes the coil; GPIO5 and GPIO6 are driven high from boot. Coil supply and contacts are in wiring-power.
+    notes: |
+      E4 deferred. VCC 3.3 V; inputs active low. Idle GPIO5/6 high
+      required; power sequencing unverified.
+      Coils/contacts: wiring-power.
     pins: [VCC, IN1, IN2]
   U6:
     type: SHT40
     ignore_in_bom: true
-    notes: Adafruit 4885, I2C address 0x44, beside the camera window. 3V pad is the breakout regulator output and stays unconnected.
+    notes: |
+      Adafruit 4885; address 0x44. VIN from 3.3 V. Leave 3V regulator
+      output open.
     pins: [VIN, 3V, GND, SCL, SDA]
     hide_disconnected_pins: false
   U7:
     type: Ring power board
     ignore_in_bom: true
-    notes: Heater control input J76 to the Q71 gate network. HEATER high turns HTR1 on. Power terminals are in wiring-power.
+    notes: |
+      J76 heater control: HEATER high enables Q71.
+      Power: wiring-power.
     pins: [HEATER, GND_HTR]
 cables:
   W17:

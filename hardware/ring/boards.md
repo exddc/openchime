@@ -1,18 +1,16 @@
 # Board definitions
 
-Two custom boards exist. U5, the key board, sits behind the faceplate and carries the switches. U7, the power board, sits in the rear mains compartment and carries both mains modules. Everything else is a bought module or a harness.
-
-Both boards are defined here at connection level. Schematic capture, layout, and connector part selection are the next hardware step.
+Connection-level specification for U5 (key board) and U7 (power board). Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md); release criteria are in [qualification](qualification.md).
 
 ## U5 key board
 
-U5 holds up to four Kailh BOX tactile switches in hot-swap sockets, one pull-up, series resistor, capacitor, and transient suppressor per channel, one white backlight LED per switch, and a single PWM-controlled MOSFET for the backlight. Its outputs are active-low GPIO signals.
+U5 carries one to four hot-swap switches with active-low GPIO outputs and a shared PWM backlight.
 
 The metal front plate is the switch plate: 1.5 mm thick, 14 × 14 mm cutouts at 25.4 mm vertical pitch, board surface 5 mm behind the plate front. Populated positions count from the top.
 
 | Element | Specification |
 | --- | --- |
-| SW1–SWn | Kailh BOX tactile, IP56, MX-compatible stem, 3-pin plate mount |
+| SW1–SWn | Kailh BOX tactile, MX stem, 3-pin plate mount; exact part must meet dry-contact and IP56 requirements |
 | SK1–SK4 | Kailh MX hot-swap sockets; all four fitted so positions can be populated later |
 | KC1–KCn | MX-compatible relegendable keycaps, 1u or 2u, name label under a clear cover |
 | LED1–LEDn | White SMD LED in the switch housing window, top mount |
@@ -31,27 +29,19 @@ Channel n uses SWn, SKn, R1n, R2n, C1n, D1n, LEDn, and R3n. For example, channel
 | C1n, 100 nF | BUTTONn to GND, beside J51 |
 | LEDn | Anode to 5V_LED; cathode to R3n |
 | R3n, 220 Ω | LEDn cathode to the Q1 drain node |
-| Q1, 2N7002 or equivalent logic-level N-channel MOSFET | Drain to the LED return node; source to GND |
+| Q1, N-channel MOSFET; 2N7002 provisional | Drain to the LED return node; source to GND |
 | R42, 100 Ω | LED_PWM at J51 to the Q1 gate |
 | R41, 10 kΩ | Q1 gate to GND |
 
-All four pull-ups, capacitors, and suppressors remain fitted on every variant. Omit the switch, keycap, and LED for each unused position.
+Fit all four sockets and input networks. Populate switches, keycaps, LEDs, and LED resistors only at positions 1 through n; blank unused faceplate openings.
 
-| Check | Calculation / design target |
-| --- | --- |
-| Contact current | 3.3 / 10 000 = 330 µA; gold crosspoint contacts required for this dry circuit |
-| GPIO low, contact closed | Below 0.1 V through R2n with the GPIO input high impedance |
-| GPIO high, contact open | Near 3.3 V; internal pull-up may stay enabled |
-| RC at the GPIO | 1 kΩ × 100 nF = 0.1 ms; firmware debounce of 50 ms dominates |
-| LED current | (5.0 - 3.0) / 220 = 9 mA per LED; 36 mA for four |
-| Q1 dissipation | Below 5 mW at 36 mA |
-| TVS | PESD5V0S1BA clamps the switch node; R2n limits the residual current into the SoC clamp diodes |
+At 3.3 V, contact current is 330 µA; select contacts rated for this dry circuit. With internal GPIO pulls disabled, nominal RC constants are 0.1 ms on press and 1.1 ms on release. Firmware provides 50 ms debounce. Backlight current is nominally 9 mA per LED at 5 V and 3 V forward voltage, or 36 mA for four; calculate limits from the selected LED and resistor tolerances.
 
-The switch housings protrude through the PE-bonded front plate, so most discharges reach earth before the board. D1n and R2n handle the remainder. Water management at the keycaps is enclosure open item E11.
+Protection remains unqualified: the [PESD5V0S1BA](https://assets.nexperia.com/documents/data-sheet/PESD5V0S1BA.pdf) permits 10 V clamping at 1 A. A series resistor and the metal faceplate do not establish safe GPIO voltage or injection current. Q1 also needs selection: the [2N7002](https://assets.nexperia.com/documents/data-sheet/2N7002.pdf) guarantees on-resistance at 4.5 V and 10 V, not at the 3.3 V drive. See the qualification blockers.
 
 ## U7 power board
 
-U7 carries the mains terminal, fuse, surge element, both Mean Well IRM-30 PCB-mount modules, protective-earth bonding, the 5 V and 12 V distribution terminals, the relay coil PTC, and the heater MOSFET.
+U7 distributes mains to two encapsulated supplies and low voltage to the loads. Class II describes the supply modules; it does not classify the complete, PE-bonded assembly.
 
 | Element | Specification |
 | --- | --- |
@@ -62,7 +52,7 @@ U7 carries the mains terminal, fuse, surge element, both Mean Well IRM-30 PCB-mo
 | PSU12 | Mean Well IRM-30-12, PCB pins, 12 V / 2.5 A |
 | PE1 | Plated M4 mounting hole on the PE track, fastened to a metal standoff of the backplate with a serrated washer |
 | PE_FRONT | Ring-terminal pad on the PE track for the front-plate bond |
-| JP1 | 0 Ω link from the PE track to the SELV ground; fitted |
+| JP1 | 0 Ω link from the PE track to the 5 V return; fitted |
 | J71 | 5V_PI, GND_PI; 2-circuit, ≥ 5 A per contact, 20 AWG |
 | J72 | 5V_AMP, GND_AMP |
 | J73 | 5V_LED, GND_LED |
@@ -77,29 +67,27 @@ U7 carries the mains terminal, fuse, surge element, both Mean Well IRM-30 PCB-mo
 | F0 | JAC L to the fused L node |
 | RV1 | Fused L node to N |
 | PSU5, PSU12 | AC/L to the fused L node; AC/N to N |
-| PSU5 outputs | +V to the 5 V rail; -V to the SELV ground |
-| PSU12 outputs | +V to F1; -V to 12V_RTN at J77; not connected to the SELV ground |
+| PSU5 outputs | +V to the 5 V rail; -V to the 5 V return |
+| PSU12 outputs | +V to F1; -V to 12V_RTN at J77; not connected to the 5 V return |
 | F1, 1 A fast fuse in a PCB holder | PSU12 +V to 12V_FUSED at J77 |
 | F2, 500 mA hold PTC | 5 V rail to JD-VCC at J74 |
-| C3, 100 µF | JD-VCC at J74 to the SELV ground |
-| Q71, AO3400A or equivalent logic-level N-channel MOSFET | Drain to HTR- at J75; source to the SELV ground; HTR+ at J75 to the 5 V rail |
+| C3, 100 µF | JD-VCC at J74 to the 5 V return |
+| Q71, AO3400A or equivalent logic-level N-channel MOSFET | Drain to HTR- at J75; source to the 5 V return; HTR+ at J75 to the 5 V rail |
 | R72, 100 Ω | HEATER at J76 to the Q71 gate |
-| R71, 10 kΩ | Q71 gate to the SELV ground |
-| LED71 with R73, 1 kΩ | 5 V rail to the SELV ground; service indicator |
-| JP1 | PE track to the SELV ground, single point |
+| R71, 10 kΩ | Q71 gate to the 5 V return |
+| LED71 with R73, 1 kΩ | 5 V rail to the 5 V return; service indicator |
+| JP1 | PE track to the 5 V return, single point |
 
-Design rules for the mains section:
+Provisional layout targets, subject to insulation coordination for the installation, applicable product standard, altitude, pollution degree, and material group:
 
 | Rule | Value |
 | --- | --- |
-| Creepage and clearance, mains to SELV and mains to PE | At least 6 mm on the board, with a milled slot under each module between its AC and DC pins |
-| Board material | FR4 with CTI of 175 or better; no SELV copper under the module primary side |
+| Creepage and clearance, mains to low voltage and mains to PE | At least 6 mm on the board, with a milled slot under each module between its AC and DC pins |
+| Board material | FR4 with CTI of 175 or better; no low-voltage copper under the module primary side |
 | Mains copper | 1 mm track width or more at 35 µm for 2 A; keep-out to the board edge of 3 mm or more |
 | Cover | Clip-on insulating cover over JAC, F0, RV1, and the module primaries; removable only with the enclosure open |
 | Marking | Mains section outlined and labelled on the silkscreen; fuse rating printed beside F0 |
 
-The 12 V rail stays isolated: its return goes only to J77 and the strike. The 5 V rail's ground is the SELV ground, bonded once to PE at JP1.
+The 12 V return connects only to J77 and the strike. JP1 bonds the 5 V return to PE, so this rail is not SELV; [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. U5 J51 GND and J52 GND_LED share the board return. These and J76 create additional return paths through the Pi; assess shared-current voltage drops during layout.
 
-## Implementation status
-
-These tables define both boards. Schematics, layouts, connector part numbers, and measured performance are pending. The harness drawings represent U5 and U7 as modules with logical terminal names.
+The 6 A supply does not establish protection for each branch. Coordinate protection with the J8 contact, harness, connectors, heater, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open in [qualification](qualification.md).

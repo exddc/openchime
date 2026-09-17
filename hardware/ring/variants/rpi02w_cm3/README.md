@@ -1,10 +1,10 @@
 # Raspberry Pi Zero 2 W with Camera Module 3 Wide
 
-Electrical interface specification for hardware, enclosure, and firmware engineers. Component quantities and harness estimates are in the [assembly BOM](../../bom.md). The two custom boards are defined in [boards.md](../../boards.md).
+Pin assignments and operating requirements. Circuits are in [boards.md](../../boards.md), parts and harness lengths in the [BOM](../../bom.md), and pending verification in [qualification](../../qualification.md).
 
 ## Power architecture
 
-230 V AC enters the enclosure and lands on the power board U7 inside a partitioned mains compartment. U7 carries both Class II encapsulated modules and generates every low-voltage rail. No mains conductor exists outside U7.
+The installation cable terminates on U7 inside a partitioned mains compartment. Two encapsulated modules supply the loads; the Pi generates 3.3 V.
 
 | Rail | Source | Consumers |
 | --- | --- | --- |
@@ -12,30 +12,15 @@ Electrical interface specification for hardware, enclosure, and firmware enginee
 | 12 V | PSU12 on U7, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
 | 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, U5 button pull-ups |
 
-The [IRM-30 specification](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) states Class II construction without an earth pin, 4.2 kV AC input-to-output withstand, ±2.5 % output tolerance, 45 A cold-start inrush at 230 V, and a -30 to +85 °C working range with derating above about 50 °C. The PCB-mount style measures 69.5 × 39 × 24 mm.
+[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. U7 distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to PE. The 12 V return connects only to the strike circuit.
 
-The 12 V rail is isolated from the 5 V rail. Its return connects only to J77 on U7 and the strike and never touches Pi ground.
-
-U7 is the 5 V star point. Its terminals fan out to the Pi, the amplifier, the relay coil supply, the key board backlight, and the heater, and every 5 V return comes back to U7.
-
-### Mains section
-
-| Item | Requirement |
-| --- | --- |
-| Supply cable | 230 V AC, three cores with protective earth, NYY-J or H07RN-F 3G1.5 in conduit; IP68 gland at the rear entry; drip loop and strain relief; terminated on the U7 mains terminal |
-| Compartment | Partition between the mains and low-voltage sides; only U7 inside; the U7 mains section additionally wears its clip-on cover; at least 6 mm creepage and clearance from mains copper to any SELV part or metal |
-| F0 | 5 × 20 mm, T 2 A, 250 V, in the covered PCB holder on U7, in the L conductor ahead of both modules |
-| RV1 | S14K275 varistor across L and N after F0; fit for exposed installations |
-| PE | Supply PE to the U7 PE track; the track bonds to the metal backplate through the PE1 mounting standoff, to the metal front plate through a 1.0 mm² green-yellow conductor, and to the SELV ground through the link JP1; PE1 is the single chassis bonding point |
-| Installation | Permanently connected by a qualified electrician; upstream circuit breaker of 10 A or less plus a 30 mA residual-current device; isolate the circuit before opening the enclosure |
-
-The PE bond gives faceplate and keycap discharges a path that bypasses the electronics. The module isolation does not depend on PE.
+Mains layout and protective bonding are defined in [boards.md](../../boards.md). Installation requires a qualified electrician, a three-core 1.5 mm² supply cable through a strain-relieved IP68 gland, and an approved upstream protection plan. The provisional installation assumption is a breaker of at most 10 A and a 30 mA RCD; suitability remains part of the electrical assessment.
 
 ## J8 interface
 
-J8 numbers are physical header pins. BCM numbers identify GPIOs. The Zero 2 W header matches the Zero W.
+J8 uses physical pin numbers; BCM identifies GPIOs. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
 
-5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from U7. This path has no fuse or reverse-polarity protection, so the harness is polarized and U7 is the only source.
+5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from U7. Use a polarized harness and U7 as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
 
 | J8 | BCM | Net | Endpoint |
 | --- | --- | --- | --- |
@@ -62,7 +47,7 @@ J8 numbers are physical header pins. BCM numbers identify GPIOs. The Zero 2 W he
 | 38 | 20 | I2S_MIC | U2 DOUT |
 | 40 | 21 | I2S_DIN | U1 DIN |
 
-Boot state comes from the firmware GPIO directives in `config.txt`, which the bootloader applies before the kernel starts:
+Required `config.txt` GPIO settings:
 
 ```
 gpio=17,27,22,23=ip,pu
@@ -71,7 +56,7 @@ gpio=24=op,dl
 gpio=12=op,dl
 ```
 
-GPIO5 and GPIO6 also power up with internal pull-ups, so the active-low relay inputs stay off even before the directives apply. GPIO24 and GPIO12 power up with internal pull-downs and both MOSFET gates carry their own pull-down resistors, so the heater and backlight stay off until firmware enables them. The button inputs read high through the U5 pull-ups from power-on; firmware ignores button state for the first 3 s after boot.
+These settings do not guarantee safe relay states during power sequencing. E4 must verify startup, shutdown, and loss of either supply. R71 and R41 pull the heater and backlight gates low while GPIOs float.
 
 Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 and 28 remain unwired because the camera uses the corresponding I2C interface. Pins 8 and 10 carry the bench console on the mini-UART, because Bluetooth stays enabled and owns the PL011. Pin 4 and the remaining ground pins are free.
 
@@ -86,80 +71,47 @@ Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 
 
 U2 header pads are 1: 3V, 2: GND, 3: BCLK, 4: DOUT, 5: LRCL, 6: SEL. Source: [Adafruit breakout schematic](https://github.com/adafruit/Adafruit-I2S-Microphone-Breakout-PCB/blob/master/Adafruit%20I2S%20Mic%20SPK0415HM4H.sch).
 
-U1 and U3 terminals use their silkscreen names in the harness drawings. U5 and U7 use logical terminal names until their connectors are selected.
-
 Splice shared I2S clocks within 30 mm of J8. Each I2S branch is at most 200 mm. SPK+ and SPK- are bridge outputs; neither speaker terminal connects to ground. Keep this pair separate from microphone wiring and CSI. [Amplifier pinouts](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts).
 
-The Pi drives capture and playback from one I2S clock, so the far-end reference for echo cancellation is sample-aligned. Firmware keeps 48 kHz end to end without resampling and measures the fixed capture-to-playback offset once.
+Capture and playback share the I2S clock at 48 kHz. Echo cancellation must measure and track their buffer delay, including after stream restarts; a shared clock does not guarantee sample alignment.
 
-Full-duplex acoustics: the microphone port sits at least 100 mm from the speaker grille at the opposite end of the faceplate, the enclosed speaker mounts on decoupling, and the microphone bottom port seals to its own faceplate opening through a gasket and hydrophobic membrane. Target echo return loss before cancellation is 20 dB or better.
+Separate microphone and speaker ports by at least 100 mm. Decouple the speaker mechanically; seal the microphone bottom port to its own gasketed, membrane-covered opening. Target echo return loss before cancellation: ≥ 20 dB.
 
-The [Camera Module 3 product brief](https://datasheets.raspberrypi.com/camera/camera-module-3-product-brief.pdf) rates operation at 0 to 50 °C and lists the Wide variant at 102° horizontal and 120° diagonal. Operation inside the sealed enclosure across the outdoor range is open item E10.
+The [camera product brief](https://datasheets.raspberrypi.com/camera/camera-module-3-product-brief.pdf) specifies 0–50 °C operation and a 102° horizontal/120° diagonal field of view. Enclosure operation remains open under E10.
 
-## Buttons
+## Controls and outputs
 
-The buttons are Kailh BOX tactile switches on the key board U5, seated in hot-swap sockets, with MX-compatible relegendable keycaps. The switches are rated IP56 for dust and splash. The metal front plate is the switch plate, and a press reads low on the corresponding GPIO through the U5 pull-up, series resistor, and suppressor described in [boards.md](../../boards.md).
-
-| Element | Specification |
+| Interface | Requirement |
 | --- | --- |
-| Switches | Kailh BOX tactile, MX stem, 3-pin plate mount; heavier BOX variants are acceptable for glove use |
-| Plate | Metal front plate, 1.5 mm, 14 × 14 mm cutouts at 25.4 mm vertical pitch, board surface 5 mm behind the plate front |
-| Keycaps | MX-compatible relegendable, 1u or 2u, name label under a clear cover |
-| Backlight | One white SMD LED per switch through the housing window, about 9 mA each, dimmed together by hardware PWM on GPIO12 |
-| Interface | 3.3 V pull-up of 10 kΩ, 1 kΩ series, 100 nF, bidirectional TVS per channel on U5; active low |
-| Debounce | Firmware, at least 50 ms, plus 3 s repeat suppression |
+| Buttons | U5 positions 1–4 map to BUTTON1–4 and MQTT suffixes 1–4. Populate consecutively from the top; circuitry and plate geometry are in [boards.md](../../boards.md). |
+| Relays | U3 VCC from J8 pin 17; active-low IN1/IN2 from GPIO5/6; JD-VCC from U7 J74 through F2, with C3; coil return to U7; JD-VCC jumper removed. Module qualification remains deferred under E4. |
+| Strike | effeff 118 A7 winding, 12 V DC, 1–3 s pulse. PSU12 → F1 → U3 COM1/NO1 → JOUT1. D1 at the coil: cathode to STRIKE+, anode to STRIKE-. Exclude the D1 winding. |
+| Gate | U3 COM2/NO2 to JOUT2, potential-free contact; design limit 30 V DC / 1 A, pulse 0.5–1 s. |
+| Heater | HTR1 from U7 J75; GPIO24 through J76 drives Q71; R71 holds it off when the GPIO floats. |
+| Environment | U6 SHT40 at I2C1 address 0x44, beside the camera window; VIN from 3.3 V, breakout 3V output unconnected. |
 
-Contact current is about 330 µA, a dry circuit that suits the gold crosspoint contacts. With the contact closed, the GPIO sees less than 0.1 V. The switch housings protrude through the PE-bonded plate, so most discharges reach earth before the board. Water that passes a keycap must not reach the board or the enclosure interior; the gasket sheet, keycap, and drainage concept is open item E11.
+The strike draws nominally 280 mA at 12 V (43 Ω); require 11–13 V at the energized coil. Size the installation cable for supply tolerance, fuse, contact, and cable drop. [Manufacturer electrical data](https://dach.assaabloy.com/de/en/downloadportal/download/435-model-118?inline=1).
 
-| Position | Net | MQTT suffix | Population |
-| --- | --- | --- | --- |
-| 1 | BUTTON1 | 1 | All variants |
-| 2 | BUTTON2 | 2 | 2–4 buttons |
-| 3 | BUTTON3 | 3 | 3–4 buttons |
-| 4 | BUTTON4 | 4 | 4 buttons |
-
-Populate positions consecutively from the top of the faceplate. All four sockets, pull-ups, capacitors, and suppressors are fitted on every variant; unused positions receive a blank plate insert.
-
-## Relays, heater, and sensor
-
-The relay module is retained. VCC is 3.3 V from J8 pin 17, IN1 and IN2 are active low from GPIO5 and GPIO6, JD-VCC comes from U7 J74 through F2 with C3, the coil return goes to U7, and the JD-VCC jumper is absent. Contact 1 switches the strike; contact 2 is the potential-free gate output on JOUT2. Module selection, input current at 3.3 V, and pickup margin remain open under E4 in [qualification.md](../../qualification.md).
-
-Q71 on U7 switches HTR1 from the 5 V rail. GPIO24 high turns the heater on through J76; R71 holds the gate low when the GPIO floats. Firmware runs the heater against the U6 dew point and a 0 °C floor at the camera, with a duty limit.
-
-U6 is an Adafruit SHT40 breakout on I2C1, address 0x44, mounted beside the camera window. It supplies temperature and relative humidity for heater control and condensation logging.
-
-## Strike
-
-The strike is an effeff 118 with the A7, 10–24 V AC/DC winding. This revision operates it at 12 V DC from PSU12 with a 1–3 s pulse. The D1 winding is excluded.
-
-At 12 V DC, the A7 nominal current is 280 mA and resistance is 43 Ω. Its continuous-duty range is 11–13 V DC. [Manufacturer electrical data](https://dach.assaabloy.com/de/en/downloadportal/download/435-model-118?inline=1).
-
-F1 on U7 fuses the 12 V positive at 1 A. J77 feeds relay contact 1; the contact's normally open terminal feeds JOUT1. D1, a 1N4007, connects across the coil at the strike: cathode to STRIKE+, anode to STRIKE-. This diode is outside the doorbell casing when the strike is remote.
-
-Require 11–13 V at the energized strike. External cable length is installation-specific; select its gauge after accounting for module tolerance, fuse, contacts, and cable voltage drop.
-
-## Gate output
-
-JOUT2 carries U3 COM2 and NO2 as a potential-free contact for the gate controller start input. The design limit is 30 V DC / 1 A. Firmware pulses it for 0.5–1 s.
+U6 measures local air, not the coldest surface. Heater control needs a qualified relationship between that reading and window, camera, and board temperatures, or additional sensing. Heater capacity, temperature limits, sensor-fault response, and independent overtemperature protection remain open under E9.
 
 ## Power budget
 
-No system current or temperature measurements exist yet. The following values distinguish calculations from provisional allocations.
+No load or temperature measurements exist. Values below are planning inputs, not measured peaks or proof of supply margin.
 
-| Rail / load | Current | Basis |
-| --- | --- | --- |
-| 5 V: Zero 2 W board | 0.7 A peak, 0.35 A typical | Raspberry Pi recommends a 2.5 A supply; typical bare-board active current is about 350 mA |
-| 5 V: camera through the Pi 3.3 V regulator | 0.3 A allocation at 3.3 V | Peak current requires measurement at CSI |
-| 5 V: amplifier at -3 dBFS | 0.65 A peak, about 0.25 A average | MAX98357A calculation below |
-| 5 V: two relay coils | 0.18 A | Assumes two 0.45 W coils |
-| 5 V: HTR1 | 0.6 A when on | 3 W pad |
-| 5 V: U5 backlight | 0.036 A | Four LEDs at 9 mA |
-| 5 V: U6, U7 indicator, gate networks | < 0.01 A | |
-| 5 V: peak sum | About 2.5 A | PSU5 rated 6 A; about 40 % load, inside the derating curve at any ambient |
-| 3.3 V: U5 pull-ups | ≤ 1.3 mA | Four 10 kΩ with all contacts closed |
-| 12 V: strike | 0.28 A | A7 at 12 V DC; cold-coil current requires verification |
-| 12 V: reserved | 0.5 A | Later infrared array |
-| Mains | About 0.05 A at 230 V typical; 45 A cold-start inrush per module | IRM-30 specification |
+| Rail / load | Planning input |
+| --- | --- |
+| 5 V: Pi board | 0.7 A allocation; verify camera, encoder, Wi-Fi, and Bluetooth transients |
+| 3.3 V: camera | 0.3 A allocation; measure CSI demand and regulator input power before adding to the 5 V budget |
+| 5 V: amplifier | Supply current unmeasured; speaker current below is not supply current |
+| 5 V: relay coils | 0.18 A assumed for two 0.45 W coils; E4 |
+| 5 V: heater | 0.6 A nominal for 3 W |
+| 5 V: backlight | 36 mA nominal with four LEDs |
+| 3.3 V: button pull-ups | 1.32 mA nominal; 1.40 mA at +5% supply and -1% resistance, excluding internal pulls |
+| Other loads | Include microphone, relay inputs, sensor, indicator, and regulator losses in measurements |
+| 12 V: strike | 0.28 A nominal; verify cold coil; 0.5 A reserved for future infrared |
+| Mains inrush | 45 A typical cold-start per module at 230 V; verify both modules against F0 |
+
+Measure combined 5 V demand before claiming margin against PSU5's 6 A rating. Apply the manufacturer's voltage, temperature, and altitude derating at the measured module ambient.
 
 For a sinusoidal PCM signal, the [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf) gives output level as input dBFS + 2.1 dB + gain.
 
@@ -168,44 +120,32 @@ For a sinusoidal PCM signal, the [MAX98357A datasheet](https://www.analog.com/me
 | Talkback, -6 dBFS | 1.27 V RMS | 0.32 A RMS / 0.45 A peak | 0.41 W |
 | Acknowledgement, -3 dBFS | 1.80 V RMS | 0.45 A RMS / 0.64 A peak | 0.81 W |
 
-Both clamps are firmware settings, not constants. Speaker level trades against echo cancellation margin; qualification measures sound pressure and echo return loss at the chosen values.
+Qualify sound pressure and echo return loss at the configured output clamps.
 
-## Thermal
+## Thermal limits
 
-The sealed enclosure sheds heat only through its walls.
-
-| Source | Continuous heat |
-| --- | --- |
-| Zero 2 W under load | 2.5 W |
-| PSU5 losses at 6 W load, 83 % efficiency | 1.2 W |
-| PSU12 idle and strike pulses | 0.3 W |
-| Amplifier during a call | 1 W, bursty |
-| HTR1 when on | 3 W |
-
-About 5 W in a 300 × 150 × 60 mm enclosure gives a 5 to 7 K rise over ambient. A dark front in direct sun adds 20 to 30 K. With the heater on, winter self-heating reaches about 10 K. Both seasons exceed the camera rating without measures; E10 covers them.
+The outdoor target is -20 to +50 °C, while the camera is rated 0 to +50 °C. Enclosure depth, thermal resistance, solar absorption, and heater capacity remain unverified. No internal temperature rise can yet be claimed. E9/E10 require cold-start and hot-soak measurements, surface condensation checks, and a defined operating policy when component limits cannot be maintained.
 
 ## Firmware interface requirements
 
-This step defines hardware requirements only. Firmware, device-tree overlays, and automated hardware checks are not implemented here.
+Requirements only; firmware and overlays are outside this step.
 
 | Interface | Required behavior |
 | --- | --- |
 | Platform | Zero 2 W image; Bluetooth enabled; bench console on the mini-UART; hardware watchdog serviced; read-only root with RAM logs; brown-out flag logging |
 | Boot GPIO state | `config.txt` directives: buttons input with pull-up, GPIO5 and GPIO6 output high, GPIO24 and GPIO12 output low |
-| Audio clock | Shared 48 kHz frame clock, two 32-bit slots, standard I2S; 3.072 MHz BCLK |
-| Audio device | One sound-card configuration for PCM_DOUT playback and PCM_DIN capture; no SD GPIO |
-| Channel format | Left-channel playback and capture, S32_LE; mono source routed to the left slot |
-| Intercom | Full duplex with acoustic echo cancellation using the sample-aligned reference; automatic voice switching only as fallback; configurable output clamps, defaults -6 dBFS talkback and -3 dBFS acknowledgement |
+| Audio | One duplex sound card: PCM_DOUT playback, PCM_DIN capture; no SD GPIO. Standard I2S, 48 kHz, two 32-bit slots, 3.072 MHz BCLK; S32_LE capture/playback in the left slot. |
+| Intercom | Full duplex with acoustic echo cancellation using the delay-aligned playback reference; automatic voice switching only as fallback; configurable output clamps, defaults -6 dBFS talkback and -3 dBFS acknowledgement |
 | Test endpoint | WebRTC endpoint with Opus and hardware H.264; signaling over the MQTT broker; browser test page for phone and PC |
-| Camera | IMX708 Wide through libcamera; 1280 × 720 initial target; fixed lens position fallback when cold |
+| Camera | IMX708 Wide through libcamera; 1280 × 720 initial target; fixed lens position fallback within the qualified temperature range |
 | Buttons | Active low; ≥ 50 ms debounce and 3 s repeat suppression per input; state ignored for 3 s after boot |
 | Backlight | Hardware PWM on GPIO12; off at boot; configurable level and schedule; brief flash as press acknowledgement |
 | Relay outputs | High when idle, during startup, and on shutdown; strike low pulse 1–3 s; gate low pulse 0.5–1 s; maximum on-time; no output commands until time sync and authentication are ready |
-| Heater | GPIO24 high enables HTR1 through Q71; control against U6 dew point and a 0 °C floor; duty limit; off at boot |
+| Heater | GPIO24 enables HTR1; off at boot and on sensor fault; duty and temperature limits; maintain qualified surface dew-point margin and camera range under E9/E10 |
 | Environment sensor | SHT40 on I2C1 at 0x44; temperature and humidity logged |
-| Button notification | ring/<unit>/pressed/1 through ring/<unit>/pressed/4; QoS 1, retain false |
-| Status | ring/<unit>/status retained with a last-will message |
-| Output commands | ring/<unit>/cmd/# with signed payload and nonce over the existing TLS |
+| Button notification | `ring/<unit>/pressed/1` through `ring/<unit>/pressed/4`; QoS 1, retain false |
+| Status | `ring/<unit>/status` retained with a last-will message |
+| Output commands | `ring/<unit>/cmd/#` with signed payload and nonce over the existing TLS |
 | Bluetooth unlock | LE Secure Connections plus application challenge-response with a per-device key and rolling counter; RSSI threshold with hysteresis and dwell; intent gating; rate limit; audit log |
 | Local fallback | Acknowledgement sound plays when the broker is unreachable |
 
@@ -231,4 +171,4 @@ The planning envelope is 300 mm high × 150 mm wide; depth and mounting position
 
 Layout from the top: camera and U6, microphone, Pi with U1, speaker, key board behind the lower face. The mains compartment with U7 sits at the rear bottom behind its partition. HTR1 bonds to the carrier that holds the camera and the microphone.
 
-Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Every board receives conformal coating outside its connectors and switch sockets. Antenna keep-out geometry and installed RF performance remain deferred under E7.
+Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations are specified in the BOM; keep microphone ports, sensor openings, optics, connectors, and switch sockets clear. Antenna keep-out geometry and installed RF performance remain deferred under E7.
