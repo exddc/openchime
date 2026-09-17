@@ -2,13 +2,13 @@
 
 Hardware specification for the Raspberry Pi Zero 2 W doorbell with Camera Module 3 Wide, I2S audio, two relays, one to four Kailh BOX buttons, and a sealed outdoor enclosure.
 
-Prototype architecture: the Yoke power board carries two encapsulated mains supplies inside a partitioned compartment; the Clapper key board carries the keys. Electrical and environmental qualification remain open. Relay module qualification and antenna keep-out stay deferred to casing design.
+Prototype architecture: the Yoke power board carries two encapsulated mains supplies inside a partitioned compartment; the Clapper key board carries the keys. Electrical and environmental qualification remain open; relay module qualification and antenna keep-out wait for enclosure design.
 
 | Document | Owns |
 | --- | --- |
 | [Electrical interface](variants/rpi02w_cm3/README.md) | Pin assignments, load budget, device and firmware requirements |
 | [Board definitions](boards.md) | Clapper and Yoke circuits, connectors, and PCB targets |
-| [Assembly BOM](bom.md) | Parts, quantities, and 300 × 150 mm casing harness estimates |
+| [Assembly BOM](bom.md) | Parts, quantities, and 300 × 150 mm enclosure harness estimates |
 
 ## Wiring
 

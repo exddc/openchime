@@ -18,7 +18,7 @@ Prototype BOM for a 300 × 150 mm enclosure; depth and mechanical parts remain o
 | U6 | 1 | Adafruit SHT40 temperature and humidity breakout, product 4885 | Sensor -40 to +125 °C | Selected |
 | YOKE | 1 | Ring Yoke power board, custom PCB, [definition](boards.md) | Per components | Schematic and layout pending |
 | SW1–SWn | n | Kailh BOX tactile, MX stem, 3-pin plate mount; IP56 and dry-contact rating required | Verify | Family selected; exact variant pending |
-| KC1–KCn | n | MX-compatible relegendable keycap, 1u or 2u | Verify UV stability | Part pending casing design |
+| KC1–KCn | n | MX-compatible relegendable keycap, 1u or 2u | Verify UV stability | Part pending enclosure design |
 | PSU5 | 1 | Mean Well IRM-30-5, PCB pins, 5 V / 6 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Yoke |
 | PSU12 | 1 | Mean Well IRM-30-12, PCB pins, 12 V / 2.5 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Yoke |
 | OPN | 1 | effeff 118, A7 winding, fail-locked, 10–24 V AC/DC | Verify with manufacturer | Mechanical strike variant matched to door |
@@ -63,14 +63,14 @@ Resistors are 1%, at least 0.25 W or 0603 at 0.1 W where marked SMD. Electrolyti
 | --- | --- | --- | --- |
 | C1 | 1 | 470 µF electrolytic, ≥ 10 V, low-ESR, 105 °C | U1 VIN to GND |
 | C2 | 1 | 100 nF X7R, ≥ 16 V | U1 VIN to GND |
-| D1 | 1 | 1N4007 | Across the strike coil, outside casing |
+| D1 | 1 | 1N4007 | Across the strike coil, outside the enclosure |
 | JOUT1 / JOUT2 | 2 sets | Two-pole latching or screw terminal, ≥ 30 V DC / 2 A, accepts 22 AWG | Exact connector and mating parts pending enclosure layout |
 | J8 loom | 1 set | Soldered, insulated leads into the header; splices for pin 1 | No stacked friction-fit housings |
 | U1 straps | 2 | Insulated local links: VIN–SD and VIN–GAIN | Up to 20 mm each, 26 AWG |
 | U2 strap | 1 | Insulated local link: pad 2–pad 6 | Up to 20 mm, 26 AWG |
 | GSK2 | 1 | Silicone gasket sheet, 0.5 mm, with switch cutouts | Between the front plate and the switch flanges; sealing design pending |
 | VENT1 | 1 | PTFE pressure-equalization vent, M12, IP67 or better | Enclosure body |
-| GL1 | 1 | IP68 cable gland M20 for the mains cable | Rear entry |
+| GL1 | 1 | IP68 cable gland M20 for the installation cable | Rear entry |
 | GL2–GL3 | 2 | IP68 cable gland M16 for strike and gate cables | Rear entry |
 | MEM1–MEM2 | 2 | Hydrophobic acoustic membrane for the speaker and microphone openings | Faceplate |
 | WIN1 | 1 | Optical glass or anti-reflective acrylic camera window with gasket | Faceplate |
@@ -78,11 +78,11 @@ Resistors are 1%, at least 0.25 W or 0603 at 0.1 W where marked SMD. Electrolyti
 | TP1 | 1 | Thermal pad, SoC to backplate | Pi mounting |
 | CC1 | 1 | Coating for exposed PCB areas on U1, U2, U6, the Clapper, and the Yoke low-voltage side | Mask ports, sensor, optics, connectors, and sockets; qualify compatibility |
 
-Loose-wire insulation is rated at least 60 V and for the qualified enclosure temperature. No loose mains wire exists inside the enclosure; the installation cable terminates on JAC. Include ferrules, heat-shrink, strain relief, and fasteners after connector and casing selection.
+Loose-wire insulation is rated at least 60 V and for the qualified enclosure temperature. No loose mains wire exists inside the enclosure; the installation cable terminates on JAC. Include ferrules, heat-shrink, strain relief, and fasteners after connector and enclosure selection.
 
 ## Harness length estimate
 
-Estimated cut lengths include 30–50 mm for termination and movement. Layout assumes camera/sensor/microphone at the top, Pi/amplifier centrally, speaker and keys below, and the Yoke at the rear bottom. Confirm routes against enclosure drawings before cutting.
+Estimated cut lengths include 30–50 mm for termination and movement. Layout assumes camera, sensor, and microphone at the top, Pi and amplifier in the middle, speaker and keys below, and the Yoke at the rear bottom. Confirm routes against enclosure drawings before cutting.
 
 | Cable | Route | Conductors | Length each | Total conductor length |
 | --- | --- | --- | --- | --- |
@@ -118,6 +118,6 @@ W15 has six conductors for every button count.
 
 Allow approximately 7.8 m of loose wire, distributed across the listed gauges and colours. Factory speaker and camera cables are additional.
 
-The mains supply cable, strike cable, and gate cable are outside this internal-wire estimate. Their routes require an installation survey; the strike cable also requires voltage-drop verification against the 11–13 V window.
+The installation, strike, and gate cables are outside this internal-wire estimate. Their routes require an installation survey; the strike cable also requires voltage-drop verification against the 11–13 V window.
 
-WireViz lengths are in [power](wiring-power.yml), [audio](wiring-audio.yml), and [I/O](wiring-io.yml). Generated wire reports omit boards, modules, and passives; use this BOM for procurement. This is not a production release.
+WireViz lengths are in [power](wiring-power.yml), [audio](wiring-audio.yml), and [I/O](wiring-io.yml). Generated wire reports omit boards, modules, and passives; use this BOM for procurement.

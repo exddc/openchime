@@ -1,6 +1,6 @@
 # Board definitions
 
-Connection-level specification for the two custom boards. The Clapper is the key board behind the faceplate, named for the part of a bell that strikes it. The Yoke is the power board in the mains compartment, named for the beam that carries a bell and its load. Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md).
+Connection-level specification for the two custom boards. The Clapper is the key board behind the faceplate, named for the part of a bell that strikes it. In the mains compartment, the Yoke power board takes its name from the beam that carries a bell. Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md).
 
 ## Clapper key board
 
@@ -34,7 +34,7 @@ Protection remains unqualified: the [PESD5V0S1BA](https://assets.nexperia.com/do
 
 ## Yoke power board
 
-The Yoke distributes mains to two encapsulated supplies and low voltage to the loads. Class II describes the supply modules; it does not classify the complete, PE-bonded assembly.
+The Yoke distributes mains to two encapsulated supplies and low voltage to the loads. Class II describes the supply modules, not the complete assembly with its protective-earth (PE) bond.
 
 | Element | Specification |
 | --- | --- |
@@ -75,6 +75,6 @@ Provisional layout targets, subject to insulation coordination for the installat
 | Cover | Clip-on insulating cover over JAC, F0, RV1, and the module primaries; removable only with the enclosure open |
 | Marking | Mains section outlined and labelled on the silkscreen; fuse rating printed beside F0 |
 
-The 12 V return connects only to JY4 and the strike. JP1 bonds the 5 V return to PE, so this rail is not SELV; [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. Clapper JC1 GND shares the board return through the Pi; assess shared-current voltage drops during layout.
+The 12 V return connects only to JY4 and the strike. JP1 bonds the 5 V return to PE, so this rail is not safety extra-low voltage (SELV); [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. Clapper JC1 GND shares the board return through the Pi; assess shared-current voltage drops during layout.
 
-The 6 A supply does not establish protection for each branch. Coordinate protection with the J8 contact, harness, connectors, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open.
+The 6 A rating leaves each 5 V branch unprotected. Coordinate protection with the J8 contact, harness, connectors, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open.

@@ -12,13 +12,13 @@ The installation cable terminates on the Yoke inside a partitioned mains compart
 | 12 V | PSU12 on the Yoke, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
 | 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, Clapper button pull-ups |
 
-[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. The Yoke distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to PE. The 12 V return connects only to the strike circuit.
+[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. The Yoke distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to protective earth (PE). The 12 V return connects only to the strike circuit.
 
-Mains layout and protective bonding are defined in [boards.md](../../boards.md). Installation requires a qualified electrician, a three-core 1.5 mm² supply cable through a strain-relieved IP68 gland, and an approved upstream protection plan. The provisional installation assumption is a breaker of at most 10 A and a 30 mA RCD; suitability remains part of the electrical assessment.
+Mains layout and protective bonding are defined in [boards.md](../../boards.md). A qualified electrician terminates the three-core 1.5 mm² installation cable through a strain-relieved IP68 gland under an approved upstream protection plan. Provisionally assume a 10 A breaker and a 30 mA residual-current device; the electrical assessment confirms suitability.
 
 ## J8 interface
 
-J8 uses physical pin numbers; BCM identifies GPIOs. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
+J8 uses physical pin numbers; BCM is the Broadcom GPIO number. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
 
 5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from the Yoke. Use a polarized harness and the Yoke as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
 
@@ -51,9 +51,9 @@ gpio=17,27,22,23=ip,pu
 gpio=5,6=op,dh
 ```
 
-These settings do not guarantee safe relay states during power sequencing. Relay module qualification must verify startup, shutdown, and loss of either supply.
+Relay states during power sequencing remain unverified; module qualification must cover startup, shutdown, and loss of either supply.
 
-Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 and 28 remain unwired because the camera uses the corresponding I2C interface. Pins 8 and 10 carry the bench console on the mini-UART, because Bluetooth stays enabled and owns the PL011. Pins 4 and 32 and the remaining ground pins are free.
+Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Leave pins 27 and 28 unwired; the camera uses that I2C interface. The bench console uses pins 8 and 10 on the mini-UART, because Bluetooth stays enabled and owns the PL011. Pins 4 and 32 and the remaining ground pins are free.
 
 ## Audio and camera
 
@@ -66,13 +66,11 @@ Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Pins 27 
 
 U2 header pads are 1: 3V, 2: GND, 3: BCLK, 4: DOUT, 5: LRCL, 6: SEL. Source: [Adafruit breakout schematic](https://github.com/adafruit/Adafruit-I2S-Microphone-Breakout-PCB/blob/master/Adafruit%20I2S%20Mic%20SPK0415HM4H.sch).
 
-Splice shared I2S clocks within 30 mm of J8. Each I2S branch is at most 200 mm. SPK+ and SPK- are bridge outputs; neither speaker terminal connects to ground. Keep this pair separate from microphone wiring and CSI. [Amplifier pinouts](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts).
+Splice shared I2S clocks within 30 mm of J8. Each I2S branch is at most 200 mm. SPK+ and SPK- are bridge outputs; neither speaker terminal connects to ground. Keep this pair separate from microphone wiring and CSI ([amplifier pinouts](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts)).
 
 Capture and playback share the I2S clock at 48 kHz. Echo cancellation must measure and track their buffer delay, including after stream restarts; a shared clock does not guarantee sample alignment.
 
 Separate microphone and speaker ports by at least 100 mm. Decouple the speaker mechanically; seal the microphone bottom port to its own gasketed, membrane-covered opening. Target echo return loss before cancellation: ≥ 20 dB.
-
-The [camera product brief](https://datasheets.raspberrypi.com/camera/camera-module-3-product-brief.pdf) specifies 0–50 °C operation and a 102° horizontal/120° diagonal field of view. Enclosure operation remains unverified.
 
 ## Controls and outputs
 
@@ -84,9 +82,7 @@ The [camera product brief](https://datasheets.raspberrypi.com/camera/camera-modu
 | Gate | U3 COM2/NO2 to JOUT2, potential-free contact; design limit 30 V DC / 1 A, pulse 0.5–1 s. |
 | Environment | U6 SHT40 at I2C1 address 0x44, beside the camera window; VIN from 3.3 V, breakout 3V output unconnected. |
 
-The strike draws nominally 280 mA at 12 V (43 Ω); require 11–13 V at the energized coil. Size the installation cable for supply tolerance, fuse, contact, and cable drop. [Manufacturer electrical data](https://dach.assaabloy.com/de/en/downloadportal/download/435-model-118?inline=1).
-
-U6 measures local air temperature and humidity for environmental logging.
+The strike draws nominally 280 mA at 12 V (43 Ω); require 11–13 V at the energized coil. Size the strike cable for supply tolerance, fuse, contact, and cable drop ([manufacturer electrical data](https://dach.assaabloy.com/de/en/downloadportal/download/435-model-118?inline=1)).
 
 ## Power budget
 
@@ -116,7 +112,7 @@ Qualify sound pressure and echo return loss at the configured output clamps.
 
 ## Thermal limits
 
-The outdoor target is -20 to +50 °C; the camera is rated 0 to +50 °C. Enclosure temperature and condensation control remain part of casing design. The outdoor operating range is unverified.
+The outdoor target is -20 to +50 °C; the [camera product brief](https://datasheets.raspberrypi.com/camera/camera-module-3-product-brief.pdf) rates the camera at 0 to +50 °C. Enclosure temperature and condensation control belong to enclosure design and are unverified.
 
 ## Firmware interface requirements
 
@@ -139,7 +135,7 @@ Requirements only; firmware and overlays are outside this step.
 | Bluetooth unlock | LE Secure Connections plus application challenge-response with a per-device key and rolling counter; RSSI threshold with hysteresis and dwell; intent gating; rate limit; audit log |
 | Local fallback | Acknowledgement sound plays when the broker is unreachable |
 
-The Chime `ring_topic` filter must match the chosen unit and suffix, for example `ring/<unit>/pressed/1` or `ring/+/pressed/#`. The shipped exact-match `ring/pressed` does not match suffixed topics.
+The Chime `ring_topic` filter must match the chosen unit and suffix, for example `ring/<unit>/pressed/1` or `ring/+/pressed/#`; the shipped exact-match `ring/pressed` does not.
 
 ## Enclosure constraints
 
@@ -153,11 +149,11 @@ The planning envelope is 300 mm high × 150 mm wide; depth and mounting position
 | [SPH0645 breakout](https://www.adafruit.com/product/3421) | 16.7 × 12.7 × 1.8 mm; bottom port, gasket, membrane; at least 100 mm from the speaker grille; within 200 mm of J8 |
 | [Adafruit 3351](https://www.adafruit.com/product/3351) | 70 × 30 × 17 mm; vertical long axis; decoupled mounting; verify against the purchased unit |
 | Relay module | Reserve 55 × 45 × 22 mm provisionally; qualification open |
-| Clapper key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending casing design |
+| Clapper key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending enclosure design |
 | Yoke power board | About 160 × 90 mm on metal standoffs inside the rear mains compartment; 30 mm module height plus cover |
 | U6 sensor | 25.4 × 17.8 mm beside the camera window |
 | Entries | One IP68 M20 gland for mains, two M16 glands for strike and gate; PTFE vent M12 |
 
 Layout from the top: camera and U6, microphone, Pi with U1, speaker, Clapper behind the lower face. The mains compartment with the Yoke sits at the rear bottom behind its partition.
 
-Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations are specified in the BOM; keep microphone ports, sensor openings, optics, connectors, and switch sockets clear. Antenna keep-out geometry and installed RF performance remain open for casing design.
+Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations and masking are specified in the BOM. Antenna keep-out geometry and installed RF performance remain open for enclosure design.
