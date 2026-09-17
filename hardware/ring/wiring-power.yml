@@ -1,0 +1,275 @@
+metadata:
+  title: Ring power and strike
+  description: Mains inlet, Class II modules, 5 V distribution, strike and gate outputs; estimated lengths for the 300 x 150 mm casing
+  notes: Prototype. Mains stays inside the partitioned compartment with J_AC, F0, PSU5, and PSU12. U5 is the 5 V star point; see button-input.md.
+    Lengths include service slack; the supply cable, strike cable, and gate cable are excluded.
+connectors:
+  J_AC:
+    type: Mains terminal
+    subtype: 3-pole
+    ignore_in_bom: true
+    notes: 230 V AC from the installation. Touch-safe block inside the mains compartment; part pending enclosure design.
+    pins: [L, N, PE]
+  F0:
+    type: Mains fuse
+    subtype: T 2 A 250 V
+    ignore_in_bom: true
+    notes: 5 x 20 mm in a touch-protected holder, in the L conductor ahead of both modules.
+    pins: [IN, OUT]
+  PSU5:
+    type: IRM-30-5ST
+    ignore_in_bom: true
+    notes: Mean Well, 5 V / 6 A, Class II, screw terminals. Sole 5 V source.
+    pins: [AC/L, AC/N, +V, -V]
+  PSU12:
+    type: IRM-30-12ST
+    ignore_in_bom: true
+    notes: Mean Well, 12 V / 2.5 A, Class II, screw terminals. Strike rail, isolated from the 5 V rail.
+    pins: [AC/L, AC/N, +V, -V]
+  PE1:
+    type: PE stud
+    subtype: M4
+    ignore_in_bom: true
+    notes: Stud on the metal backplate. Single bonding point for the supply PE, the front plate, and the U5 star ground.
+    pins: [1, 2, 3]
+    pinlabels: [PE_IN, PE_FRONT, PE_LV]
+  FRONT:
+    type: Metal front plate
+    ignore_in_bom: true
+    notes: Ring terminal under a serrated washer.
+    pins: [1]
+    pinlabels: [PE]
+  U5:
+    type: Ring I/O board
+    ignore_in_bom: true
+    notes: Custom board. 5 V star point, F2 PTC and C3 for the relay coils, Q1 heater switch, PE bond. Logic and field terminals are in wiring-io.
+    pins: [5V_IN, GND_IN, PE, 5V_A, 5V_B, GND_A, GND_B, 5V_AMP, GND_AMP, JD-VCC, GND_RLY, HTR+, HTR-]
+  J8:
+    type: Raspberry Pi GPIO
+    subtype: male
+    ignore_in_bom: true
+    notes: Zero 2 W. Pin 1 is nearest the microSD slot, inner row (square pad on the underside). 5 V enters on pins 2 and 4 and returns on pins 6 and 14.
+    pins: [2, 4, 6, 14]
+    pinlabels: [5V_IN_A, 5V_IN_B, GND_IN_A, GND_IN_B]
+    hide_disconnected_pins: false
+  U1:
+    type: MAX98357A
+    ignore_in_bom: true
+    notes: Adafruit 3006. C1 470 uF and C2 100 nF across VIN/GND. Signals and speaker are in wiring-audio.
+    pins: [VIN, GND]
+  U3:
+    type: 2-ch 5V relay
+    ignore_in_bom: true
+    notes: Retained module; E4 open. JD-VCC jumper absent. Coil supply and coil return from U5. COM1/NO1 switch the isolated 12 V strike rail. COM2/NO2 form the potential-free gate contact.
+      Logic pins are in wiring-io.
+    pins: [JD-VCC, GND, COM1, NO1, COM2, NO2]
+  F1:
+    type: 1 A fuse
+    ignore_in_bom: true
+    notes: Fast, rated 32 V DC or more, in the 12 V+ lead to COM1.
+    pins: [IN, OUT]
+  JOUT1:
+    type: Strike outlet
+    ignore_in_bom: true
+    pins: [STRIKE+, STRIKE-]
+    notes: 'To the effeff 118 A7 strike. D1 1N4007 at the coil: cathode STRIKE+, anode STRIKE-. External cable length is installation-specific.'
+  JOUT2:
+    type: Gate outlet
+    ignore_in_bom: true
+    pins: [GATE_A, GATE_B]
+    notes: Potential-free contact for the gate controller start input. 30 V DC / 1 A design limit.
+  HTR1:
+    type: Heater pad
+    ignore_in_bom: true
+    pins: [+, -]
+    notes: 5 V film heater, about 3 W, bonded to the camera and microphone carrier. Switched by Q1 on U5.
+cables:
+  WM1:
+    category: bundle
+    type: H05V2-K
+    gauge: 0.75
+    gauge_unit: mm2
+    colors: [BN]
+    wirelabels: [L]
+    length: 0.1
+  WM2:
+    category: bundle
+    type: H05V2-K
+    gauge: 0.75
+    gauge_unit: mm2
+    colors: [BN]
+    wirelabels: [L_FUSED]
+    length: 0.15
+  WM3:
+    category: bundle
+    type: H05V2-K
+    gauge: 0.75
+    gauge_unit: mm2
+    colors: [BN]
+    wirelabels: [L_FUSED]
+    length: 0.15
+  WM4:
+    category: bundle
+    type: H05V2-K
+    gauge: 0.75
+    gauge_unit: mm2
+    colors: [BU]
+    wirelabels: [N]
+    length: 0.15
+  WM5:
+    category: bundle
+    type: H05V2-K
+    gauge: 0.75
+    gauge_unit: mm2
+    colors: [BU]
+    wirelabels: [N]
+    length: 0.15
+  WM6:
+    category: bundle
+    type: H07V-K
+    gauge: 1.0
+    gauge_unit: mm2
+    colors: [GNYE]
+    wirelabels: [PE]
+    length: 0.15
+  WM7:
+    category: bundle
+    type: H07V-K
+    gauge: 1.0
+    gauge_unit: mm2
+    colors: [GNYE]
+    wirelabels: [PE_LV]
+    length: 0.2
+  WM8:
+    category: bundle
+    type: H07V-K
+    gauge: 1.0
+    gauge_unit: mm2
+    colors: [GNYE]
+    wirelabels: [PE_FRONT]
+    length: 0.25
+  W1:
+    category: bundle
+    type: 20 AWG pigtail
+    gauge: 20 AWG
+    colors: [RD, BK]
+    wirelabels: [5V, GND]
+    length: 0.15
+  W2:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 22 AWG
+    colors: [RD, RD, BK, BK]
+    wirelabels: [5V_A, 5V_B, GND_A, GND_B]
+    length: 0.1
+  W3:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [RD, BK]
+    wirelabels: [5V_AMP, GND_AMP]
+    length: 0.1
+  W4:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [RD, BK]
+    wirelabels: [JD-VCC, GND_RLY]
+    length: 0.2
+  W5:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [RD, BK]
+    wirelabels: [HTR+, HTR-]
+    length: 0.25
+  W6:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [12V]
+    length: 0.1
+  W7:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [12V_FUSED]
+    length: 0.1
+  W8:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [STRIKE+]
+    length: 0.1
+  W9:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [BK]
+    wirelabels: [STRIKE-]
+    length: 0.15
+  W10:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [WH, WH]
+    wirelabels: [GATE_A, GATE_B]
+    length: 0.1
+connections:
+- - J_AC: [L]
+  - WM1: [1]
+  - F0: [IN]
+- - F0: [OUT]
+  - WM2: [1]
+  - PSU5: [AC/L]
+- - F0: [OUT]
+  - WM3: [1]
+  - PSU12: [AC/L]
+- - J_AC: [N]
+  - WM4: [1]
+  - PSU5: [AC/N]
+- - J_AC: [N]
+  - WM5: [1]
+  - PSU12: [AC/N]
+- - J_AC: [PE]
+  - WM6: [1]
+  - PE1: [1]
+- - PE1: [3]
+  - WM7: [1]
+  - U5: [PE]
+- - PE1: [2]
+  - WM8: [1]
+  - FRONT: [1]
+- - PSU5: [+V, -V]
+  - W1: [1, 2]
+  - U5: [5V_IN, GND_IN]
+- - U5: [5V_A, 5V_B, GND_A, GND_B]
+  - W2: [1, 2, 3, 4]
+  - J8: [2, 4, 6, 14]
+- - U5: [5V_AMP, GND_AMP]
+  - W3: [1, 2]
+  - U1: [VIN, GND]
+- - U5: [JD-VCC, GND_RLY]
+  - W4: [1, 2]
+  - U3: [JD-VCC, GND]
+- - U5: [HTR+, HTR-]
+  - W5: [1, 2]
+  - HTR1: [+, -]
+- - PSU12: [+V]
+  - W6: [1]
+  - F1: [IN]
+- - F1: [OUT]
+  - W7: [1]
+  - U3: [COM1]
+- - U3: [NO1]
+  - W8: [1]
+  - JOUT1: [STRIKE+]
+- - PSU12: [-V]
+  - W9: [1]
+  - JOUT1: [STRIKE-]
+- - U3: [COM2, NO2]
+  - W10: [1, 2]
+  - JOUT2: [GATE_A, GATE_B]

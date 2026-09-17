@@ -36,7 +36,7 @@ See [Chime README](chime/README.md) for detailed technical specifications.
 
 The doorbell unit. Next product after Chime.
 
-**Hardware:** Raspberry Pi Zero W, I2S audio, Camera Module 3, two relays, and 1–4 buttons. Separate indoor adapters supply Pi power and the 12 V strike. See [Ring hardware](hardware/ring/README.md).
+**Hardware:** Raspberry Pi Zero 2 W, I2S audio, Camera Module 3 Wide, two relays, 1–4 buttons, and a heated sealed enclosure fed from 230 V AC through two Class II modules. See [Ring hardware](hardware/ring/README.md).
 
 ### Base
 
