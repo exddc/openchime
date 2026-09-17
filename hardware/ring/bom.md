@@ -1,6 +1,6 @@
 # Ring assembly BOM
 
-Prototype BOM for a 300 × 150 mm enclosure; depth and mechanical parts remain open. `n` is the button count, 1–4. Provisional parts require selection or qualification; “verify” marks an unconfirmed operating range. The Clapper key board and the Yoke power board are defined in [boards.md](boards.md).
+Prototype BOM for a 300 × 150 mm enclosure; depth and mechanical parts remain open. `n` is the button count, 1–4. Provisional parts require selection or qualification; “verify” marks an unconfirmed operating range. The Clicker key board and the Juicer power board are defined in [boards.md](boards.md).
 
 ## Modules and supplies
 
@@ -14,16 +14,16 @@ Prototype BOM for a 300 × 150 mm enclosure; depth and mechanical parts remain o
 | CAM1 | 1 | Raspberry Pi Camera Module 3 Wide | 0 to +50 °C | Selected; enclosure operation unverified |
 | W12 | 1 | Raspberry Pi Standard-Mini camera cable, 200 mm | | Complete cable, not loose wire |
 | U3 | 1 | Two-channel 5 V relay module with separate VCC/JD-VCC and active-low inputs | Songle coil -25 to +70 °C; verify module | Retained; module qualification open |
-| CLAPPER | 1 | Ring Clapper key board, custom PCB, [definition](boards.md) | Per components | Schematic and layout pending |
+| CLICKER | 1 | Ring Clicker key board, custom PCB, [definition](boards.md) | Per components | Schematic and layout pending |
 | U6 | 1 | Adafruit SHT40 temperature and humidity breakout, product 4885 | Sensor -40 to +125 °C | Selected |
-| YOKE | 1 | Ring Yoke power board, custom PCB, [definition](boards.md) | Per components | Schematic and layout pending |
+| JUICER | 1 | Ring Juicer power board, custom PCB, [definition](boards.md) | Per components | Schematic and layout pending |
 | SW1–SWn | n | Kailh BOX tactile, MX stem, 3-pin plate mount; IP56 and dry-contact rating required | Verify | Family selected; exact variant pending |
 | KC1–KCn | n | MX-compatible relegendable keycap, 1u or 2u | Verify UV stability | Part pending enclosure design |
-| PSU5 | 1 | Mean Well IRM-30-5, PCB pins, 5 V / 6 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Yoke |
-| PSU12 | 1 | Mean Well IRM-30-12, PCB pins, 12 V / 2.5 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Yoke |
+| PSU5 | 1 | Mean Well IRM-30-5, PCB pins, 5 V / 6 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Juicer |
+| PSU12 | 1 | Mean Well IRM-30-12, PCB pins, 12 V / 2.5 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Juicer |
 | OPN | 1 | effeff 118, A7 winding, fail-locked, 10–24 V AC/DC | Verify with manufacturer | Mechanical strike variant matched to door |
 
-## Clapper contents
+## Clicker contents
 
 Resistors are 1%, 0603 at 0.1 W. Ceramic capacitors are X7R, at least 16 V.
 
@@ -37,7 +37,7 @@ Resistors are 1%, 0603 at 0.1 W. Ceramic capacitors are X7R, at least 16 V.
 | JC1 | 1 | 6-circuit latching connector, ≥ 1 A per contact, 26 AWG |
 | Standoffs | 4 | M3, height pending plate stack |
 
-## Yoke contents
+## Juicer contents
 
 Resistors are 1%, at least 0.25 W or 0603 at 0.1 W where marked SMD. Electrolytics are low-ESR, at least 10 V, 105 °C rated.
 
@@ -76,31 +76,31 @@ Resistors are 1%, at least 0.25 W or 0603 at 0.1 W where marked SMD. Electrolyti
 | WIN1 | 1 | Optical glass or anti-reflective acrylic camera window with gasket | Faceplate |
 | GSK1 | 1 set | Closed-cell EPDM or silicone faceplate gaskets | Faceplate |
 | TP1 | 1 | Thermal pad, SoC to backplate | Pi mounting |
-| CC1 | 1 | Coating for exposed PCB areas on U1, U2, U6, the Clapper, and the Yoke low-voltage side | Mask ports, sensor, optics, connectors, and sockets; qualify compatibility |
+| CC1 | 1 | Coating for exposed PCB areas on U1, U2, U6, the Clicker, and the Juicer low-voltage side | Mask ports, sensor, optics, connectors, and sockets; qualify compatibility |
 
 Loose-wire insulation is rated at least 60 V and for the qualified enclosure temperature. No loose mains wire exists inside the enclosure; the installation cable terminates on JAC. Include ferrules, heat-shrink, strain relief, and fasteners after connector and enclosure selection.
 
 ## Harness length estimate
 
-Estimated cut lengths include 30–50 mm for termination and movement. Layout assumes camera, sensor, and microphone at the top, Pi and amplifier in the middle, speaker and keys below, and the Yoke at the rear bottom. Confirm routes against enclosure drawings before cutting.
+Estimated cut lengths include 30–50 mm for termination and movement. Layout assumes camera, sensor, and microphone at the top, Pi and amplifier in the middle, speaker and keys below, and the Juicer at the rear bottom. Confirm routes against enclosure drawings before cutting.
 
 | Cable | Route | Conductors | Length each | Total conductor length |
 | --- | --- | --- | --- | --- |
-| WAC | Installation cable to the Yoke JAC | 3 × 1.5 mm² | Installation-specific | Excluded |
-| W1 | Yoke PE_FRONT to the front plate | 1 × 1.0 mm² | 250 mm | 0.25 m |
-| W2 | Yoke JY1 to J8 pins 2 and 6 | 2 × 20 AWG | 200 mm | 0.40 m |
-| W3 | Yoke JY2 to U1 supply | 2 × 22 AWG | 200 mm | 0.40 m |
-| W4 | Yoke JY3 to relay coil supply | 2 × 22 AWG | 200 mm | 0.40 m |
-| W5 | Yoke JY4 12 V fused to relay COM1 | 1 × 22 AWG | 150 mm | 0.15 m |
+| WAC | Installation cable to the Juicer JAC | 3 × 1.5 mm² | Installation-specific | Excluded |
+| W1 | Juicer PE_FRONT to the front plate | 1 × 1.0 mm² | 250 mm | 0.25 m |
+| W2 | Juicer JY1 to J8 pins 2 and 6 | 2 × 20 AWG | 200 mm | 0.40 m |
+| W3 | Juicer JY2 to U1 supply | 2 × 22 AWG | 200 mm | 0.40 m |
+| W4 | Juicer JY3 to relay coil supply | 2 × 22 AWG | 200 mm | 0.40 m |
+| W5 | Juicer JY4 12 V fused to relay COM1 | 1 × 22 AWG | 150 mm | 0.15 m |
 | W6 | Relay NO1 to JOUT1 positive | 1 × 22 AWG | 100 mm | 0.10 m |
-| W7 | Yoke JY4 12 V return to JOUT1 return | 1 × 22 AWG | 150 mm | 0.15 m |
+| W7 | Juicer JY4 12 V return to JOUT1 return | 1 × 22 AWG | 150 mm | 0.15 m |
 | W8 | Relay COM2 and NO2 to JOUT2 | 2 × 22 AWG | 100 mm | 0.20 m |
 | W9 | J8 to amplifier I2S | 3 × 26 AWG | 100 mm | 0.30 m |
 | W10 | U1 to speaker | 2 × factory lead | 100 mm | 0.20 m, included with SP1 |
 | W11 | J8 to microphone | 5 × 26 AWG | 200 mm | 1.00 m |
 | W12 | CSI camera ribbon | Complete 22-to-15-pin cable | 200 mm | 1 cable |
 | W13 / W14 | U1 VIN to SD / GAIN | 2 × 26 AWG | 20 mm | 0.04 m |
-| W15 | J8 to Clapper JC1 | 6 × 26 AWG | 250 mm | 1.50 m |
+| W15 | J8 to Clicker JC1 | 6 × 26 AWG | 250 mm | 1.50 m |
 | W16 | J8 to relay logic | 3 × 26 AWG | 200 mm | 0.60 m |
 | W17 | J8 to U6 sensor | 4 × 26 AWG | 250 mm | 1.00 m |
 | U2 local strap | Microphone GND to SEL | 1 × 26 AWG | 20 mm | 0.02 m |

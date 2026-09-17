@@ -1,10 +1,10 @@
 # Board definitions
 
-Connection-level specification for the two custom boards. The Clapper is the key board behind the faceplate, named for the part of a bell that strikes it. In the mains compartment, the Yoke power board takes its name from the beam that carries a bell. Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md).
+Connection-level specification for the two custom boards. The Clicker is the key board behind the faceplate. The Juicer is the power board in the mains compartment. Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md).
 
-## Clapper key board
+## Clicker key board
 
-The Clapper carries one to four hot-swap switches with active-low GPIO outputs.
+The Clicker carries one to four hot-swap switches with active-low GPIO outputs.
 
 The metal front plate is the switch plate: 1.5 mm thick, 14 × 14 mm cutouts at 25.4 mm vertical pitch, board surface 5 mm behind the plate front. Populated positions count from the top.
 
@@ -32,9 +32,9 @@ At 3.3 V, contact current is 330 µA; select contacts rated for this dry circuit
 
 Protection remains unqualified: the [PESD5V0S1BA](https://assets.nexperia.com/documents/data-sheet/PESD5V0S1BA.pdf) permits 10 V clamping at 1 A. A series resistor and the metal faceplate do not establish safe GPIO voltage or injection current.
 
-## Yoke power board
+## Juicer power board
 
-The Yoke distributes mains to two encapsulated supplies and low voltage to the loads. Class II describes the supply modules, not the complete assembly with its protective-earth (PE) bond.
+The Juicer distributes mains to two encapsulated supplies and low voltage to the loads. Class II describes the supply modules, not the complete assembly with its protective-earth (PE) bond.
 
 | Element | Specification |
 | --- | --- |
@@ -75,6 +75,6 @@ Provisional layout targets, subject to insulation coordination for the installat
 | Cover | Clip-on insulating cover over JAC, F0, RV1, and the module primaries; removable only with the enclosure open |
 | Marking | Mains section outlined and labelled on the silkscreen; fuse rating printed beside F0 |
 
-The 12 V return connects only to JY4 and the strike. JP1 bonds the 5 V return to PE, so this rail is not safety extra-low voltage (SELV); [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. Clapper JC1 GND shares the board return through the Pi; assess shared-current voltage drops during layout.
+The 12 V return connects only to JY4 and the strike. JP1 bonds the 5 V return to PE, so this rail is not safety extra-low voltage (SELV); [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. Clicker JC1 GND shares the board return through the Pi; assess shared-current voltage drops during layout.
 
 The 6 A rating leaves each 5 V branch unprotected. Coordinate protection with the J8 contact, harness, connectors, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open.

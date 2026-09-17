@@ -1,18 +1,18 @@
 # Raspberry Pi Zero 2 W with Camera Module 3 Wide
 
-Pin assignments and operating requirements. The Clapper key board and the Yoke power board are defined in [boards.md](../../boards.md); parts and harness lengths are in the [BOM](../../bom.md).
+Pin assignments and operating requirements. The Clicker key board and the Juicer power board are defined in [boards.md](../../boards.md); parts and harness lengths are in the [BOM](../../bom.md).
 
 ## Power architecture
 
-The installation cable terminates on the Yoke inside a partitioned mains compartment. Two encapsulated modules supply the loads; the Pi generates 3.3 V.
+The installation cable terminates on the Juicer inside a partitioned mains compartment. Two encapsulated modules supply the loads; the Pi generates 3.3 V.
 
 | Rail | Source | Consumers |
 | --- | --- | --- |
-| 5 V | PSU5 on the Yoke, Mean Well IRM-30-5, 5 V / 6 A | Pi through J8 pin 2, U1 amplifier, U3 relay coils through F2 |
-| 12 V | PSU12 on the Yoke, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
-| 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, Clapper button pull-ups |
+| 5 V | PSU5 on the Juicer, Mean Well IRM-30-5, 5 V / 6 A | Pi through J8 pin 2, U1 amplifier, U3 relay coils through F2 |
+| 12 V | PSU12 on the Juicer, Mean Well IRM-30-12, 12 V / 2.5 A | Strike through F1 and relay contact 1; headroom reserved for a later infrared array |
+| 3.3 V | Pi onboard regulator | Camera, U2 microphone, U3 relay logic, U6 sensor, Clicker button pull-ups |
 
-[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. The Yoke distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to protective earth (PE). The 12 V return connects only to the strike circuit.
+[IRM-30 ratings and derating curves](https://www.meanwell.com/Upload/PDF/IRM-30/IRM-30-SPEC.PDF) apply to each module. The Juicer distributes 5 V radially; logic grounds provide additional return paths. JP1 bonds the 5 V return to protective earth (PE). The 12 V return connects only to the strike circuit.
 
 Mains layout and protective bonding are defined in [boards.md](../../boards.md). A qualified electrician terminates the three-core 1.5 mm² installation cable through a strain-relieved IP68 gland under an approved upstream protection plan. Provisionally assume a 10 A breaker and a 30 mA residual-current device; the electrical assessment confirms suitability.
 
@@ -20,23 +20,23 @@ Mains layout and protective bonding are defined in [boards.md](../../boards.md).
 
 J8 uses physical pin numbers; BCM is the Broadcom GPIO number. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
 
-5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from the Yoke. Use a polarized harness and the Yoke as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
+5 V enters the Pi on pin 2 and returns on pin 6 through 20 AWG conductors from the Juicer. Use a polarized harness and the Juicer as the only source. The proposed path lacks branch overcurrent and reverse-polarity protection; protection coordination is a release blocker.
 
 | J8 | BCM | Net | Endpoint |
 | --- | --- | --- | --- |
-| 1 | n/a | 3V3 | U2 supply, Clapper pull-ups, U6 supply; three branches spliced within 30 mm of J8 |
-| 2 | n/a | 5V_IN | Yoke JY1 |
+| 1 | n/a | 3V3 | U2 supply, Clicker pull-ups, U6 supply; three branches spliced within 30 mm of J8 |
+| 2 | n/a | 5V_IN | Juicer JY1 |
 | 3 | 2 | I2C_SDA | U6 SDA |
 | 5 | 3 | I2C_SCL | U6 SCL |
-| 6 | n/a | GND_IN | Yoke JY1 |
+| 6 | n/a | GND_IN | Juicer JY1 |
 | 9 | n/a | GND_MIC | U2 GND |
-| 11 | 17 | BUTTON1 | Clapper JC1, switch position 1 |
+| 11 | 17 | BUTTON1 | Clicker JC1, switch position 1 |
 | 12 | 18 | I2S_BCLK | U1 BCLK and U2 BCLK |
-| 13 | 27 | BUTTON2 | Clapper JC1, switch position 2 |
-| 15 | 22 | BUTTON3 | Clapper JC1, switch position 3 |
-| 16 | 23 | BUTTON4 | Clapper JC1, switch position 4 |
+| 13 | 27 | BUTTON2 | Clicker JC1, switch position 2 |
+| 15 | 22 | BUTTON3 | Clicker JC1, switch position 3 |
+| 16 | 23 | BUTTON4 | Clicker JC1, switch position 4 |
 | 17 | n/a | 3V3_RLY | U3 VCC |
-| 20 | n/a | GND_BTN | Clapper JC1 |
+| 20 | n/a | GND_BTN | Clicker JC1 |
 | 25 | n/a | GND_ENV | U6 GND |
 | 29 | 5 | RELAY1 | U3 IN1, strike |
 | 31 | 6 | RELAY2 | U3 IN2, gate |
@@ -59,7 +59,7 @@ Reserve pins 7 (GPIO4) and 36 (GPIO16) for audio-overlay compatibility. Leave pi
 
 | Device | Required configuration |
 | --- | --- |
-| U1, Adafruit MAX98357A 3006 | VIN to SD selects left playback; VIN to GAIN selects 6 dB; supply from the Yoke JY2 with C1 and C2 at VIN |
+| U1, Adafruit MAX98357A 3006 | VIN to SD selects left playback; VIN to GAIN selects 6 dB; supply from the Juicer JY2 with C1 and C2 at VIN |
 | U2, Adafruit SPH0645 3421 | 3.3 V supply; header pad 6 (SEL) to pad 2 (GND) selects left capture |
 | SP1, Adafruit 3351 | 4 Ω / 3 W; twisted speaker pair, maximum 100 mm; foam or rubber decoupling |
 | CAM1, Camera Module 3 Wide | 200 mm Standard-Mini ribbon; Pi Zero 22-pin to camera 15-pin CSI; 102° horizontal field of view; infrared-cut filter |
@@ -76,8 +76,8 @@ Separate microphone and speaker ports by at least 100 mm. Decouple the speaker m
 
 | Interface | Requirement |
 | --- | --- |
-| Buttons | Clapper positions 1–4 map to BUTTON1–4 and MQTT suffixes 1–4. Populate consecutively from the top; circuitry and plate geometry are in [boards.md](../../boards.md). |
-| Relays | U3 VCC from J8 pin 17; active-low IN1/IN2 from GPIO5/6; JD-VCC from the Yoke JY3 through F2, with C3; coil return to the Yoke; JD-VCC jumper removed. Module qualification remains open. |
+| Buttons | Clicker positions 1–4 map to BUTTON1–4 and MQTT suffixes 1–4. Populate consecutively from the top; circuitry and plate geometry are in [boards.md](../../boards.md). |
+| Relays | U3 VCC from J8 pin 17; active-low IN1/IN2 from GPIO5/6; JD-VCC from the Juicer JY3 through F2, with C3; coil return to the Juicer; JD-VCC jumper removed. Module qualification remains open. |
 | Strike | effeff 118 A7 winding, 12 V DC, 1–3 s pulse. PSU12 → F1 → U3 COM1/NO1 → JOUT1. D1 at the coil: cathode to STRIKE+, anode to STRIKE-. Exclude the D1 winding. |
 | Gate | U3 COM2/NO2 to JOUT2, potential-free contact; design limit 30 V DC / 1 A, pulse 0.5–1 s. |
 | Environment | U6 SHT40 at I2C1 address 0x44, beside the camera window; VIN from 3.3 V, breakout 3V output unconnected. |
@@ -149,11 +149,11 @@ The planning envelope is 300 mm high × 150 mm wide; depth and mounting position
 | [SPH0645 breakout](https://www.adafruit.com/product/3421) | 16.7 × 12.7 × 1.8 mm; bottom port, gasket, membrane; at least 100 mm from the speaker grille; within 200 mm of J8 |
 | [Adafruit 3351](https://www.adafruit.com/product/3351) | 70 × 30 × 17 mm; vertical long axis; decoupled mounting; verify against the purchased unit |
 | Relay module | Reserve 55 × 45 × 22 mm provisionally; qualification open |
-| Clapper key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending enclosure design |
-| Yoke power board | About 160 × 90 mm on metal standoffs inside the rear mains compartment; 30 mm module height plus cover |
+| Clicker key board | About 50 × 130 mm behind the lower face on M3 standoffs from the front plate; switch cutouts, gasket sheet, and keycap clearance pending enclosure design |
+| Juicer power board | About 160 × 90 mm on metal standoffs inside the rear mains compartment; 30 mm module height plus cover |
 | U6 sensor | 25.4 × 17.8 mm beside the camera window |
 | Entries | One IP68 M20 gland for mains, two M16 glands for strike and gate; PTFE vent M12 |
 
-Layout from the top: camera and U6, microphone, Pi with U1, speaker, Clapper behind the lower face. The mains compartment with the Yoke sits at the rear bottom behind its partition.
+Layout from the top: camera and U6, microphone, Pi with U1, speaker, Clicker behind the lower face. The mains compartment with the Juicer sits at the rear bottom behind its partition.
 
 Materials are UV-stable polycarbonate, ASA, or coated aluminium with stainless fasteners; no PLA or PETG. Coating locations and masking are specified in the BOM. Antenna keep-out geometry and installed RF performance remain open for enclosure design.
