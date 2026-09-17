@@ -21,7 +21,6 @@ Prototype BOM for a 300 × 150 mm enclosure; depth and mechanical parts remain o
 | KC1–KCn | n | MX-compatible relegendable keycap, 1u or 2u | Verify UV stability | Part pending enclosure design |
 | PSU5 | 1 | Mean Well IRM-30-5, PCB pins, 5 V / 6 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Juicer |
 | PSU12 | 1 | Mean Well IRM-30-12, PCB pins, 12 V / 2.5 A, Class II | -30 to +85 °C; apply datasheet derating | Selected; on the Juicer |
-| OPN | 1 | effeff 118, A7 winding, fail-locked, 10–24 V AC/DC | Verify with manufacturer | Mechanical strike variant matched to door |
 
 ## Clicker contents
 
