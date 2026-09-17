@@ -1,0 +1,252 @@
+metadata:
+  title: Ring
+  description: Low-voltage Ring harness; four-button population; estimated lengths for 300 x 150 mm casing
+  notes: Prototype. Mains adapters remain indoors. U5 buffers button contacts; see button-input.md. Relay selection and antenna clearance await
+    enclosure design. Lengths include service slack; external installation cables are excluded.
+connectors:
+  J8:
+    type: Raspberry Pi GPIO
+    subtype: male
+    ignore_in_bom: true
+    notes: Pin 1 is nearest the microSD slot, inner row (square pad on the underside).
+    pins: [1, 2, 4, 6, 9, 11, 12, 13, 14, 15, 16, 17, 20, 29, 31, 35, 38, 40]
+    pinlabels: [3V3, 5V_RLY, 5V, GND, GND_MIC, BUTTON1, I2S_BCLK, BUTTON2, GND_RLY, BUTTON3, BUTTON4, 3V3_RLY, GND_BTN, RELAY1, RELAY2, I2S_LRCLK,
+      I2S_MIC, I2S_DIN]
+    hide_disconnected_pins: false
+  J_CSI:
+    type: Pi Zero CSI
+    subtype: 22-pin mini
+    ignore_in_bom: true
+    notes: Standard-Mini 200 mm ribbon. Contacts face the PCB.
+    pins: [1]
+    pinlabels: [CSI-2]
+  U1:
+    type: MAX98357A
+    ignore_in_bom: true
+    notes: 'Adafruit 3006. VIN-SD: left channel. VIN-GAIN: 6 dB. C1 470 uF and C2 100 nF across VIN/GND. SPK- is not GND.'
+    pins: [VIN, GND, SD, GAIN, DIN, BCLK, LRC, SPK+, SPK-]
+    hide_disconnected_pins: false
+  U2:
+    type: SPH0645LM4H
+    ignore_in_bom: true
+    notes: 3.3 V only. Bottom port faces down. SEL jumpered to GND (left).
+    pins: [1, 2, 3, 4, 5, 6]
+    pinlabels: [3V, GND, BCLK, DOUT, LRCL, SEL]
+    hide_disconnected_pins: false
+    loops:
+    - [2, 6]
+  U3:
+    type: 2-ch 5V relay
+    ignore_in_bom: true
+    notes: Provisional module; E4 deferred. JD-VCC jumper absent. VCC 3.3 V; JD-VCC 5 V after F2. C3 100 uF from JD-VCC to GND. IN LOW energizes
+      coil. COM1/NO1 switch isolated 12 V. Logic GND is common with Pi.
+    pins: [VCC, GND, IN1, IN2, JD-VCC, COM1, NO1]
+    hide_disconnected_pins: false
+  BTN:
+    type: Button loom
+    ignore_in_bom: true
+    notes: Four switch contacts plus common return. Populate positions 1-n. Each contact closes SWn to RETURN; field wires terminate at U5, not
+      at GPIO.
+    pins: [1, 2, 3, 4, 5]
+    pinlabels: [SW1, SW2, SW3, SW4, RETURN]
+  SP1:
+    type: Speaker
+    ignore_in_bom: true
+    notes: Adafruit 3351 enclosed 3 W 4 Ω. Amplifier + to speaker +. JST-PH 2.0 cable into 3006 screw terminals. Keep under 10 cm.
+    pins: [SPK+, SPK-]
+    pinlabels: [SPK+, SPK-]
+  CAM1:
+    type: Camera Module 3
+    ignore_in_bom: true
+    notes: IMX708. 15-pin camera end of the Standard-Mini cable.
+    pins: [1]
+    pinlabels: [CSI-2]
+  F1:
+    type: 1 A fuse
+    ignore_in_bom: true
+    notes: In the 12 V+ lead to RELAY1 COM1.
+    pins: [1, 2]
+    pinlabels: [IN, OUT]
+  J12:
+    type: 12 V inlet
+    ignore_in_bom: true
+    pins: [12V, RTN]
+    notes: From indoor GST18E12-P1J adapter via installation cable. Terminal names; connector part pending. Return is separate from Pi GND.
+  JOUT:
+    type: Strike outlet
+    ignore_in_bom: true
+    pins: [STRIKE+, STRIKE-]
+    notes: 'To external effeff A7 strike. D1 1N4007 at coil: cathode STRIKE+, anode STRIKE-. External cable length is installation-specific.'
+  F2:
+    type: 500 mA hold PTC
+    ignore_in_bom: true
+    pins: [IN, OUT]
+    notes: In series with relay JD-VCC; C3 is downstream.
+  U5:
+    type: Button interface
+    ignore_in_bom: true
+    pins: [3V3, 5V, GND, GPIO1, GPIO2, GPIO3, GPIO4, RLY1, RLY2, SW1, SW2, SW3, SW4, RETURN]
+    notes: Custom circuit in button-input.md. Buffered active-low outputs; six 10k pull-ups. RETURN and GND joined on board. Shared ground; no
+      system galvanic isolation. Connector layout pending.
+cables:
+  W1:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [RD, BK]
+    wirelabels: [5V, GND]
+    length: 0.1
+  W2:
+    category: bundle
+    type: 3351 factory lead
+    gauge: 28 AWG
+    colors: [RD, BK]
+    wirelabels: [SPK+, SPK-]
+    length: 0.1
+  W3:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [OG, BK, YE, GN, VT]
+    wirelabels: [3V3, GND_MIC, I2S_BCLK, I2S_LRCLK, I2S_MIC]
+    length: 0.15
+  W4:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [OG, BK, BN, GY]
+    wirelabels: [3V3_RLY, GND_RLY, RELAY1, RELAY2]
+    length: 0.2
+  W5:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [WH, PK, OG, VT, BK]
+    wirelabels: [SW1, SW2, SW3, SW4, RETURN]
+    length: 0.3
+  W6:
+    category: bundle
+    type: Standard-Mini CSI
+    gauge: 30 AWG
+    colors: [GY]
+    wirelabels: [CSI-2]
+    length: 0.2
+  W7:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [YE, GN, BU]
+    wirelabels: [I2S_BCLK, I2S_LRCLK, I2S_DIN]
+    length: 0.1
+  W8:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [5V_RLY]
+    length: 0.05
+  W9:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [12V]
+    length: 0.1
+  W10:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [12V_FUSED]
+    length: 0.1
+  W11:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [STRIKE+]
+    length: 0.1
+  W12:
+    category: bundle
+    type: 22 AWG
+    gauge: 22 AWG
+    colors: [BK]
+    wirelabels: [STRIKE-]
+    length: 0.1
+  W13:
+    category: bundle
+    type: 22 AWG pigtail
+    gauge: 22 AWG
+    colors: [RD]
+    wirelabels: [5V_RLY_FUSED]
+    length: 0.1
+  W14:
+    category: bundle
+    type: Logic loom
+    gauge: 26 AWG
+    colors: [OG, RD, BK, WH, PK, YE, VT, BN, GY]
+    wirelabels: [3V3, 5V_BTN, GND_BTN, BUTTON1, BUTTON2, BUTTON3, BUTTON4, RELAY1, RELAY2]
+    length: 0.1
+  W15:
+    category: bundle
+    type: Local strap
+    gauge: 26 AWG
+    colors: [RD]
+    wirelabels: [SD]
+    length: 0.02
+  W16:
+    category: bundle
+    type: Local strap
+    gauge: 26 AWG
+    colors: [RD]
+    wirelabels: [GAIN]
+    length: 0.02
+connections:
+- - J8: [4, 6]
+  - W1: [1, 2]
+  - U1: [VIN, GND]
+- - J8: [12, 35, 40]
+  - W7: [1, 2, 3]
+  - U1: [BCLK, LRC, DIN]
+- - U1: [SPK+, SPK-]
+  - W2: [1, 2]
+  - SP1: [SPK+, SPK-]
+- - J8: [1, 9, 12, 35, 38]
+  - W3: [1, 2, 3, 4, 5]
+  - U2: [3V, GND, BCLK, LRCL, DOUT]
+- - J8: [17, 14, 29, 31]
+  - W4: [1, 2, 3, 4]
+  - U3: [VCC, GND, IN1, IN2]
+- - J8: [2]
+  - W8: [1]
+  - F2: [IN]
+- - F2: [OUT]
+  - W13: [1]
+  - U3: [JD-VCC]
+- - J8: [1, 4, 20, 11, 13, 15, 16, 29, 31]
+  - W14: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  - U5: [3V3, 5V, GND, GPIO1, GPIO2, GPIO3, GPIO4, RLY1, RLY2]
+- - U5: [SW1, SW2, SW3, SW4, RETURN]
+  - W5: [1, 2, 3, 4, 5]
+  - BTN: [SW1, SW2, SW3, SW4, RETURN]
+- - J_CSI: [1]
+  - W6: [1]
+  - CAM1: [1]
+- - J12: [12V]
+  - W9: [1]
+  - F1: [IN]
+- - F1: [OUT]
+  - W10: [1]
+  - U3: [COM1]
+- - U3: [NO1]
+  - W11: [1]
+  - JOUT: [STRIKE+]
+- - J12: [RTN]
+  - W12: [1]
+  - JOUT: [STRIKE-]
+- - U1: [VIN]
+  - W15: [1]
+  - U1: [SD]
+- - U1: [VIN]
+  - W16: [1]
+  - U1: [GAIN]
