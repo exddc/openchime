@@ -36,6 +36,8 @@ See [Chime README](chime/README.md) for detailed technical specifications.
 
 The doorbell unit. Next product after Chime.
 
+**Hardware:** Raspberry Pi Zero 2 W, I2S audio, Camera Module 3 Wide, two relays, 1–4 Kailh BOX buttons on the Clicker key board, and the Juicer power board with two Class II mains modules in a sealed enclosure. See [Ring hardware](hardware/ring/README.md).
+
 ### Base
 
 A future product.
@@ -47,7 +49,7 @@ A future product.
 ├── chime/              # Chime ring service and HTTPS setup daemon (`src/webd/`)
 ├── webui/              # Svelte configuration UI served by chime-webd
 ├── buildroot/          # Raspberry Pi Zero W image, overlays, and OTA tooling
-├── hardware/           # CAD exports and hardware variant notes
+├── hardware/           # CAD, BOM, wiring (chime/, ring/)
 ├── scripts/            # Build, CI, flash, deploy, and local-run helpers
 ├── docs/               # Operational documentation
 ├── mosquitto/          # Local Mosquitto config for docker-compose
@@ -61,7 +63,8 @@ A future product.
 - [Chime README](chime/README.md) — Chime runtime, webd, and config keys
 - [Buildroot README](buildroot/README.md) — Image build, flash, and deploy
 - [Reliability runbook](docs/reliability-runbook.md) — On-device logs, MQTT, webd/TLS, persistent data, OTA, recovery
-- [Hardware README](hardware/chime/README.md) — CAD, BOM, wiring, and interface
+- [Chime hardware](hardware/chime/README.md): CAD, BOM, wiring, and interface
+- [Ring hardware](hardware/ring/README.md): doorbell BOM, wiring, and pin map
 
 ## License
 

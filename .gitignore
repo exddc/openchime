@@ -33,8 +33,8 @@ buildroot/build_meta.env
 webui/node_modules/
 webui/dist/
 
-# WireViz extras (commit wiring.yml and wiring.svg only)
-hardware/**/wiring.html
-hardware/**/wiring.png
-hardware/**/wiring.gv
-hardware/**/wiring.bom.tsv
+# WireViz extras (commit wiring*.yml and wiring*.svg only)
+hardware/**/wiring*.html
+hardware/**/wiring*.png
+hardware/**/wiring*.gv
+hardware/**/wiring*.bom.tsv

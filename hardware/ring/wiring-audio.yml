@@ -1,0 +1,119 @@
+metadata:
+  title: Ring audio and camera
+  description: I2S amplifier and microphone, speaker, and CSI camera; estimated lengths for the 300 x 150 mm casing
+  notes: Prototype. Shared I2S clocks are spliced within 30 mm of J8; each I2S branch is at most 200 mm. The microphone port sits at least 100 mm from the speaker grille.
+    Amplifier supply is in wiring-power.
+connectors:
+  J8:
+    type: Raspberry Pi GPIO
+    subtype: male
+    ignore_in_bom: true
+    notes: |
+      Zero 2 W physical pins. Pin 1 also feeds the Clicker and U6; see wiring-io.
+    pins: [1, 9, 12, 35, 38, 40]
+    pinlabels: [3V3, GND_MIC, I2S_BCLK, I2S_LRCLK, I2S_MIC, I2S_DIN]
+    hide_disconnected_pins: false
+  J_CSI:
+    type: Pi Zero CSI
+    subtype: 22-pin mini
+    ignore_in_bom: true
+    notes: |
+      200 mm Standard-Mini ribbon; contacts face PCB.
+    pins: [1]
+    pinlabels: [CSI-2]
+  U1:
+    type: MAX98357A
+    ignore_in_bom: true
+    notes: |
+      Adafruit 3006. VIN-SD: left; VIN-GAIN: 6 dB. C1/C2 at VIN;
+      supply: wiring-power. Neither SPK terminal is ground.
+    pins: [VIN, GND, SD, GAIN, DIN, BCLK, LRC, SPK+, SPK-]
+    hide_disconnected_pins: false
+  U2:
+    type: SPH0645LM4H
+    ignore_in_bom: true
+    notes: |
+      3.3 V only. Gasket and membrane seal bottom port to faceplate.
+      Pad 6 to 2 selects left capture.
+    pins: [1, 2, 3, 4, 5, 6]
+    pinlabels: [3V, GND, BCLK, DOUT, LRCL, SEL]
+    hide_disconnected_pins: false
+    loops:
+    - [2, 6]
+  SP1:
+    type: Speaker
+    ignore_in_bom: true
+    notes: |
+      Adafruit 3351, 4 ohm / 3 W. Decoupled mounting. Factory lead to
+      U1 screw terminals; maximum 100 mm.
+    pins: [SPK+, SPK-]
+    pinlabels: [SPK+, SPK-]
+  CAM1:
+    type: Camera Module 3 Wide
+    ignore_in_bom: true
+    notes: |
+      IMX708 Wide with IR-cut filter; 15-pin ribbon end.
+    pins: [1]
+    pinlabels: [CSI-2]
+cables:
+  W9:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [YE, GN, BU]
+    wirelabels: [I2S_BCLK, I2S_LRCLK, I2S_DIN]
+    length: 0.1
+  W10:
+    category: bundle
+    type: 3351 factory lead
+    gauge: 28 AWG
+    colors: [RD, BK]
+    wirelabels: [SPK+, SPK-]
+    length: 0.1
+  W11:
+    category: bundle
+    type: Soldered or latching loom
+    gauge: 26 AWG
+    colors: [OG, BK, YE, GN, VT]
+    wirelabels: [3V3, GND_MIC, I2S_BCLK, I2S_LRCLK, I2S_MIC]
+    length: 0.2
+  W12:
+    category: bundle
+    type: Standard-Mini CSI
+    gauge: 30 AWG
+    colors: [GY]
+    wirelabels: [CSI-2]
+    length: 0.2
+  W13:
+    category: bundle
+    type: Local strap
+    gauge: 26 AWG
+    colors: [RD]
+    wirelabels: [SD]
+    length: 0.02
+  W14:
+    category: bundle
+    type: Local strap
+    gauge: 26 AWG
+    colors: [RD]
+    wirelabels: [GAIN]
+    length: 0.02
+connections:
+- - J8: [12, 35, 40]
+  - W9: [1, 2, 3]
+  - U1: [BCLK, LRC, DIN]
+- - U1: [SPK+, SPK-]
+  - W10: [1, 2]
+  - SP1: [SPK+, SPK-]
+- - J8: [1, 9, 12, 35, 38]
+  - W11: [1, 2, 3, 4, 5]
+  - U2: [3V, GND, BCLK, LRCL, DOUT]
+- - J_CSI: [1]
+  - W12: [1]
+  - CAM1: [1]
+- - U1: [VIN]
+  - W13: [1]
+  - U1: [SD]
+- - U1: [VIN]
+  - W14: [1]
+  - U1: [GAIN]
