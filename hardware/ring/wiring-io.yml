@@ -1,7 +1,7 @@
 metadata:
-  title: Ring key board, relays, heater control, and sensor
-  description: Key board logic loom, relay logic, heater control, and the environment sensor
-  notes: Prototype. The Kailh BOX switches, their pull-ups, protection, and backlight LEDs sit on the key board U5; see boards.md. Relay coil supply, LED supply, and heater power are in wiring-power.
+  title: Ring key board, relays, and sensor
+  description: Key board logic loom, relay logic and the environment sensor
+  notes: Prototype. The Kailh BOX switches, their pull-ups, protection, and backlight LEDs sit on the key board U5; see boards.md. Relay coil and LED supplies are in wiring-power.
 connectors:
   J8:
     type: Raspberry Pi GPIO
@@ -9,8 +9,8 @@ connectors:
     ignore_in_bom: true
     notes: |
       Zero 2 W physical pins. Pin 1 also feeds U2; see wiring-audio.
-    pins: [1, 3, 5, 11, 13, 14, 15, 16, 17, 18, 20, 25, 29, 31, 32]
-    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, GND_HTR, BUTTON3, BUTTON4, 3V3_RLY, HEATER, GND_BTN, GND_ENV, RELAY1, RELAY2, LED_PWM]
+    pins: [1, 3, 5, 11, 13, 15, 16, 17, 20, 25, 29, 31, 32]
+    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, BUTTON3, BUTTON4, 3V3_RLY, GND_BTN, GND_ENV, RELAY1, RELAY2, LED_PWM]
     hide_disconnected_pins: false
   U5:
     type: Ring key board
@@ -35,13 +35,6 @@ connectors:
       output open.
     pins: [VIN, 3V, GND, SCL, SDA]
     hide_disconnected_pins: false
-  U7:
-    type: Ring power board
-    ignore_in_bom: true
-    notes: |
-      J76 heater control: HEATER high enables Q71.
-      Power: wiring-power.
-    pins: [HEATER, GND_HTR]
 cables:
   W17:
     category: bundle
@@ -64,13 +57,6 @@ cables:
     colors: [OG, BK, BU, YE]
     wirelabels: [3V3, GND_ENV, I2C_SDA, I2C_SCL]
     length: 0.25
-  W20:
-    category: bundle
-    type: Control pair
-    gauge: 26 AWG
-    colors: [RD, BK]
-    wirelabels: [HEATER, GND_HTR]
-    length: 0.2
 connections:
 - - J8: [1, 20, 11, 13, 15, 16, 32]
   - W17: [1, 2, 3, 4, 5, 6, 7]
@@ -81,6 +67,3 @@ connections:
 - - J8: [1, 25, 3, 5]
   - W19: [1, 2, 3, 4]
   - U6: [VIN, GND, SDA, SCL]
-- - J8: [18, 14]
-  - W20: [1, 2]
-  - U7: [HEATER, GND_HTR]

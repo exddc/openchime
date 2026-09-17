@@ -1,6 +1,6 @@
 # Board definitions
 
-Connection-level specification for U5 (key board) and U7 (power board). Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md); release criteria are in [qualification](qualification.md).
+Connection-level specification for U5 (key board) and U7 (power board). Schematics, layouts, and connector parts are pending. Parts and quantities are in the [BOM](bom.md).
 
 ## U5 key board
 
@@ -37,7 +37,7 @@ Fit all four sockets and input networks. Populate switches, keycaps, LEDs, and L
 
 At 3.3 V, contact current is 330 µA; select contacts rated for this dry circuit. With internal GPIO pulls disabled, nominal RC constants are 0.1 ms on press and 1.1 ms on release. Firmware provides 50 ms debounce. Backlight current is nominally 9 mA per LED at 5 V and 3 V forward voltage, or 36 mA for four; calculate limits from the selected LED and resistor tolerances.
 
-Protection remains unqualified: the [PESD5V0S1BA](https://assets.nexperia.com/documents/data-sheet/PESD5V0S1BA.pdf) permits 10 V clamping at 1 A. A series resistor and the metal faceplate do not establish safe GPIO voltage or injection current. Q1 also needs selection: the [2N7002](https://assets.nexperia.com/documents/data-sheet/2N7002.pdf) guarantees on-resistance at 4.5 V and 10 V, not at the 3.3 V drive. See the qualification blockers.
+Protection remains unqualified: the [PESD5V0S1BA](https://assets.nexperia.com/documents/data-sheet/PESD5V0S1BA.pdf) permits 10 V clamping at 1 A. A series resistor and the metal faceplate do not establish safe GPIO voltage or injection current. Q1 also needs selection: the [2N7002](https://assets.nexperia.com/documents/data-sheet/2N7002.pdf) guarantees on-resistance at 4.5 V and 10 V, not at the 3.3 V drive.
 
 ## U7 power board
 
@@ -57,8 +57,6 @@ U7 distributes mains to two encapsulated supplies and low voltage to the loads. 
 | J72 | 5V_AMP, GND_AMP |
 | J73 | 5V_LED, GND_LED |
 | J74 | JD-VCC, GND_RLY; JD-VCC through F2 |
-| J75 | HTR+, HTR-; HTR- switched by Q71 |
-| J76 | HEATER, GND_HTR; 2-circuit latching logic connector |
 | J77 | 12V_FUSED, 12V_RTN; 12V_FUSED through F1 |
 | Board | About 160 × 90 mm on metal standoffs; mains section under a clip-on insulating cover |
 
@@ -72,9 +70,6 @@ U7 distributes mains to two encapsulated supplies and low voltage to the loads. 
 | F1, 1 A fast fuse in a PCB holder | PSU12 +V to 12V_FUSED at J77 |
 | F2, 500 mA hold PTC | 5 V rail to JD-VCC at J74 |
 | C3, 100 µF | JD-VCC at J74 to the 5 V return |
-| Q71, AO3400A or equivalent logic-level N-channel MOSFET | Drain to HTR- at J75; source to the 5 V return; HTR+ at J75 to the 5 V rail |
-| R72, 100 Ω | HEATER at J76 to the Q71 gate |
-| R71, 10 kΩ | Q71 gate to the 5 V return |
 | LED71 with R73, 1 kΩ | 5 V rail to the 5 V return; service indicator |
 | JP1 | PE track to the 5 V return, single point |
 
@@ -88,6 +83,6 @@ Provisional layout targets, subject to insulation coordination for the installat
 | Cover | Clip-on insulating cover over JAC, F0, RV1, and the module primaries; removable only with the enclosure open |
 | Marking | Mains section outlined and labelled on the silkscreen; fuse rating printed beside F0 |
 
-The 12 V return connects only to J77 and the strike. JP1 bonds the 5 V return to PE, so this rail is not SELV; [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. U5 J51 GND and J52 GND_LED share the board return. These and J76 create additional return paths through the Pi; assess shared-current voltage drops during layout.
+The 12 V return connects only to J77 and the strike. JP1 bonds the 5 V return to PE, so this rail is not SELV; [PELV classification](https://psu.deltaww.com/en/industry-know-how/what-is-the-difference-between-selv-pelv-and-es1-in-ac-dc-power-supplies) depends on the assembly assessment and applicable standard. U5 J51 GND and J52 GND_LED share the board return. These create additional return paths through the Pi; assess shared-current voltage drops during layout.
 
-The 6 A supply does not establish protection for each branch. Coordinate protection with the J8 contact, harness, connectors, heater, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open in [qualification](qualification.md).
+The 6 A supply does not establish protection for each branch. Coordinate protection with the J8 contact, harness, connectors, and supply fault response before energizing an assembled prototype. Fuse and PE-path verification remain open.
