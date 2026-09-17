@@ -1,23 +1,21 @@
 metadata:
-  title: Ring buttons, relays, heater control, and sensor
-  description: Direct-wired buttons, relay logic, heater switch control, and the environment sensor; four-button population
-  notes: Prototype. Buttons wire straight to the GPIO header through inline 1 k series resistors at the J8 end; the Pi's internal pull-ups are enabled at boot.
-    Relay coil supply and heater power are in wiring-power.
+  title: Ring key board, relays, heater control, and sensor
+  description: Key board logic loom, relay logic, heater control, and the environment sensor
+  notes: Prototype. The Kailh BOX switches, their pull-ups, protection, and backlight LEDs sit on the key board U5; see boards.md. Relay coil supply, LED supply, and heater power are in wiring-power.
 connectors:
   J8:
     type: Raspberry Pi GPIO
     subtype: male
     ignore_in_bom: true
-    notes: Zero 2 W. Pin 1 is nearest the microSD slot, inner row (square pad on the underside). Pin 1 also feeds U2; see wiring-audio. R1-R4 sit inline in BUTTON1-4 within 50 mm of J8.
-    pins: [1, 3, 5, 11, 13, 14, 15, 16, 17, 18, 20, 25, 29, 31]
-    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, GND_HSW, BUTTON3, BUTTON4, 3V3_RLY, HEATER, GND_BTN, GND_ENV, RELAY1, RELAY2]
+    notes: Zero 2 W. Pin 1 is nearest the microSD slot, inner row (square pad on the underside). Pin 1 also feeds U2; see wiring-audio.
+    pins: [1, 3, 5, 11, 13, 14, 15, 16, 17, 18, 20, 25, 29, 31, 32]
+    pinlabels: [3V3, I2C_SDA, I2C_SCL, BUTTON1, BUTTON2, GND_HTR, BUTTON3, BUTTON4, 3V3_RLY, HEATER, GND_BTN, GND_ENV, RELAY1, RELAY2, LED_PWM]
     hide_disconnected_pins: false
-  BTN:
-    type: Button loom
+  U5:
+    type: Ring key board
     ignore_in_bom: true
-    notes: Four IP67 anti-vandal contacts with gold contacts. Return terminals are daisy-chained at the faceplate; one return wire goes back to J8 pin 20. Populate positions 1-n.
-    pins: [1, 2, 3, 4, 5]
-    pinlabels: [SW1, SW2, SW3, SW4, RETURN]
+    notes: Custom board in boards.md. Up to four Kailh BOX switches in hot-swap sockets, 10k pull-ups, 1k series, RC and TVS per channel, SMD backlight LEDs with one PWM MOSFET. J51 shown; J52 LED supply is in wiring-power.
+    pins: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
   U3:
     type: 2-ch 5V relay
     ignore_in_bom: true
@@ -29,50 +27,50 @@ connectors:
     notes: Adafruit 4885, I2C address 0x44, beside the camera window. 3V pad is the breakout regulator output and stays unconnected.
     pins: [VIN, 3V, GND, SCL, SDA]
     hide_disconnected_pins: false
-  HSW1:
-    type: MOSFET switch module
+  U7:
+    type: Ring power board
     ignore_in_bom: true
-    notes: Bought logic-level low-side switch module with gate pull-down. SIG high turns the heater on. Power and load terminals are in wiring-power.
-    pins: [SIG, GND]
+    notes: Heater control input J76 to the Q71 gate network. HEATER high turns HTR1 on. Power terminals are in wiring-power.
+    pins: [HEATER, GND_HTR]
 cables:
-  W19:
+  W17:
     category: bundle
-    type: Soldered or latching loom
+    type: Logic loom
     gauge: 26 AWG
-    colors: [WH, PK, OG, VT, BK]
-    wirelabels: [BUTTON1, BUTTON2, BUTTON3, BUTTON4, RETURN]
-    length: 0.3
-  W20:
+    colors: [OG, BK, WH, PK, YE, VT, RD]
+    wirelabels: [3V3, GND_BTN, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
+    length: 0.25
+  W18:
     category: bundle
     type: Soldered or latching loom
     gauge: 26 AWG
     colors: [OG, BN, GY]
     wirelabels: [3V3_RLY, RELAY1, RELAY2]
     length: 0.2
-  W21:
+  W19:
     category: bundle
     type: Sensor loom
     gauge: 26 AWG
     colors: [OG, BK, BU, YE]
     wirelabels: [3V3, GND_ENV, I2C_SDA, I2C_SCL]
     length: 0.25
-  W22:
+  W20:
     category: bundle
     type: Control pair
     gauge: 26 AWG
     colors: [RD, BK]
-    wirelabels: [HEATER, GND_HSW]
-    length: 0.15
+    wirelabels: [HEATER, GND_HTR]
+    length: 0.2
 connections:
-- - J8: [11, 13, 15, 16, 20]
-  - W19: [1, 2, 3, 4, 5]
-  - BTN: [SW1, SW2, SW3, SW4, RETURN]
+- - J8: [1, 20, 11, 13, 15, 16, 32]
+  - W17: [1, 2, 3, 4, 5, 6, 7]
+  - U5: [3V3, GND, BUTTON1, BUTTON2, BUTTON3, BUTTON4, LED_PWM]
 - - J8: [17, 29, 31]
-  - W20: [1, 2, 3]
+  - W18: [1, 2, 3]
   - U3: [VCC, IN1, IN2]
 - - J8: [1, 25, 3, 5]
-  - W21: [1, 2, 3, 4]
+  - W19: [1, 2, 3, 4]
   - U6: [VIN, GND, SDA, SCL]
 - - J8: [18, 14]
-  - W22: [1, 2]
-  - HSW1: [SIG, GND]
+  - W20: [1, 2]
+  - U7: [HEATER, GND_HTR]
