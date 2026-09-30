@@ -1,6 +1,6 @@
 # Raspberry Pi Zero W LSM-104F-8
 
-This variant uses a Raspberry Pi Zero W, a MAX98357A amplifier, and an LSM-104F-8 speaker.
+This variant uses a Raspberry Pi Zero W, a MAX98357A amplifier, and an LSM-104F-8 speaker. It records shipped units; new builds use [rpi02w_lsm104f8](../rpi02w_lsm104f8/README.md).
 
 ## BOM
 
@@ -14,7 +14,7 @@ This variant uses a Raspberry Pi Zero W, a MAX98357A amplifier, and an LSM-104F-
 
 ## Wiring
 
-The harness drawing is [wiring.svg](../../wiring.svg).
+The pin assignments match [wiring.svg](../../wiring.svg). That drawing shows the current build; shipped units use Dupont jumpers and have no C1 or C2.
 
 The 40-pin GPIO header is J8. Pin 1 is nearest the microSD slot, on the inner row (toward the board center). That pad is square on the underside.
 
