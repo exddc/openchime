@@ -20,7 +20,7 @@ BOM for the [rpi02w_lsm104f8](variants/rpi02w_lsm104f8/README.md) variant in the
 
 ## Harness length estimate
 
-Estimated cut lengths include 30 mm for termination and movement. Confirm routes against the housing before cutting.
+Estimated cut lengths for W1–W3 include 30 mm for termination and movement; W4 is a local strap on U1. Confirm routes against the housing before cutting.
 
 | Cable | Route | Conductors | Length each | Total conductor length |
 | --- | --- | --- | --- | --- |
