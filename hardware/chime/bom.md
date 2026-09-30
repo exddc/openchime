@@ -1,19 +1,19 @@
 # Chime assembly BOM
 
-BOM for the [rpi02w_lsm104f8](variants/rpi02w_lsm104f8/README.md) variant in the existing 110 × 110 mm housing. “Verify” marks an unconfirmed fit or rating.
+BOM for the [rpi0w_lsm104f8](variants/rpi0w_lsm104f8/README.md) variant in the existing 110 × 110 mm housing. “Verify” marks an unconfirmed fit or rating.
 
 ## Parts
 
 | Reference | Quantity | Part / specification | Status | Rationale |
 | --- | --- | --- | --- | --- |
-| P1 / J8 | 1 | Raspberry Pi Zero 2 W with 2×20 male header | Selected; image pending | Same footprint, mounting holes, and PWR_IN position as the shipped Zero W |
-| PSU1 | 1 | Raspberry Pi 12.5 W micro-USB supply, 5.1 V / 2.5 A | Selected | Official supply for the Zero 2 W |
+| P1 / J8 | 1 | Raspberry Pi Zero W with 2×20 male header | Selected | Runs the Chime image |
+| PSU1 | 1 | Raspberry Pi 12.5 W micro-USB supply, 5.1 V / 2.5 A | Selected | Official supply for the Zero W |
 | SD1 | 1 | High-endurance or pSLC microSD, 16 GB or more | Class selected; part pending | Write endurance; any temperature grade indoors |
 | U1 | 1 | Adafruit MAX98357A breakout, product 3006 | Selected | Pin names and straps match the drawing |
 | C1 | 1 | 470 µF electrolytic, ≥ 10 V, low-ESR, 105 °C | Selected | U1 VIN to GND; buffers speaker transients on the Pi 5 V rail |
 | C2 | 1 | 100 nF X7R, ≥ 16 V | Selected | U1 VIN to GND |
 | SP1 | 1 | EKULIT LSM-104F/SQ, 8 Ω / 3 W | Selected | The housing is built around it |
-| BODY | 1 | Printed body, [Body.step](cad/fusion/exports/Body.step) | Selected; verify Zero 2 W fit | |
+| BODY | 1 | Printed body, [Body.step](cad/fusion/exports/Body.step) | Selected | |
 | COVER | 1 | Printed front cover, [Front_Cover.step](cad/fusion/exports/Front_Cover.step) | Selected | |
 | Screws | 4 | M2 × 4 mm, Pi to body | Selected | |
 | Screws | 4 | M4 × 5 mm, speaker to body | Selected | |

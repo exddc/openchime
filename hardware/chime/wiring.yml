@@ -2,7 +2,7 @@
 
 metadata:
   title: Chime
-  description: Pi Zero 2 W J8 to MAX98357A to speaker; estimated lengths for the 110 x 110 mm housing
+  description: Pi Zero W J8 to MAX98357A to speaker; estimated lengths for the 110 x 110 mm housing
   notes: Soldered loom, no friction-fit housings on J8. Speaker pair twisted and routed away from the I2S leads.
 
 connectors:
@@ -11,7 +11,7 @@ connectors:
     subtype: male
     ignore_in_bom: true
     notes: |
-      Zero 2 W physical pins. Pin 1 is nearest the microSD slot,
+      Zero W physical pins. Pin 1 is nearest the microSD slot,
       inner row (square pad on the underside).
     pins: [4, 6, 12, 35, 40]
     pinlabels: [5V_AMP, GND_AMP, I2S_BCLK, I2S_LRCLK, I2S_DIN]

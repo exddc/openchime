@@ -1,143 +1,102 @@
-# Raspberry Pi Zero W LSM-104F-8
+# Raspberry Pi Zero W with LSM-104F-8
 
-This variant uses a Raspberry Pi Zero W, a MAX98357A amplifier, and an LSM-104F-8 speaker. It records shipped units; new builds use [rpi02w_lsm104f8](../rpi02w_lsm104f8/README.md).
+Pin assignments and operating requirements for Chime. Parts and harness lengths are in the [BOM](../../bom.md).
 
-## BOM
+## Power
 
-- 1x Raspberry Pi Zero W
-- 1x LSM-104F-8 speaker
-- 1x MAX98357A amplifier
-- 4x M4x5mm screws
-- 4x M2x4mm screws
-- 1x 3D printed body
-- 1x 3D printed face cover
+The official Raspberry Pi 12.5 W supply (5.1 V, 2.5 A) feeds the Pi through PWR_IN (micro-USB). The amplifier takes 5 V from J8 pin 4; the Pi generates 3.3 V.
 
-## Wiring
-
-The pin assignments match [wiring.svg](../../wiring.svg). That drawing shows the current build; shipped units use Dupont jumpers and have no C1 or C2.
-
-The 40-pin GPIO header is J8. Pin 1 is nearest the microSD slot, on the inner row (toward the board center). That pad is square on the underside.
-
-Jumper MAX98357A VIN to SD so the shutdown pin stays high. The boot config uses `dtoverlay=max98357a,no-sdmode`, which does not drive SD from a GPIO. Do not wire GAIN.
-
-| Pi J8 | Net | MAX98357A |
+| Rail | Source | Consumers |
 | --- | --- | --- |
-| Pin 4 (5V) | `5V` | VIN |
-| Pin 4 (5V) | `AMP_SD` | SD (jumper to VIN) |
-| Pin 6 (GND) | `GND` | GND |
-| Pin 12 (GPIO18) | `I2S_BCLK` | BCLK |
-| Pin 35 (GPIO19) | `I2S_LRCLK` | LRC |
-| Pin 40 (GPIO21) | `I2S_DIN` | DIN |
+| 5 V | PSU1 through PWR_IN | Pi, U1 amplifier through J8 pins 4 and 6 |
+| 3.3 V | Pi onboard regulator | I2S logic levels, bench UART |
 
-| MAX98357A | Net | LSM-104F-8 |
-| --- | --- | --- |
-| + | `SPK+` | + |
-| − | `SPK-` | − |
+C1 and C2 sit across U1 VIN and GND and buffer speaker transients on the shared rail.
+
+## J8 interface
+
+J8 uses physical pin numbers; BCM is the Broadcom GPIO number. Pin 1 is nearest microSD on the inner row, marked by a square pad underneath.
+
+| J8 | BCM | Net | Endpoint |
+| --- | --- | --- | --- |
+| 4 | n/a | 5V_AMP | U1 VIN, with C1 and C2 |
+| 6 | n/a | GND_AMP | U1 GND |
+| 8 | 14 | UART_TX | Bench serial adapter RX |
+| 10 | 15 | UART_RX | Bench serial adapter TX |
+| 12 | 18 | I2S_BCLK | U1 BCLK |
+| 35 | 19 | I2S_LRCLK | U1 LRC |
+| 40 | 21 | I2S_DIN | U1 DIN |
+
+Reserve pin 7 (GPIO4), the default SD pin of the `max98357a` overlay, so amplifier shutdown control can be added without moving a signal. Leave pins 27 and 28 unwired; they are the HAT ID EEPROM bus. Pin 38 (GPIO20) is the I2S input and stays free for a later capture path.
+
+Free pins: 3, 5, 11, 13, 15, 16, 18, 19, 21, 22, 23, 24, 26, 29, 31, 32, 33, 36, 37, 38.
+
+Required `config.txt` settings:
+
+```
+enable_uart=1
+dtoverlay=disable-bt
+dtparam=i2s=on
+dtoverlay=max98357a,no-sdmode
+```
+
+## Audio
+
+| Device | Required configuration |
+| --- | --- |
+| U1, Adafruit MAX98357A 3006 | VIN to SD selects left playback; GAIN open selects 9 dB; C1 and C2 at VIN |
+| SP1, EKULIT LSM-104F/SQ | 8 Ω ±15%, 3 W nominal; twisted speaker pair, maximum 100 mm |
+
+SPK+ and SPK- are bridge outputs; neither speaker terminal connects to ground. Route the speaker pair away from the I2S leads ([amplifier pinouts](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts)).
+
+GAIN stays open: into 8 Ω, 9 dB reaches about 1 W at the default `volume_ring` without clipping.
+
+For a sinusoidal PCM signal, the [MAX98357A datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf) gives output level as input dBFS + 2.1 dB + gain. Chime scales samples linearly by volume / 100 before playback. The table assumes a full-scale sine in the WAV.
+
+| Setting, 9 dB gain | Input level | Calculated speaker voltage | Calculated power into 8 Ω |
+| --- | --- | --- | --- |
+| `volume_notifications` 70, default | -3.1 dBFS | 2.51 V RMS / 3.55 V peak | 0.79 W |
+| `volume_ring` 80, default | -1.9 dBFS | 2.87 V RMS / 4.06 V peak | 1.03 W |
+| Volume 90 | -0.9 dBFS | 3.23 V RMS / 4.56 V peak | 1.30 W |
+| Volume 100 | 0 dBFS | 3.59 V RMS / 5.08 V peak | 1.61 W; clips at the 5 V rail |
+
+The datasheet rates 1.4 W at 1% THD+N into 8 Ω at 5 V. Settings above about 90 distort a full-scale sine; qualify loudness by listening in the closed housing.
+
+## Firmware interface
+
+| Interface | Required behavior |
+| --- | --- |
+| Platform | `openchime_rpi0w_defconfig`; A/B OTA layout; 2 GB minimum card size |
+| Console | PL011 on pins 8 and 10 with Bluetooth disabled |
+| Audio | Playback-only I2S card through the `max98357a` overlay; no SD GPIO |
+| Volume | `volume_ring` and `volume_notifications` scale PCM; amplifier gain is fixed by the GAIN strap |
+| Ring subscription | Ring publishes `ring/<unit>/pressed/<n>`. `mqtt_topics` and `ring_topic` both need a matching filter, for example `ring/+/pressed/#`; the shipped default `ring/pressed` does not match. |
+| Heartbeat | `heartbeat_topic`, default `chime/heartbeat`, reports `alive` or `degraded` |
+| Web | `chime-webd` on port 8443; see [chime/README.md](../../../../chime/README.md) |
+
+## Enclosure
+
+Housing: [Body.step](../../cad/fusion/exports/Body.step), 110 × 110 × 47 mm, and [Front_Cover.step](../../cad/fusion/exports/Front_Cover.step), 110 × 110 × 12 mm. Print files are in [prints/](prints/).
+
+| Part | Constraint |
+| --- | --- |
+| [Pi Zero W](https://www.raspberrypi.com/products/raspberry-pi-zero-w/) | 65 × 30 mm; PWR_IN reachable with the cover on |
+| [MAX98357A 3006](https://www.adafruit.com/product/3006) | 19.4 × 17.8 × 3 mm; within 100 mm cable route of the speaker; C1 fixed against vibration |
+| SP1 | Four M4 × 5 mm screws |
 
 ## Assembly
 
-1. Jumper MAX98357A VIN to SD. Do not wire GAIN.
-2. Connect J8 to the MAX98357A using the first table. Pin 1 is nearest the microSD slot.
-3. Run speaker leads from MAX98357A + to speaker + and from MAX98357A − to speaker −.
-4. Fix the Pi with the 4x M2x4mm screws. Keep the PWR_IN USB port reachable from outside the enclosure.
-5. Screw the speaker in with the 4x M4x5mm screws.
-6. Press the face cover onto the body.
+1. Solder the VIN–SD strap on U1. Leave GAIN open.
+2. Solder C1 and C2 across U1 VIN and GND. C1 negative lead to GND.
+3. Solder the J8 loom per the J8 table. No friction-fit housings on J8.
+4. Twist the speaker pair and connect U1 + to speaker + and U1 − to speaker −.
+5. Fix the Pi with four M2 × 4 mm screws and the speaker with four M4 × 5 mm screws.
+6. Press the front cover onto the body.
 
-## Volume
-
-The MAX98357A has no volume register and no volume GPIO; its analog gain is only the GAIN pad. `volume_ring` and `volume_notifications` in Chime config change loudness by adjusting the PCM.
-
-## Interface
-
-BCM is the Broadcom GPIO number. I2S is the digital audio bus into the MAX98357A.
-
-### Electrical
-
-USB 5V enters at PWR_IN (micro USB). The official Raspberry Pi 12.5 W micro-USB supply is 5.1 V, 2.5 A. The MAX98357A can drive 1.8 W typical into 8 Ω at 5 V (10% THD+N).
-
-GAIN is unconnected. `dtoverlay=max98357a,no-sdmode` in `config.txt` means the Pi does not drive SD from a GPIO. SD stays high via the VIN jumper on pin 4.
-
-The speaker (BOM LSM-104F-8, EKULIT LSM-104F/SQ) is 8 Ω ±15%, 3 W nominal.
-
-| Net | J8 pin | BCM | Dir | Voltage | Far end | Owner |
-| --- | --- | --- | --- | --- | --- | --- |
-| USB 5V in | PWR_IN | — | in | 5 V | Pi | power |
-| `5V` | 4 | — | out | 5 V | MAX98357A VIN | chime |
-| `AMP_SD` | 4 | — | out | 5 V | MAX98357A SD (jumper from VIN) | chime |
-| `GND` | 6 | — | — | 0 V | MAX98357A GND | chime |
-| `I2S_BCLK` | 12 | 18 | out | 3.3 V | MAX98357A BCLK | chime |
-| `I2S_LRCLK` | 35 | 19 | out | 3.3 V | MAX98357A LRC | chime |
-| `I2S_DIN` | 40 | 21 | out | 3.3 V | MAX98357A DIN | chime |
-| `SPK+` | — | — | analog | unknown | speaker + | chime |
-| `SPK-` | — | — | analog | unknown | speaker − | chime |
-| `UART_TX` | 8 | 14 | out | 3.3 V | serial adapter RX | debug |
-| `UART_RX` | 10 | 15 | in | 3.3 V | serial adapter TX | debug |
-
-UART uses `enable_uart=1` and `dtoverlay=disable-bt` in `config.txt`. Getty is on `ttyS0`.
-
-### J8 allocation
-
-| Pin | BCM | Signal | Owner |
-| --- | --- | --- | --- |
-| 1 | — | 3V3 | power |
-| 2 | — | 5V | power |
-| 3 | 2 | SDA | free |
-| 4 | — | 5V (`5V`, `AMP_SD`) | chime |
-| 5 | 3 | SCL | free |
-| 6 | — | GND | power |
-| 7 | 4 | GPIO4 | free |
-| 8 | 14 | TXD (`UART_TX`) | debug |
-| 9 | — | GND | power |
-| 10 | 15 | RXD (`UART_RX`) | debug |
-| 11 | 17 | GPIO17 | free |
-| 12 | 18 | PCM_CLK (`I2S_BCLK`) | chime |
-| 13 | 27 | GPIO27 | free |
-| 14 | — | GND | power |
-| 15 | 22 | GPIO22 | free |
-| 16 | 23 | GPIO23 | free |
-| 17 | — | 3V3 | power |
-| 18 | 24 | GPIO24 | free |
-| 19 | 10 | MOSI | free |
-| 20 | — | GND | power |
-| 21 | 9 | MISO | free |
-| 22 | 25 | GPIO25 | free |
-| 23 | 11 | SCLK | free |
-| 24 | 8 | CE0 | free |
-| 25 | — | GND | power |
-| 26 | 7 | CE1 | free |
-| 27 | 0 | ID_SD | do-not-use |
-| 28 | 1 | ID_SCL | do-not-use |
-| 29 | 5 | GPIO5 | free |
-| 30 | — | GND | power |
-| 31 | 6 | GPIO6 | free |
-| 32 | 12 | GPIO12 | free |
-| 33 | 13 | GPIO13 | free |
-| 34 | — | GND | power |
-| 35 | 19 | PCM_FS (`I2S_LRCLK`) | chime |
-| 36 | 16 | GPIO16 | free |
-| 37 | 26 | GPIO26 | free |
-| 38 | 20 | PCM_DIN | free |
-| 39 | — | GND | power |
-| 40 | 21 | PCM_DOUT (`I2S_DIN`) | chime |
-
-Pins 27 and 28 are the HAT ID EEPROM I2C bus. Every pin marked `free` is available for use. GPIO18, GPIO19, and GPIO21 are taken.
-
-### Software
-
-Keys and validation stay in `schema/chime_config.json`. Ring publishes into these contracts:
-
-- MQTT `ring_topic` (default `ring/pressed`): Ring reports a press. Any message whose topic matches the filter plays `sound_path`. The payload has no required schema.
-- MQTT `heartbeat_topic` (default `chime/heartbeat`): Chime reports it is alive (`alive` or `degraded`).
-- HTTPS `chime-webd` on port 8443: pair, then session. See [chime/README.md](../../../../chime/README.md).
-- Audio: `aplay` plays the WAV. `volume_ring` / `volume_notifications` scale PCM on the Pi. Amp analog gain is the GAIN strap only.
-
-### Mechanical
-
-PWR_IN must stay reachable with the lid on. Enclosure CAD: [Body.step](../../cad/fusion/exports/Body.step), [Front_Cover.step](../../cad/fusion/exports/Front_Cover.step).
-
-### Datasheets
+## Datasheets
 
 - [Raspberry Pi Zero W](https://www.raspberrypi.com/products/raspberry-pi-zero-w/)
 - [Raspberry Pi 12.5 W micro-USB PSU](https://www.raspberrypi.com/products/micro-usb-power-supply/) (5.1 V, 2.5 A)
 - [MAX98357A](https://www.analog.com/media/en/technical-documentation/data-sheets/MAX98357A-MAX98357B.pdf)
+- [Adafruit MAX98357A breakout](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts)
 - [EKULIT LSM-104F/SQ](https://cdn-reichelt.de/documents/datenblatt/I200/EKULIT-130050.pdf) (8 Ω ±15%, 3 W nominal)
