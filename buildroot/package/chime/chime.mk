@@ -49,7 +49,6 @@ CHIME_CONF_OPTS = \
 	-DCHIME_BUILD_ID=$(CHIME_BUILD_ID)
 
 define CHIME_INSTALL_VERSION_FILES
-	mkdir -p $(TARGET_DIR)/etc/chime-web/tls
 	mkdir -p $(TARGET_DIR)/etc
 	printf '%s\n' "$(CHIME_VERSION)" > $(TARGET_DIR)/etc/chime-app-version
 	printf '%s\n' "$(CHIME_BUILD_ID)" > $(TARGET_DIR)/etc/chime-build-id

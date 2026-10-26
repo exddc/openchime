@@ -66,8 +66,9 @@ For repository-wide formatting/lint checks (C/C++ + webui Biome), run:
 - The salted admin verifier is `/var/lib/chime/auth/admin.verifier` (mode `0600`), PBKDF2-HMAC-SHA256 with 600000 iterations (OWASP 2023). The stored iteration count is used at verify time, so a later default change still accepts existing verifiers. Wipe that directory under `/data` to restore pairing without deleting Wi-Fi or MQTT config.
 - Reserves `/api/v1/system/*`, `/api/v1/device/*`, and `/api/v1/diagnostics/*` for future API expansion (`501` responses in v1).
 - Uses self-signed TLS cert/key at:
-  - `/etc/chime-web/tls/cert.pem`
-  - `/etc/chime-web/tls/key.pem`
+  - `/etc/persistent/webd-tls/cert.pem`
+  - `/etc/persistent/webd-tls/key.pem`
+  - Both live on `/data` (`/data/etc/webd-tls/`) and survive OTA updates.
 - Optional static UI override:
   - Set `CHIME_WEBD_UI_DIST_DIR` to serve built web assets (for example Svelte
     `dist/`) instead of the embedded fallback UI.

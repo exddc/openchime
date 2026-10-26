@@ -28,8 +28,8 @@ namespace {
 
 constexpr const char *kChimeConfigPath = "/etc/chime.conf";
 constexpr const char *kWpaSupplicantPath = "/etc/wpa_supplicant/wpa_supplicant.conf";
-constexpr const char *kTlsCertPath = "/etc/chime-web/tls/cert.pem";
-constexpr const char *kTlsKeyPath = "/etc/chime-web/tls/key.pem";
+constexpr const char *kTlsCertPath = "/etc/persistent/webd-tls/cert.pem";
+constexpr const char *kTlsKeyPath = "/etc/persistent/webd-tls/key.pem";
 constexpr const char *kUiDistDir = "/usr/local/share/chime-web-ui/dist";
 constexpr const char *kBindAddress = "0.0.0.0";
 constexpr int kListenPort = 8443;

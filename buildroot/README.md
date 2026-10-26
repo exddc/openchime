@@ -209,7 +209,6 @@ Chime (`board/raspberrypi0w/rootfs_overlay`):
 | `etc/init.d/S32config-migrate` | Rewrites `/etc/chime.conf` to the current schema before daemons start |
 | `etc/init.d/S99chime` | Chime application with auto-restart and log rotation |
 | `etc/init.d/S99otaconfirm` | Confirms pending OTA update when `chime` + `chime-webd` are healthy |
-| `etc/chime-web/tls` | `chime-webd` self-signed TLS certificate and private key |
 | `etc/inittab` | Getty on ttyS0 for serial console |
 
 ### Build configuration
@@ -292,8 +291,8 @@ On-device paths:
 |------|------|
 | `/usr/local/share/chime-web-ui/dist` | Production Svelte bundle (`index.html` + hashed assets) |
 | `/usr/local/bin/chime-webd` | HTTPS daemon that serves that dist at port 8443 |
-| `/etc/chime-web/tls/cert.pem` | Self-signed TLS certificate |
-| `/etc/chime-web/tls/key.pem` | TLS private key |
+| `/etc/persistent/webd-tls/cert.pem` | Self-signed TLS certificate (on `/data`, survives OTA updates) |
+| `/etc/persistent/webd-tls/key.pem` | TLS private key |
 
 ### wpa_supplicant.conf format
 ```
@@ -415,7 +414,7 @@ The production audio card has no SD_MODE GPIO. `post_image.sh` builds it from `b
 
 ### Configuration web server
 
-The Ring runs `chime-webd` on port 8443 for pairing, Wi-Fi, and MQTT until a Ring-specific daemon exists. `/etc/default/chime-webd` points it at Ring paths:
+The Ring runs `chime-webd` on port 8443 for pairing, Wi-Fi, and MQTT until a Ring-specific daemon exists. `/etc/default/chime-webd` points it at Ring paths; TLS uses the shared default:
 
 | Purpose | Path |
 |---------|------|
