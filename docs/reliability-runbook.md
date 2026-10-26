@@ -120,7 +120,7 @@ Do not delete `/data/var/lib/chime/` as a whole; that directory also holds obser
 
 ## Persistent config
 
-`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, bind-mounts `/data/etc` onto `/etc/persistent`, and installs symlinks so runtime paths see those files. `rename(2)` can then replace `chime.conf` atomically. File bind-mounts from older images are unmounted first.
+`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, bind-mounts `/data/etc` onto `/etc/persistent`, and installs symlinks so runtime paths see those files. `rename(2)` can then replace `chime.conf` atomically. File bind-mounts from older images are unmounted first. If `/data` is not mounted, it logs `FAIL (/data not mounted)` and changes nothing, so no state is written to the rootfs.
 
 | Persistent path | Runtime path |
 | --- | --- |
