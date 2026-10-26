@@ -131,7 +131,7 @@ function entry(item: unknown, path: string): [string, unknown[]] {
 
 function load(path: string): Model {
   const doc = parse(readFileSync(path, "utf8"));
-  const cables: Record<string, Record<string, unknown[]>> = doc.cables ?? {};
+  const cables: Record<string, Record<string, unknown>> = doc.cables ?? {};
   const specs = Object.entries<Record<string, unknown>>(doc.connectors ?? {});
   const connectors = new Map<string, Connector>();
 
@@ -171,11 +171,18 @@ function load(path: string): Model {
   };
 
   const wireLabel = (name: string, value: unknown): string => {
-    const colors = (cables[name].colors ?? []).map(String);
-    const wirelabels = (cables[name].wirelabels ?? []).map(String);
+    const colors = ((cables[name].colors as unknown[]) ?? []).map(String);
+    const wirelabels = ((cables[name].wirelabels as unknown[]) ?? []).map(
+      String,
+    );
+    const count = Number(
+      cables[name].wirecount ?? Math.max(colors.length, wirelabels.length),
+    );
     const index =
       typeof value === "number" ? value - 1 : wirelabels.indexOf(String(value));
-    if (index < 0) throw new Error(`${path}: ${name} has no wire ${value}`);
+    if (index < 0 || index >= count) {
+      throw new Error(`${path}: ${name} has no wire ${value}`);
+    }
     return [name, colors[index]].filter(Boolean).join(" ");
   };
 
