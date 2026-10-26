@@ -86,13 +86,19 @@ On-device, a successful ring logs `ring received` in `/var/log/chime.log`.
 
 TLS material (generated on first start if missing):
 
-- `/etc/chime-web/tls/cert.pem`
-- `/etc/chime-web/tls/key.pem`
+- `/etc/persistent/webd-tls/cert.pem`
+- `/etc/persistent/webd-tls/key.pem`
 
 ```sh
 /etc/init.d/S45webd status
 tail -f /var/log/chime-web.log
-ls -l /etc/chime-web/tls/cert.pem /etc/chime-web/tls/key.pem
+ls -l /etc/persistent/webd-tls/cert.pem /etc/persistent/webd-tls/key.pem
+```
+
+The certificate lives on `/data` (`/data/etc/webd-tls/`), so it survives OTA updates. On the first update from an image that kept it in `/etc/chime-web/tls/`, `ota-install` (and `deploy.sh chime --with-webd`) copies it there. To compare the fingerprint before and after an update, run this from the host:
+
+```sh
+openssl s_client -connect <device-ip>:8443 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256
 ```
 
 Open `https://<device-ip>:8443` (self-signed certificate). A new device shows pairing until an admin password is set. After pairing, sign in with that password. Apply from the UI restarts networking (`/etc/init.d/S40network restart`) and the ring service (`/etc/init.d/S99chime restart`).
@@ -114,7 +120,7 @@ Do not delete `/data/var/lib/chime/` as a whole; that directory also holds obser
 
 ## Persistent config
 
-`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, bind-mounts `/data/etc` onto `/etc/persistent`, and installs symlinks so runtime paths see those files. `rename(2)` can then replace `chime.conf` atomically. File bind-mounts from older images are unmounted first.
+`/data` is `mmcblk0p4` (`/etc/fstab`). `S31persistent` copies factory files into `/data` when missing, bind-mounts `/data/etc` onto `/etc/persistent`, and installs symlinks so runtime paths see those files. `rename(2)` can then replace `chime.conf` atomically. File bind-mounts from older images are unmounted first. If `/data` is not mounted, it logs `FAIL (/data not mounted)` and changes nothing, so no state is written to the rootfs.
 
 | Persistent path | Runtime path |
 | --- | --- |

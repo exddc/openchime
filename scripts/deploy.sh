@@ -279,6 +279,19 @@ mv -f $REMOTE_WEBD_BINARY_STAGING_PATH $REMOTE_WEBD_BINARY_PATH
         log "Build UI assets first with: ./scripts/local_chime.sh webui-build"
     fi
 
+    log "Carrying over TLS certificate to /data if needed..."
+    ssh $SSH_OPTS "$SSH_USER@$host" "
+set -e
+[ -f /etc/chime-web/tls/cert.pem ] && [ -f /etc/chime-web/tls/key.pem ] || exit 0
+[ -e /data/etc/webd-tls/cert.pem ] && [ -e /data/etc/webd-tls/key.pem ] && exit 0
+mkdir -p /data/etc/webd-tls
+chmod 700 /data/etc/webd-tls
+cp -p /etc/chime-web/tls/key.pem /data/etc/webd-tls/key.pem.tmp
+cp -p /etc/chime-web/tls/cert.pem /data/etc/webd-tls/cert.pem.tmp
+mv -f /data/etc/webd-tls/key.pem.tmp /data/etc/webd-tls/key.pem
+mv -f /data/etc/webd-tls/cert.pem.tmp /data/etc/webd-tls/cert.pem
+"
+
     log "Starting web service..."
     ssh $SSH_OPTS "$SSH_USER@$host" "/etc/init.d/S45webd start"
 

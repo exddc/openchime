@@ -19,6 +19,17 @@ carry_over_ssh_host_keys() {
     done
 }
 
+carry_over_webd_tls() {
+    [ -f /etc/chime-web/tls/cert.pem ] && [ -f /etc/chime-web/tls/key.pem ] || return 0
+    [ -e /data/etc/webd-tls/cert.pem ] && [ -e /data/etc/webd-tls/key.pem ] && return 0
+    mkdir -p /data/etc/webd-tls
+    chmod 700 /data/etc/webd-tls
+    cp -p /etc/chime-web/tls/key.pem /data/etc/webd-tls/key.pem.tmp &&
+        cp -p /etc/chime-web/tls/cert.pem /data/etc/webd-tls/cert.pem.tmp &&
+        mv -f /data/etc/webd-tls/key.pem.tmp /data/etc/webd-tls/key.pem &&
+        mv -f /data/etc/webd-tls/cert.pem.tmp /data/etc/webd-tls/cert.pem
+}
+
 IMAGE_PATH=""
 EXPECTED_SHA256=""
 FW_VERSION=""
@@ -119,6 +130,7 @@ if [ "$ACTUAL_TARGET_SHA256" != "$EXPECTED_SHA256" ]; then
 fi
 
 carry_over_ssh_host_keys || ota_log "could not copy SSH host keys to /data/etc/dropbear"
+carry_over_webd_tls || ota_log "could not copy webd TLS certificate to /data/etc/webd-tls"
 
 write_pending_state "$TARGET_SLOT" "$PREVIOUS_SLOT" "$FW_VERSION" "$EXPECTED_SHA256" "$(utc_now)" "$OTA_MAX_ATTEMPTS"
 set_env_kv "$OTA_STATUS_FILE" LAST_RESULT "install_staged"
