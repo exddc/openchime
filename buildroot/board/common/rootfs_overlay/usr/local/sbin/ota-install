@@ -24,10 +24,10 @@ carry_over_webd_tls() {
     [ -e /data/etc/webd-tls/cert.pem ] && [ -e /data/etc/webd-tls/key.pem ] && return 0
     mkdir -p /data/etc/webd-tls
     chmod 700 /data/etc/webd-tls
-    cp -p /etc/chime-web/tls/key.pem /data/etc/webd-tls/key.pem.tmp
-    cp -p /etc/chime-web/tls/cert.pem /data/etc/webd-tls/cert.pem.tmp
-    mv -f /data/etc/webd-tls/key.pem.tmp /data/etc/webd-tls/key.pem
-    mv -f /data/etc/webd-tls/cert.pem.tmp /data/etc/webd-tls/cert.pem
+    cp -p /etc/chime-web/tls/key.pem /data/etc/webd-tls/key.pem.tmp &&
+        cp -p /etc/chime-web/tls/cert.pem /data/etc/webd-tls/cert.pem.tmp &&
+        mv -f /data/etc/webd-tls/key.pem.tmp /data/etc/webd-tls/key.pem &&
+        mv -f /data/etc/webd-tls/cert.pem.tmp /data/etc/webd-tls/cert.pem
 }
 
 IMAGE_PATH=""
