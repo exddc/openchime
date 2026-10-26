@@ -13,8 +13,9 @@ Housing: STEP exports in [cad/fusion/exports/](cad/fusion/exports/), print files
 
 ![Chime wiring](wiring.svg)
 
-Drawing source: [wiring.yml](wiring.yml). Regenerate the committed SVG with WireViz 0.4.1 and Graphviz 14 or newer:
+Drawing source: [wiring.yml](wiring.yml), in WireViz YAML format. Regenerate the committed SVG with Bun:
 
 ```sh
-wireviz -f s hardware/chime/wiring.yml
+bun install --cwd scripts/wiring
+bun scripts/wiring/render.ts hardware/chime/wiring.yml
 ```

@@ -34,4 +34,4 @@ Estimated cut lengths for W1–W3 include 30 mm for termination and movement; W4
 | 24 AWG internal wire | 0.40 m cut; 0.48 m with 20% waste |
 | 26 AWG internal wire | 0.32 m cut; 0.38 m with 20% waste |
 
-Solder the J8 loom; friction-fit housings loosen with speaker vibration. Include heat-shrink for every J8 joint and the C1 leads. WireViz lengths are in [wiring.yml](wiring.yml); the generated wire report omits modules and passives, so use this BOM for procurement.
+Solder the J8 loom; friction-fit housings loosen with speaker vibration. Include heat-shrink for every J8 joint and the C1 leads. Harness lengths are also in [wiring.yml](wiring.yml); use this BOM for procurement.

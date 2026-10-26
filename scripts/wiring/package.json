@@ -1,0 +1,9 @@
+{
+  "name": "openchime-wiring",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "elkjs": "0.12.0",
+    "yaml": "2.9.1"
+  }
+}
