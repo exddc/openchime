@@ -42,21 +42,6 @@ The doorbell unit. Next product after Chime.
 
 A future product.
 
-## Repository Structure
-
-```
-├── platform/           # Product-agnostic C++ platform (`oc::`; see platform/README.md)
-├── chime/              # Chime ring service and HTTPS setup daemon (`src/webd/`)
-├── webui/              # Svelte configuration UI served by chime-webd
-├── buildroot/          # Chime (Pi Zero W) and Ring (Pi Zero 2 W) images, overlays, and OTA tooling
-├── hardware/           # CAD, BOM, wiring (chime/, ring/)
-├── scripts/            # Build, CI, flash, deploy, and local-run helpers
-├── docs/               # Operational documentation
-├── mosquitto/          # Local Mosquitto config for docker-compose
-├── ring/               # Doorbell (next product)
-└── base/               # Future product
-```
-
 ## Documentation
 
 - [Platform README](platform/README.md) — product-agnostic library, dependency direction, adding a route
