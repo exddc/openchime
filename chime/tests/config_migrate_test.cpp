@@ -241,6 +241,24 @@ TEST_SUITE("config_migrate") {
         CHECK(oc::config::KvDocumentValue(filter_doc, "ring_topic") == "lab/+");
     }
 
+    TEST_CASE("an invalid Ring topic still moves its partner off the old default") {
+        const ScopedTempDir tmp;
+        const auto empty_list = tmp.WriteFile("list.conf", "schema_version=6\nmqtt_host=broker\nmqtt_port=1883\n"
+                                                           "mqtt_topics=\nring_topic=ring/pressed\n");
+        REQUIRE(chime::MigratePersistedConfig(empty_list.string()).success);
+        const auto list_doc = oc::config::ParseKvDocument(ReadText(empty_list));
+        CHECK(oc::config::KvDocumentValue(list_doc, "mqtt_topics") == "ring/+/pressed/#,ring/+/status");
+        CHECK(oc::config::KvDocumentValue(list_doc, "ring_topic") == "ring/+/pressed/#");
+
+        const auto bad_filter =
+            tmp.WriteFile("filter.conf", "schema_version=6\nmqtt_host=broker\nmqtt_port=1883\n"
+                                         "mqtt_topics=ring/pressed,ring/status\nring_topic=bad topic\n");
+        REQUIRE(chime::MigratePersistedConfig(bad_filter.string()).success);
+        const auto filter_doc = oc::config::ParseKvDocument(ReadText(bad_filter));
+        CHECK(oc::config::KvDocumentValue(filter_doc, "mqtt_topics") == "ring/+/pressed/#,ring/+/status");
+        CHECK(oc::config::KvDocumentValue(filter_doc, "ring_topic") == "ring/+/pressed/#");
+    }
+
     TEST_CASE("keeps custom v6 Ring topics") {
         const ScopedTempDir tmp;
         const auto path = tmp.WriteFile("v6.conf", "schema_version=6\nmqtt_host=broker\nmqtt_port=1883\n"

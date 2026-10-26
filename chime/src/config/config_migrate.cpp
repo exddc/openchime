@@ -57,8 +57,13 @@ void DropRemovedKeys(std::vector<oc::config::KvEntry> *document) {
 bool HoldsReplacedDefaults(const std::vector<oc::config::KvEntry> &document, const ConfigMigrationStep &step) {
     for (std::size_t i = 0; i < step.replace_count; ++i) {
         const ConfigValueReplaceSpec &replace = step.replaces[i];
-        if (oc::config::KvDocumentHasKey(document, replace.key) &&
-            oc::config::KvDocumentValue(document, replace.key) != replace.from) {
+        if (!oc::config::KvDocumentHasKey(document, replace.key)) {
+            continue;
+        }
+        const std::string value = oc::config::KvDocumentValue(document, replace.key);
+        const ConfigFieldSpec *field = FindConfigField(replace.key);
+        const bool will_be_repaired = field != nullptr && !ConfigFieldValueValid(*field, value);
+        if (value != replace.from && !will_be_repaired) {
             return false;
         }
     }
@@ -105,8 +110,9 @@ std::vector<std::string> ApplyConfigMigrationSteps(std::vector<oc::config::KvEnt
         }
         for (std::size_t v = 0; v < step.replace_count; ++v) {
             const ConfigValueReplaceSpec &replace = step.replaces[v];
+            const std::string previous = oc::config::KvDocumentValue(*document, replace.key);
             oc::config::KvDocumentSetValue(*document, replace.key, replace.to);
-            replaced.push_back(std::string(replace.key) + ": " + replace.from + " -> " + replace.to);
+            replaced.push_back(std::string(replace.key) + ": " + previous + " -> " + replace.to);
         }
     }
     return replaced;
