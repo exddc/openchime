@@ -85,8 +85,8 @@ Estimated cut lengths include 30–50 mm for termination and movement. Layout as
 
 | Cable | Route | Conductors | Length each | Total conductor length |
 | --- | --- | --- | --- | --- |
-| WAC | Installation cable to the Juicer JAC | 3 × 1.5 mm² | Installation-specific | Excluded |
-| W1 | Juicer PE_FRONT to the front plate | 1 × 1.0 mm² | 250 mm | 0.25 m |
+| WAC | Installation cable to the Juicer JAC | 3 × 1.5 mm² NYY-J or H07RN-F | Installation-specific | Excluded |
+| W1 | Juicer PE_FRONT to the front plate | 1 × 1.0 mm² H07V-K | 250 mm | 0.25 m |
 | W2 | Juicer JY1 to J8 pins 2 and 6 | 2 × 20 AWG | 200 mm | 0.40 m |
 | W3 | Juicer JY2 to U1 supply | 2 × 22 AWG | 200 mm | 0.40 m |
 | W4 | Juicer JY3 to relay coil supply | 2 × 22 AWG | 200 mm | 0.40 m |
@@ -119,4 +119,4 @@ Allow approximately 7.8 m of loose wire, distributed across the listed gauges an
 
 The installation, strike, and gate cables are outside this internal-wire estimate. Their routes require an installation survey; the strike cable also requires voltage-drop verification against the 11–13 V window.
 
-WireViz lengths are in [power](wiring-power.yml), [audio](wiring-audio.yml), and [I/O](wiring-io.yml). Generated wire reports omit boards, modules, and passives; use this BOM for procurement.
+Harness lengths are also in [power](wiring-power.yml), [audio](wiring-audio.yml), and [I/O](wiring-io.yml); use this BOM for procurement.

@@ -26,10 +26,11 @@ Clicker, relays, and sensor, source [wiring-io.yml](wiring-io.yml):
 
 ![Ring Clicker, relays, and sensor](wiring-io.svg)
 
-Regenerate the committed SVGs with WireViz 0.4.1 and Graphviz 14 or newer; each SVG records the Graphviz version in its header comment:
+The sources use the WireViz YAML format. Regenerate the committed SVGs with Bun:
 
 ```sh
-wireviz -f s hardware/ring/wiring-power.yml hardware/ring/wiring-audio.yml hardware/ring/wiring-io.yml
+bun install --cwd scripts/wiring
+bun scripts/wiring/render.ts hardware/ring/wiring-power.yml hardware/ring/wiring-audio.yml hardware/ring/wiring-io.yml
 ```
 
-Use [bom.md](bom.md) for procurement; generated wire reports are partial.
+Use [bom.md](bom.md) for procurement.
