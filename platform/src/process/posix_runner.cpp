@@ -164,7 +164,6 @@ void SendSignal(pid_t pid, int sig) {
 
 bool LeaderExited(pid_t pid) {
     for (;;) {
-        // Some platforms leave info untouched when WNOHANG finds no exited child.
         siginfo_t info{};
         if (waitid(P_PID, static_cast<id_t>(pid), &info, WEXITED | WNOHANG | WNOWAIT) == 0) {
             return info.si_pid == pid;

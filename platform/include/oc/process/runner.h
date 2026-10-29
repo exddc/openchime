@@ -30,9 +30,6 @@ struct Command {
 struct Request {
     Command command;
     std::chrono::milliseconds timeout{kDefaultTimeout};
-    // On timeout or cancellation, SIGTERM goes to the child's process group. SIGKILL follows when
-    // this period ends or the child exits, whichever comes first, so descendants that outlive the
-    // child lose the rest of their grace period.
     std::chrono::milliseconds graceful_shutdown{kDefaultGracefulShutdown};
     bool capture_stdout = false;
     bool capture_stderr = false;
