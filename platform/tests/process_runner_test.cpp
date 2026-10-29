@@ -178,15 +178,30 @@ TEST_SUITE("process_runner") {
         CHECK(result.error == "timed out");
     }
 
+    TEST_CASE("timeout returns once a SIGTERM-responsive child exits") {
+        oc::process::PosixRunner runner;
+        auto request = Helper({"sleep-ms", "5000"});
+        request.timeout = std::chrono::milliseconds(100);
+        request.graceful_shutdown = std::chrono::seconds(2);
+        const auto started = std::chrono::steady_clock::now();
+        const auto result = runner.Run(request);
+        const auto elapsed = std::chrono::steady_clock::now() - started;
+        CHECK(result.outcome == oc::process::Outcome::TimedOut);
+        CHECK(result.terminating_signal == SIGTERM);
+        CHECK(elapsed < std::chrono::seconds(1));
+    }
+
     TEST_CASE("timeout kills a forked grandchild") {
         const ScopedTempDir tmp;
         const auto pid_path = tmp.path() / "grandchild.pid";
         oc::process::PosixRunner runner;
         auto request = Helper({"fork-sleep", pid_path.string()});
         request.timeout = std::chrono::seconds(2);
-        request.graceful_shutdown = std::chrono::milliseconds(200);
+        request.graceful_shutdown = std::chrono::seconds(2);
+        const auto started = std::chrono::steady_clock::now();
         const auto result = runner.Run(request);
         CHECK(result.outcome == oc::process::Outcome::TimedOut);
+        CHECK(std::chrono::steady_clock::now() - started < request.timeout + std::chrono::seconds(1));
 
         std::ifstream in(pid_path);
         REQUIRE(in.is_open());
@@ -214,10 +229,12 @@ TEST_SUITE("process_runner") {
             result = runner.Run(request);
         });
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        const auto stopped = std::chrono::steady_clock::now();
         source.request_stop();
         worker.join();
         CHECK(result.outcome == oc::process::Outcome::Cancelled);
         CHECK(result.error == "cancelled");
+        CHECK(std::chrono::steady_clock::now() - stopped < std::chrono::seconds(1));
     }
 
     TEST_CASE("stdout capture is truncated at the configured bound") {

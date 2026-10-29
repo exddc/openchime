@@ -162,6 +162,18 @@ void SendSignal(pid_t pid, int sig) {
     kill(-pid, sig);
 }
 
+bool LeaderExited(pid_t pid) {
+    for (;;) {
+        siginfo_t info{};
+        if (waitid(P_PID, static_cast<id_t>(pid), &info, WEXITED | WNOHANG | WNOWAIT) == 0) {
+            return info.si_pid == pid;
+        }
+        if (errno != EINTR) {
+            return false;
+        }
+    }
+}
+
 } // namespace
 
 Result PosixRunner::Run(const Request &request) {
@@ -319,7 +331,8 @@ Result PosixRunner::Run(const Request &request) {
         consume();
 
         // Reaping the leader frees its process-group ID for reuse, so during escalation
-        // it stays unreaped until SIGKILL has gone to the group.
+        // it stays unreaped until SIGKILL has gone to the group. LeaderExited peeks with
+        // WNOWAIT, so an exited leader still holds the ID while SIGKILL goes out early.
         if (stop_reason == StopReason::None || sent_kill) {
             const Reap reap = try_reap();
             if (reap == Reap::Done) {
@@ -345,7 +358,7 @@ Result PosixRunner::Run(const Request &request) {
             sent_term = true;
             term_deadline = now + graceful;
         }
-        if (sent_term && !sent_kill && now >= term_deadline) {
+        if (sent_term && !sent_kill && (now >= term_deadline || LeaderExited(pid))) {
             SendSignal(pid, SIGKILL);
             sent_kill = true;
             continue;
