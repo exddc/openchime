@@ -398,6 +398,8 @@ The image is `buildroot/output/ring-rpi0w/sdcard.img`; the root filesystem is be
 
 This is a hardware bring-up image: Ring application services are not implemented yet. Wi-Fi and SSH credentials come from the existing shared overlay.
 
+The Ring defconfigs enable `patches/libcamera-apps/1.2.1/`, which backports the upstream orientation API change so Buildroot 2024.02.1's camera applications compile against its libcamera 0.2.0.
+
 Packages beyond the Chime base: libcamera with the rpi/vc4 pipeline and libcamera-apps, BlueZ (`bluetoothd`, `bluetoothctl`, `btmon`), libgpiod tools, and alsa-utils (`aplay`, `arecord`, `amixer`, `speaker-test`).
 
 The build output goes to `buildroot/output/ring/` and to `output-ring/` in the Docker cache volume. The original Zero W uses `buildroot/output/ring-rpi0w/` and `output-ring-rpi0w/`, so all three builds remain separate.
