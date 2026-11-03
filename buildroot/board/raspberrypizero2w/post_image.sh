@@ -1,12 +1,18 @@
 #!/bin/bash
-# Post-image script for the Ring image (Raspberry Pi Zero 2 W)
+# Post-image script for the Ring images
 set -euo pipefail
 
 BOARD_DIR="$(dirname "$0")"
 BINARIES_DIR="${BINARIES_DIR:-$1}"
 DTC="${HOST_DIR:?HOST_DIR is not set}/bin/dtc"
 
-cp "${BOARD_DIR}/config.txt" "${BINARIES_DIR}/"
+case "${2:-rpi02w}" in
+    rpi0w) genimage="genimage-rpi0w.cfg" ;;
+    rpi02w) genimage="genimage.cfg" ;;
+    *) echo "ERROR: unsupported Ring board: $2" >&2; exit 1 ;;
+esac
+
+cp "${BOARD_DIR}/config.txt" "${BINARIES_DIR}/config.txt"
 cp "${BOARD_DIR}/cmdline.txt" "${BINARIES_DIR}/"
 
 [ -f "${BINARIES_DIR}/rpi-firmware/bootcode.bin" ] || {
@@ -32,6 +38,6 @@ rm -f "$DATA_IMAGE"
 dd if=/dev/zero of="$DATA_IMAGE" bs=1M count="$DATA_IMAGE_SIZE_MIB" status=none
 mkfs.ext4 -F -L data "$DATA_IMAGE" >/dev/null
 
-support/scripts/genimage.sh -c "${BOARD_DIR}/genimage.cfg"
+support/scripts/genimage.sh -c "${BOARD_DIR}/$genimage"
 
 echo "SD card image generated: images/sdcard.img"

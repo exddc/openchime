@@ -1,9 +1,10 @@
 #!/bin/bash
-# Post-build script for the Ring image (Raspberry Pi Zero 2 W)
+# Post-build script for the Ring images
 set -euo pipefail
 
 BOARD_DIR="$(dirname "$0")"
 TARGET_DIR="$1"
+BOARD="${2:-rpi02w}"
 CHIME_CONF_TEMPLATE="${BOARD_DIR}/../raspberrypi0w/rootfs_overlay/etc/chime.conf"
 FACTORY_DIR="${TARGET_DIR}/usr/local/share/openchime/factory"
 
@@ -20,14 +21,28 @@ oc_require_executables \
 oc_common_post_build
 
 FIRMWARE_DIR="${TARGET_DIR}/lib/firmware/brcm"
-for chip in 43436 43436s; do
+case "$BOARD" in
+    rpi0w) chips="43430"; model="zero-w" ;;
+    rpi02w) chips="43436 43436s"; model="zero-2-w" ;;
+    *) echo "ERROR: unsupported Ring board: $BOARD" >&2; exit 1 ;;
+esac
+firmware_found=0
+for chip in $chips; do
+    if [ -f "${FIRMWARE_DIR}/brcmfmac${chip}-sdio.bin" ]; then
+        firmware_found=1
+    fi
     for ext in bin txt; do
         if [ -e "${FIRMWARE_DIR}/brcmfmac${chip}-sdio.${ext}" ]; then
             ln -sf "brcmfmac${chip}-sdio.${ext}" \
-                "${FIRMWARE_DIR}/brcmfmac${chip}-sdio.raspberrypi,model-zero-2-w.${ext}"
+                "${FIRMWARE_DIR}/brcmfmac${chip}-sdio.raspberrypi,model-${model}.${ext}"
         fi
     done
 done
+
+[ "$firmware_found" -eq 1 ] || {
+    echo "ERROR: Wi-Fi firmware missing for Ring board $BOARD (chips: $chips)" >&2
+    exit 1
+}
 
 # Read-only root: mutable files live on /data and are reached through
 # /etc/persistent (bind mount of /data/etc, see S31persistent).
@@ -56,5 +71,6 @@ fi
 ln -sfn /etc/persistent/wpa_supplicant.conf "$WPA_CONF"
 
 oc_write_release ring usr/local/share/openchime/factory/ring.conf
+printf 'OPENCHIME_BOARD=%s\n' "$BOARD" >> "${TARGET_DIR}/etc/openchime-release"
 
 echo "Post-build complete"

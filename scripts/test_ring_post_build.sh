@@ -6,6 +6,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BOARD_DIR="$PROJECT_DIR/buildroot/board/raspberrypizero2w"
 COMMON_OVERLAY="$PROJECT_DIR/buildroot/board/common/rootfs_overlay"
 POST_BUILD="$BOARD_DIR/post_build.sh"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 fail() {
     echo "[test-ring-post-build] ERROR: $*" >&2
@@ -33,23 +35,24 @@ seed_target() {
     printf '#!/bin/sh\n' > "$target/etc/init.d/S49ntp"
     : > "$target/lib/firmware/brcm/brcmfmac43436-sdio.bin"
     : > "$target/lib/firmware/brcm/brcmfmac43436-sdio.txt"
+    : > "$target/lib/firmware/brcm/brcmfmac43430-sdio.bin"
+    : > "$target/lib/firmware/brcm/brcmfmac43430-sdio.txt"
     mkdir -p "$target/usr/local/share/chime-web-ui/dist"
     printf '<p>ui</p>\n' > "$target/usr/local/share/chime-web-ui/dist/index.html"
 }
 
 main() {
-    local tmp target output factory
-    tmp="$(mktemp -d)"
-    trap 'rm -rf "${tmp:-}"' EXIT
-    target="$tmp/target"
+    local board="$1" chip="$2" model="$3"
+    local target output factory
+    target="$TMP_DIR/$board"
     mkdir -p "$target"
     seed_target "$target"
 
-    output="$(bash "$POST_BUILD" "$target" 2>&1)" || fail "post_build.sh failed: $output"
+    output="$(bash "$POST_BUILD" "$target" "$board" 2>&1)" || fail "post_build.sh failed: $output"
 
     rm -f "$target/etc/wpa_supplicant/wpa_supplicant.conf"
     printf 'network={}\n' > "$target/etc/wpa_supplicant/wpa_supplicant.conf"
-    output="$(bash "$POST_BUILD" "$target" 2>&1)" || fail "second post_build.sh run failed: $output"
+    output="$(bash "$POST_BUILD" "$target" "$board" 2>&1)" || fail "second post_build.sh run failed: $output"
 
     factory="$target/usr/local/share/openchime/factory"
     [ -f "$factory/ring.conf" ] || fail "factory ring.conf missing"
@@ -63,7 +66,9 @@ main() {
     expect_link "$target/etc/ring.conf" /etc/persistent/ring.conf
     expect_link "$target/etc/wpa_supplicant/wpa_supplicant.conf" /etc/persistent/wpa_supplicant.conf
     expect_link "$target/etc/dropbear" /etc/persistent/dropbear
-    expect_link "$target/lib/firmware/brcm/brcmfmac43436-sdio.raspberrypi,model-zero-2-w.bin" brcmfmac43436-sdio.bin
+    for ext in bin txt; do
+        expect_link "$target/lib/firmware/brcm/brcmfmac${chip}-sdio.raspberrypi,model-${model}.${ext}" "brcmfmac${chip}-sdio.${ext}"
+    done
 
     for dir in etc/persistent var/lib/ring var/lib/bluetooth; do
         [ -d "$target/$dir" ] || fail "mount point /$dir missing"
@@ -71,7 +76,15 @@ main() {
     [ ! -e "$target/etc/init.d/S49ntp" ] || fail "S49ntp was not removed"
     grep -qx 'OPENCHIME_PRODUCT=ring' "$target/etc/openchime-release" || fail "release file does not name ring"
 
-    echo "[test-ring-post-build] passed"
+    grep -qx "OPENCHIME_BOARD=$board" "$target/etc/openchime-release" || fail "release file does not name $board"
+    rm "$target/lib/firmware/brcm/brcmfmac${chip}-sdio.bin"
+    if bash "$POST_BUILD" "$target" "$board" > "$TMP_DIR/error.log" 2>&1; then
+        fail "post-build accepted missing Wi-Fi firmware for $board"
+    fi
+    grep -q "Wi-Fi firmware missing for Ring board $board" "$TMP_DIR/error.log" || fail "missing firmware diagnostic absent"
+
+    echo "[test-ring-post-build] $board passed"
 }
 
-main
+main rpi02w 43436 zero-2-w
+main rpi0w 43430 zero-w
