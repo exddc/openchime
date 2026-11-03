@@ -299,9 +299,9 @@ build_start="$(step_start)"
 step_done "make" "$build_start"
 
 if [ -f "$BR_OUT/images/sdcard.img" ]; then
-    cp "$BR_OUT/images/sdcard.img" "$EXPORT_DIR/"
+    cp --sparse=always "$BR_OUT/images/sdcard.img" "$EXPORT_DIR/"
     if [ -f "$BR_OUT/images/rootfs.ext4" ]; then
-        cp "$BR_OUT/images/rootfs.ext4" "$EXPORT_DIR/"
+        cp --sparse=always "$BR_OUT/images/rootfs.ext4" "$EXPORT_DIR/"
     fi
     echo "[build] SUCCESS! Image ready."
 else
@@ -317,18 +317,18 @@ fi
     if [ "$PRODUCT" != "chime" ]; then
         export_subdir="/$BUILD_TARGET"
     fi
-    docker run --rm \
+    docker run --rm --user 0 \
         -v "$VOLUME_NAME:/work:ro" \
         -v "$OUTPUT_DIR:/out" \
         -e SRC="/work$export_subdir" \
-        alpine sh -eu -c '
+        "$IMAGE_NAME" sh -eu -c '
 if [ ! -f "$SRC/sdcard.img" ]; then
     echo "ERROR: sdcard.img not found in Docker volume at $SRC" >&2
     exit 1
 fi
-cp "$SRC/sdcard.img" /out/
+cp --sparse=always "$SRC/sdcard.img" /out/
 if [ -f "$SRC/rootfs.ext4" ]; then
-    cp "$SRC/rootfs.ext4" /out/
+    cp --sparse=always "$SRC/rootfs.ext4" /out/
 fi
 echo "Done"
 '
