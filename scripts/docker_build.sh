@@ -35,8 +35,8 @@ usage() {
 Usage: $0 [buildroot-version] [--product chime|ring] [--board rpi0w|rpi02w] [--clear-docker-cache]
 
 Options:
-  --product <name>      Image to build: chime (Pi Zero W, default) or ring (Pi Zero 2 W default, Pi Zero W with --board rpi0w)
-  --board <name>        Board: rpi0w or rpi02w (defaults: Chime rpi0w, Ring rpi02w)
+  --product <name>      Image to build: chime (Pi Zero W, default) or ring (Pi Zero 2 W)
+  --board <name>        Override target board (Ring default: rpi02w)
   --clear-docker-cache  Remove Docker volume '$VOLUME_NAME' before building
   -h, --help            Show this help text
 

@@ -5,7 +5,6 @@ Lightweight Linux images built from one external tree:
 | Product | Board | Defconfig | Image |
 |---------|-------|-----------|-------|
 | Chime | Raspberry Pi Zero W | `configs/openchime_rpi0w_defconfig` | `output/sdcard.img` |
-| Ring (testing) | Raspberry Pi Zero W | `configs/openchime_ring_rpi0w_defconfig` | `output/ring-rpi0w/sdcard.img` |
 | Ring | Raspberry Pi Zero 2 W | `configs/openchime_ring_rpi02w_defconfig` | `output/ring/sdcard.img` |
 
 Both share `board/common/` (OTA scripts, networking, time sync, SSH, the `chime-webd` supervisor, and Wi-Fi/SSH secrets). The Ring image is described in [Ring image](#ring-image).
@@ -77,7 +76,7 @@ To enforce version bumps in CI (or before merge):
 
 ## Build System
 
-Uses Docker Engine to avoid host dependencies, including OrbStack on macOS. Build artifacts are stored in a Docker volume. The scripts use your current Docker context (`docker context show`); no Docker Desktop is required.
+Uses Docker to avoid host dependencies. Build artifacts stored in a Docker volume.
 
 ```bash
 # Rebuild from scratch
@@ -87,8 +86,8 @@ Uses Docker Engine to avoid host dependencies, including OrbStack on macOS. Buil
 ## Hardware compatibility and minimum SD card size
 
 - Chime image: Raspberry Pi Zero W.
-- Ring image: Raspberry Pi Zero 2 W by default; use `--board rpi0w` for the original Pi Zero W. Each board has its own ARM CPU target, kernel configuration, device tree, firmware links, and output directory.
-- Select the same product and board when building and flashing.
+- Ring image: Raspberry Pi Zero 2 W. Do not flash the Chime image on a Zero 2 W; use the Ring
+  defconfig, which builds the Zero 2 W kernel, device tree, and Wi-Fi/Bluetooth firmware.
 
 Image layout sizing:
 
@@ -108,7 +107,7 @@ Practical guidance:
 ### Docker resource settings (recommended)
 
 If your Mac is mostly idle during builds, Docker is likely CPU/RAM-limited.
-In your container engine settings (OrbStack Settings on macOS), allocate:
+In Docker Desktop, set:
 
 - CPUs: `6-8`
 - Memory: `8-12 GiB`
@@ -379,7 +378,7 @@ If `date` is still near 1970:
 
 ## Ring image
 
-`configs/openchime_ring_rpi02w_defconfig` builds the Ring doorbell image for the Raspberry Pi Zero 2 W (32-bit, Cortex-A53). `configs/openchime_ring_rpi0w_defconfig` targets the original Pi Zero W (ARMv6, ARM1176JZF-S) for testing. Both use the Ring overlay and services, with the same Buildroot release, kernel tag, GCC version, and partition layout as Chime. Hardware and pin map: [hardware/ring](../hardware/ring/README.md).
+`configs/openchime_ring_rpi02w_defconfig` builds the Ring doorbell image for the Raspberry Pi Zero 2 W (32-bit, Cortex-A53). It uses the same Buildroot release, kernel tag, toolchain, partition layout, OTA scripts, and shared overlay as Chime. Hardware and pin map: [hardware/ring](../hardware/ring/README.md).
 
 ```bash
 ./scripts/docker_build.sh --product ring
@@ -387,22 +386,9 @@ If `date` is still near 1970:
 ssh root@ring.local
 ```
 
-For an original **Pi Zero W**, build and flash the separate image:
-
-```bash
-./scripts/docker_build.sh --product ring --board rpi0w
-./scripts/flash_sd.sh --product ring --board rpi0w /dev/diskN
-```
-
-The image is `buildroot/output/ring-rpi0w/sdcard.img`; the root filesystem is beside it as `rootfs.ext4`. Its Docker build directory is `output-ring-rpi0w`, separate from the Zero 2 W and Chime toolchains. Never reuse a toolchain built for Cortex-A53 on the ARMv6 Zero W. Use SD-card flashing for this bring-up image. The existing OTA installer does not validate product or board compatibility; do not use it to switch between Chime, Ring, or Pi models. Ring images record `OPENCHIME_BOARD` in `/etc/openchime-release` for identification.
-
-This is a hardware bring-up image: Ring application services are not implemented yet. Wi-Fi and SSH credentials come from the existing shared overlay.
-
-The Ring defconfigs enable `patches/libcamera-apps/1.2.1/`, which backports the upstream orientation API change so Buildroot 2024.02.1's camera applications compile against its libcamera 0.2.0.
-
 Packages beyond the Chime base: libcamera with the rpi/vc4 pipeline and libcamera-apps, BlueZ (`bluetoothd`, `bluetoothctl`, `btmon`), libgpiod tools, and alsa-utils (`aplay`, `arecord`, `amixer`, `speaker-test`).
 
-The build output goes to `buildroot/output/ring/` and to `output-ring/` in the Docker cache volume. The original Zero W uses `buildroot/output/ring-rpi0w/` and `output-ring-rpi0w/`, so all three builds remain separate.
+The build output goes to `buildroot/output/ring/` and to `output-ring/` in the Docker cache volume, so Chime and Ring builds do not overwrite each other.
 
 ### Differences from Chime
 
