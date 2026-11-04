@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: ./scripts/flash_sd.sh [--product chime|ring] [/dev/diskN]
+# Usage: ./scripts/flash_sd.sh [--product chime|ring] [--board rpi0w|rpi02w] [/dev/diskN]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,9 +9,15 @@ log() { echo "[flash] $*"; }
 error() { echo "[flash] ERROR: $*" >&2; exit 1; }
 
 PRODUCT="chime"
+BOARD=""
 DISK=""
 while [ $# -gt 0 ]; do
     case "$1" in
+        --board)
+            [ $# -ge 2 ] || error "--board requires a value"
+            BOARD="$2"
+            shift 2
+            ;;
         --product)
             [ $# -ge 2 ] || error "--product requires a value"
             PRODUCT="$2"
@@ -27,12 +33,24 @@ done
 
 case "$PRODUCT" in
     chime)
+        BOARD="${BOARD:-rpi0w}"
+        [ "$BOARD" = "rpi0w" ] || error "Chime supports only --board rpi0w"
         IMAGE_PATH="$PROJECT_DIR/buildroot/output/sdcard.img"
         BOARD_NAME="Raspberry Pi Zero W"
         ;;
     ring)
-        IMAGE_PATH="$PROJECT_DIR/buildroot/output/ring/sdcard.img"
-        BOARD_NAME="Raspberry Pi Zero 2 W"
+        BOARD="${BOARD:-rpi02w}"
+        case "$BOARD" in
+            rpi0w)
+                IMAGE_PATH="$PROJECT_DIR/buildroot/output/ring-rpi0w/sdcard.img"
+                BOARD_NAME="Raspberry Pi Zero W"
+                ;;
+            rpi02w)
+                IMAGE_PATH="$PROJECT_DIR/buildroot/output/ring/sdcard.img"
+                BOARD_NAME="Raspberry Pi Zero 2 W"
+                ;;
+            *) error "Unknown Ring board '$BOARD' (expected rpi0w or rpi02w)" ;;
+        esac
         ;;
     *)
         error "Unknown product '$PRODUCT' (expected chime or ring)"
@@ -42,7 +60,7 @@ esac
 # Check image exists
 if [ ! -f "$IMAGE_PATH" ]; then
     error "Image not found at: $IMAGE_PATH
-Run ./scripts/docker_build.sh --product $PRODUCT first to build the image."
+Run ./scripts/docker_build.sh --product $PRODUCT --board $BOARD first to build the image."
 fi
 
 IMAGE_SIZE=$(ls -lh "$IMAGE_PATH" | awk '{print $5}')

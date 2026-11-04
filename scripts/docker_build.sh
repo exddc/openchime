@@ -12,6 +12,8 @@ SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-0}"
 DOCKER_TTY="${DOCKER_TTY:-0}"
 CLEAR_DOCKER_CACHE=0
 PRODUCT="chime"
+BOARD=""
+BUILD_TARGET=""
 
 IMAGE_NAME="openchime-builder"
 VOLUME_NAME="openchime-buildroot-cache"
@@ -30,10 +32,11 @@ log_timing() { local step="$1"; local secs="$2"; log "timing[$step]: ${secs}s"; 
 
 usage() {
     cat <<EOF
-Usage: $0 [buildroot-version] [--product chime|ring] [--clear-docker-cache]
+Usage: $0 [buildroot-version] [--product chime|ring] [--board rpi0w|rpi02w] [--clear-docker-cache]
 
 Options:
   --product <name>      Image to build: chime (Pi Zero W, default) or ring (Pi Zero 2 W)
+  --board <name>        Override target board (Ring default: rpi02w)
   --clear-docker-cache  Remove Docker volume '$VOLUME_NAME' before building
   -h, --help            Show this help text
 
@@ -50,6 +53,11 @@ parse_args() {
             --clear-docker-cache)
                 CLEAR_DOCKER_CACHE=1
                 shift
+                ;;
+            --board)
+                [ $# -ge 2 ] || error "--board requires a value"
+                BOARD="$2"
+                shift 2
                 ;;
             --product)
                 [ $# -ge 2 ] || error "--product requires a value"
@@ -76,14 +84,23 @@ parse_args() {
 }
 
 resolve_product() {
+    BUILD_TARGET="$PRODUCT"
     case "$PRODUCT" in
         chime)
+            BOARD="${BOARD:-rpi0w}"
+            [ "$BOARD" = "rpi0w" ] || error "Chime supports only --board rpi0w"
             DEFCONFIG="openchime_rpi0w_defconfig"
             OUTPUT_DIR="$PROJECT_DIR/buildroot/output"
             ;;
         ring)
-            DEFCONFIG="openchime_ring_rpi02w_defconfig"
-            OUTPUT_DIR="$PROJECT_DIR/buildroot/output/ring"
+            BOARD="${BOARD:-rpi02w}"
+            case "$BOARD" in
+                rpi0w) BUILD_TARGET="ring-rpi0w" ;;
+                rpi02w) ;;
+                *) error "Unknown Ring board '$BOARD' (expected rpi0w or rpi02w)" ;;
+            esac
+            DEFCONFIG="openchime_ring_${BOARD}_defconfig"
+            OUTPUT_DIR="$PROJECT_DIR/buildroot/output/$BUILD_TARGET"
             ;;
         *)
             error "Unknown product '$PRODUCT' (expected chime or ring)"
@@ -203,6 +220,7 @@ run_build() {
         -e BUILDROOT_VERSION="$BUILDROOT_VERSION" \
         -e JOBS="$JOBS" \
         -e PRODUCT="$PRODUCT" \
+        -e BUILD_TARGET="$BUILD_TARGET" \
         -e DEFCONFIG="$DEFCONFIG" \
         "$IMAGE_NAME" \
         bash -c '
@@ -264,9 +282,9 @@ if [ "$PRODUCT" = "chime" ]; then
     BR_MAKE=(make BR2_EXTERNAL=/home/builder/br2-external)
     EXPORT_DIR="/home/builder/work"
 else
-    BR_OUT="/home/builder/work/output-$PRODUCT"
+    BR_OUT="/home/builder/work/output-$BUILD_TARGET"
     BR_MAKE=(make O="$BR_OUT" BR2_EXTERNAL=/home/builder/br2-external)
-    EXPORT_DIR="/home/builder/work/$PRODUCT"
+    EXPORT_DIR="/home/builder/work/$BUILD_TARGET"
 fi
 mkdir -p "$EXPORT_DIR"
 
@@ -281,9 +299,9 @@ build_start="$(step_start)"
 step_done "make" "$build_start"
 
 if [ -f "$BR_OUT/images/sdcard.img" ]; then
-    cp "$BR_OUT/images/sdcard.img" "$EXPORT_DIR/"
+    cp --sparse=always "$BR_OUT/images/sdcard.img" "$EXPORT_DIR/"
     if [ -f "$BR_OUT/images/rootfs.ext4" ]; then
-        cp "$BR_OUT/images/rootfs.ext4" "$EXPORT_DIR/"
+        cp --sparse=always "$BR_OUT/images/rootfs.ext4" "$EXPORT_DIR/"
     fi
     echo "[build] SUCCESS! Image ready."
 else
@@ -297,20 +315,20 @@ fi
     log "Extracting image from volume..."
     local export_subdir=""
     if [ "$PRODUCT" != "chime" ]; then
-        export_subdir="/$PRODUCT"
+        export_subdir="/$BUILD_TARGET"
     fi
-    docker run --rm \
+    docker run --rm --user 0 \
         -v "$VOLUME_NAME:/work:ro" \
         -v "$OUTPUT_DIR:/out" \
         -e SRC="/work$export_subdir" \
-        alpine sh -eu -c '
+        "$IMAGE_NAME" sh -eu -c '
 if [ ! -f "$SRC/sdcard.img" ]; then
     echo "ERROR: sdcard.img not found in Docker volume at $SRC" >&2
     exit 1
 fi
-cp "$SRC/sdcard.img" /out/
+cp --sparse=always "$SRC/sdcard.img" /out/
 if [ -f "$SRC/rootfs.ext4" ]; then
-    cp "$SRC/rootfs.ext4" /out/
+    cp --sparse=always "$SRC/rootfs.ext4" /out/
 fi
 echo "Done"
 '
@@ -334,7 +352,7 @@ $rootfs_summary
 
 Next:
   1) Flash SD card:
-     ./scripts/flash_sd.sh --product $PRODUCT /dev/diskN
+     ./scripts/flash_sd.sh --product $PRODUCT --board $BOARD /dev/diskN
   2) Eject and insert card into the Pi
   3) (Optional) Clean Docker cache:
      docker volume rm $VOLUME_NAME

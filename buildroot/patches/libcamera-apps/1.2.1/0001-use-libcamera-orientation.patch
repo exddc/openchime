@@ -1,0 +1,22 @@
+From c9dc0b53c91bf7bc9978222f538495aa470f1502 Mon Sep 17 00:00:00 2001
+From: David Plowman <david.plowman@raspberrypi.com>
+Subject: [PATCH] Use Orientations for libcamera configuration
+
+Upstream: https://github.com/raspberrypi/rpicam-apps/commit/c9dc0b53c91bf7bc9978222f538495aa470f1502
+
+--- a/core/libcamera_app.cpp
++++ b/core/libcamera_app.cpp
+@@ -21,0 +22 @@
++#include <libcamera/orientation.h>
+@@ -327 +328 @@
+-	configuration_->transform = options_->transform;
++	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+@@ -374 +375 @@
+-	configuration_->transform = options_->transform;
++	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+@@ -432 +433 @@
+-	configuration_->transform = options_->transform;
++	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
+@@ -461 +462 @@
+-	configuration_->transform = options_->transform;
++	configuration_->orientation = libcamera::Orientation::Rotate0 * options_->transform;
