@@ -139,6 +139,7 @@ sudo dd if="$IMAGE_PATH" of="$RAW_DISK" bs=4m status=progress conv=fsync || erro
 log "Syncing..."
 sync
 
+diskutil unmountDisk "$DISK" || error "Cannot unmount $DISK before verification"
 log "Verifying $IMAGE_BYTES bytes from $RAW_DISK..."
 VERIFY_STARTED_AT="$(date +%s)"
 sudo head -c "$IMAGE_BYTES" "$RAW_DISK" | cmp "$IMAGE_PATH" - || error "Read-back verification failed for $DISK"

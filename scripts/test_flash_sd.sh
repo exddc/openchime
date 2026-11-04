@@ -47,7 +47,9 @@ elif name == 'diskutil':
         print('/dev/disk16: Built In SDXC Reader, 7.8 GB')
     elif args[0] == 'unmountDisk':
         record('unmount')
-        sys.exit(1 if mode == 'unmount_fail' else 0)
+        count = (folder / 'calls').read_text().splitlines().count('unmount')
+        failed = mode == 'unmount_fail' or (mode == 'verify_unmount_fail' and count == 2)
+        sys.exit(1 if failed else 0)
     elif args[0] == 'eject':
         record('eject')
     else:
@@ -94,10 +96,10 @@ run_flash() {
 run_flash good || { cat "$TMP_DIR/output" >&2; exit 1; }
 grep -q 'Built In SDXC Reader' "$TMP_DIR/output"
 grep -q 'Read-back verification passed' "$TMP_DIR/output"
-printf 'unmount\nwrite\nverify\neject\n' > "$TMP_DIR/expected"
+printf 'unmount\nwrite\nunmount\nverify\neject\n' > "$TMP_DIR/expected"
 cmp "$TMP_DIR/expected" "$TMP_DIR/calls"
 
-for mode in corrupt read_fail unmount_fail write_fail readonly internal small; do
+for mode in corrupt read_fail unmount_fail verify_unmount_fail write_fail readonly internal small; do
     if run_flash "$mode"; then
         echo "ERROR: accepted $mode" >&2
         exit 1
@@ -108,6 +110,11 @@ for mode in corrupt read_fail unmount_fail write_fail readonly internal small; d
             grep -qx verify "$TMP_DIR/calls"
             ;;
         unmount_fail) expected='Cannot unmount' ;;
+        verify_unmount_fail)
+            expected='before verification'
+            grep -qx write "$TMP_DIR/calls"
+            if grep -qx verify "$TMP_DIR/calls"; then exit 1; fi
+            ;;
         write_fail)
             expected='Failed to write image'
             grep -qx write "$TMP_DIR/calls"
