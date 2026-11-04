@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 mkdir -p "$TMP_DIR/project/scripts" "$TMP_DIR/project/buildroot/output/ring-rpi0w" "$TMP_DIR/bin"
-cp "$SCRIPT_DIR/flash_sd.sh" "$TMP_DIR/project/scripts/"
+cp "$SCRIPT_DIR/flash_sd.sh" "$SCRIPT_DIR/flash_sd_image.sh" "$SCRIPT_DIR/macos_disk_guard.c" "$TMP_DIR/project/scripts/"
 printf 'Ring test image\n' > "$TMP_DIR/project/buildroot/output/ring-rpi0w/sdcard.img"
 
 cat > "$TMP_DIR/bin/mock" <<'PY'
@@ -47,15 +47,24 @@ elif name == 'diskutil':
         print('/dev/disk16: Built In SDXC Reader, 7.8 GB')
     elif args[0] == 'unmountDisk':
         record('unmount')
-        count = (folder / 'calls').read_text().splitlines().count('unmount')
-        failed = mode == 'unmount_fail' or (mode == 'verify_unmount_fail' and count == 2)
-        sys.exit(1 if failed else 0)
+        sys.exit(1 if mode == 'unmount_fail' else 0)
     elif args[0] == 'eject':
         record('eject')
     else:
         sys.exit(2)
+elif name == 'xcrun':
+    if mode == 'compile_fail': sys.exit(1)
+    target = Path(args[args.index('-o') + 1])
+    target.write_text('#!/bin/bash\nprintf "guard\\n" >> "$FLASH_TEST_DIR/calls"\nif [ "$FLASH_TEST_MODE" = guard_fail ]; then echo "mount guard refused target" >&2; exit 1; fi\nshift\nexec "$@"\n')
+    target.chmod(0o755)
 elif name == 'sudo':
-    if args[0] == 'dd':
+    assert Path(args[0]).name == 'disk-guard' and args[1] == '/dev/disk16'
+    if mode == 'sudo_fail':
+        print('sudo: authentication failed', file=sys.stderr)
+        sys.exit(1)
+    os.execv(args[0], args)
+elif name in ('dd', 'head'):
+    if name == 'dd':
         record('write')
         if mode == 'write_fail':
             sys.exit(1)
@@ -68,20 +77,20 @@ elif name == 'sudo':
         if mode == 'corrupt':
             with (folder / 'card').open('r+b') as card:
                 card.write(b'X')
-    elif args[0] == 'head':
-        assert args[1] == '-c' and args[-1] == '/dev/rdisk16'
+    elif name == 'head':
+        assert args[0] == '-c' and args[-1] == '/dev/rdisk16'
         record('verify')
         if mode == 'read_fail':
             sys.exit(1)
         with (folder / 'card').open('rb') as card:
-            sys.stdout.buffer.write(card.read(int(args[2])))
+            sys.stdout.buffer.write(card.read(int(args[1])))
     else:
         sys.exit(2)
 elif name != 'sync':
     sys.exit(2)
 PY
 chmod +x "$TMP_DIR/bin/mock"
-for tool in diskutil plutil sudo sync; do
+for tool in diskutil plutil sudo sync xcrun dd head; do
     ln -s mock "$TMP_DIR/bin/$tool"
 done
 export PATH="$TMP_DIR/bin:$PATH"
@@ -96,10 +105,10 @@ run_flash() {
 run_flash good || { cat "$TMP_DIR/output" >&2; exit 1; }
 grep -q 'Built In SDXC Reader' "$TMP_DIR/output"
 grep -q 'Read-back verification passed' "$TMP_DIR/output"
-printf 'unmount\nwrite\nunmount\nverify\neject\n' > "$TMP_DIR/expected"
+printf 'guard\nunmount\nwrite\nverify\neject\n' > "$TMP_DIR/expected"
 cmp "$TMP_DIR/expected" "$TMP_DIR/calls"
 
-for mode in corrupt read_fail unmount_fail verify_unmount_fail write_fail readonly internal small; do
+for mode in corrupt read_fail unmount_fail write_fail readonly internal small compile_fail guard_fail sudo_fail; do
     if run_flash "$mode"; then
         echo "ERROR: accepted $mode" >&2
         exit 1
@@ -110,11 +119,6 @@ for mode in corrupt read_fail unmount_fail verify_unmount_fail write_fail readon
             grep -qx verify "$TMP_DIR/calls"
             ;;
         unmount_fail) expected='Cannot unmount' ;;
-        verify_unmount_fail)
-            expected='before verification'
-            grep -qx write "$TMP_DIR/calls"
-            if grep -qx verify "$TMP_DIR/calls"; then exit 1; fi
-            ;;
         write_fail)
             expected='Failed to write image'
             grep -qx write "$TMP_DIR/calls"
@@ -122,6 +126,12 @@ for mode in corrupt read_fail unmount_fail verify_unmount_fail write_fail readon
         readonly) expected='Target is read-only' ;;
         internal) expected='non-removable internal disk' ;;
         small) expected='Image is larger' ;;
+        compile_fail) expected='Cannot build macOS mount guard' ;;
+        guard_fail)
+            expected='mount guard refused target'
+            grep -qx guard "$TMP_DIR/calls"
+            ;;
+        sudo_fail) expected='sudo: authentication failed' ;;
     esac
     grep -Fq "$expected" "$TMP_DIR/output"
     if grep -qx eject "$TMP_DIR/calls"; then
@@ -129,7 +139,7 @@ for mode in corrupt read_fail unmount_fail verify_unmount_fail write_fail readon
         exit 1
     fi
     case "$mode" in
-        readonly|internal|small|unmount_fail)
+        readonly|internal|small|unmount_fail|compile_fail|guard_fail|sudo_fail)
             if grep -qx write "$TMP_DIR/calls"; then
                 echo "ERROR: wrote after $mode" >&2
                 exit 1

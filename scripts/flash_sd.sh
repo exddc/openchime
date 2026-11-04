@@ -125,29 +125,14 @@ if [ "$CONFIRM" != "yes" ]; then
     exit 1
 fi
 
-# Unmount all partitions
-log "Unmounting $DISK..."
-diskutil unmountDisk "$DISK" || error "Cannot unmount $DISK"
-
-# Flash
+GUARD_DIR="$(mktemp -d)"
+trap 'if [ -f "$GUARD_DIR/disk-guard" ]; then rm "$GUARD_DIR/disk-guard"; fi; rmdir "$GUARD_DIR"' EXIT
+xcrun clang -std=c11 -Wall -Wextra -Werror -O2 \
+    "$SCRIPT_DIR/macos_disk_guard.c" -framework DiskArbitration -framework CoreFoundation \
+    -o "$GUARD_DIR/disk-guard" || error "Cannot build macOS mount guard; run xcode-select --install"
 RAW_DISK="${DISK/disk/rdisk}"
-log "Flashing to $RAW_DISK (this takes ~1-2 minutes)..."
-
-sudo dd if="$IMAGE_PATH" of="$RAW_DISK" bs=4m status=progress conv=fsync || error "Failed to write image to $DISK"
-
-# Sync
-log "Syncing..."
-sync
-
-diskutil unmountDisk "$DISK" || error "Cannot unmount $DISK before verification"
-log "Verifying $IMAGE_BYTES bytes from $RAW_DISK..."
-VERIFY_STARTED_AT="$(date +%s)"
-sudo head -c "$IMAGE_BYTES" "$RAW_DISK" | cmp "$IMAGE_PATH" - || error "Read-back verification failed for $DISK"
-log "Read-back verification passed ($(( $(date +%s) - VERIFY_STARTED_AT ))s)"
-
-# Eject
-log "Ejecting..."
-diskutil eject "$DISK"
+sudo "$GUARD_DIR/disk-guard" "$DISK" /bin/bash "$SCRIPT_DIR/flash_sd_image.sh" \
+    "$IMAGE_PATH" "$RAW_DISK" "$IMAGE_BYTES" "$DISK"
 
 echo ""
 log "✓ Flash complete!"

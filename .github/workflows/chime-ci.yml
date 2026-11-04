@@ -197,3 +197,12 @@ jobs:
       - name: Assert checkout is clean
         run: |
           test -z "$(git status --porcelain)"
+
+  flash-macos:
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Test native disk mount guard
+        run: bash ./scripts/test_macos_disk_guard.sh
