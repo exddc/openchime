@@ -70,7 +70,7 @@ if [ -z "$DISK" ]; then
     echo ""
     echo "Available disks:"
     echo "================"
-    diskutil list external physical 2>/dev/null || diskutil list
+    diskutil list physical
     echo ""
     echo "Enter the disk device (e.g., /dev/disk4):"
     read -r DISK
@@ -84,10 +84,26 @@ if [[ ! "$DISK" =~ ^/dev/disk[0-9]+$ ]]; then
     error "Invalid disk format: $DISK (expected /dev/diskN)"
 fi
 
-BOOT_DISK=$(diskutil info / | grep "Part of Whole" | awk '{print $4}')
-if [ "$DISK" = "/dev/$BOOT_DISK" ]; then
-    error "Refusing to flash the boot disk!"
-fi
+DISK_INFO="$(diskutil info -plist "$DISK")" || error "Cannot inspect $DISK"
+plist_value() { plutil -extract "$1" raw -o - -; }
+[ "$(plist_value WholeDisk <<< "$DISK_INFO")" = true ] || error "Target must be a whole disk"
+[ "$(plist_value RemovableMediaOrExternalDevice <<< "$DISK_INFO")" = true ] || \
+    error "Refusing to flash a non-removable internal disk"
+[ "$(plist_value WritableMedia <<< "$DISK_INFO")" = true ] || error "Target is read-only"
+IMAGE_BYTES="$(wc -c < "$IMAGE_PATH" | tr -d '[:space:]')"
+DISK_BYTES="$(plist_value TotalSize <<< "$DISK_INFO")"
+[ "$DISK_BYTES" -ge "$IMAGE_BYTES" ] || error "Image is larger than $DISK"
+
+BOOT_INFO="$(diskutil info -plist /)" || error "Cannot inspect the boot disk"
+BOOT_DISK="$(plist_value ParentWholeDisk <<< "$BOOT_INFO")"
+[ "$DISK" != "/dev/$BOOT_DISK" ] || error "Refusing to flash the boot disk!"
+STORE_INDEX=0
+while BOOT_STORE="$(plist_value "APFSPhysicalStores.$STORE_INDEX.APFSPhysicalStore" <<< "$BOOT_INFO" 2>/dev/null)"; do
+    case "$BOOT_STORE" in
+        "${DISK#/dev/}"s[0-9]*) error "Refusing to flash the boot disk!" ;;
+    esac
+    STORE_INDEX=$((STORE_INDEX + 1))
+done
 
 # Show disk info
 echo ""
@@ -96,8 +112,7 @@ diskutil list "$DISK"
 echo ""
 
 # Get disk size for display
-DISK_SIZE=$(diskutil info "$DISK" | grep "Disk Size" | awk -F: '{print $2}' | xargs)
-log "Disk size: $DISK_SIZE"
+log "Disk size: $DISK_BYTES bytes"
 
 # Confirm
 echo ""
@@ -112,17 +127,22 @@ fi
 
 # Unmount all partitions
 log "Unmounting $DISK..."
-diskutil unmountDisk "$DISK" || true
+diskutil unmountDisk "$DISK" || error "Cannot unmount $DISK"
 
 # Flash
 RAW_DISK="${DISK/disk/rdisk}"
 log "Flashing to $RAW_DISK (this takes ~1-2 minutes)..."
 
-sudo dd if="$IMAGE_PATH" of="$RAW_DISK" bs=4m status=progress conv=fsync
+sudo dd if="$IMAGE_PATH" of="$RAW_DISK" bs=4m status=progress conv=fsync || error "Failed to write image to $DISK"
 
 # Sync
 log "Syncing..."
 sync
+
+log "Verifying $IMAGE_BYTES bytes from $RAW_DISK..."
+VERIFY_STARTED_AT="$(date +%s)"
+sudo head -c "$IMAGE_BYTES" "$RAW_DISK" | cmp "$IMAGE_PATH" - || error "Read-back verification failed for $DISK"
+log "Read-back verification passed ($(( $(date +%s) - VERIFY_STARTED_AT ))s)"
 
 # Eject
 log "Ejecting..."

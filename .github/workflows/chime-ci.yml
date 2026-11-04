@@ -149,6 +149,9 @@ jobs:
           bash ./scripts/test_ring_build_targets.sh
           bash ./scripts/test_ring_post_image.sh
 
+      - name: Test flash script safeguards
+        run: bash ./scripts/test_flash_sd.sh
+
       - name: Run chime CI checks
         env:
           BUILD_TYPE: ${{ matrix.build_type }}
