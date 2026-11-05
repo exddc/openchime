@@ -148,6 +148,7 @@ jobs:
           bash ./scripts/test_ring_post_build.sh
           bash ./scripts/test_ring_build_targets.sh
           bash ./scripts/test_ring_post_image.sh
+          bash ./scripts/test_timesync.sh
 
       - name: Test flash script safeguards
         run: bash ./scripts/test_flash_sd.sh

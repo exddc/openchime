@@ -99,9 +99,11 @@ sync_with_server() {
     SERVER="$1"
 
     if command -v ntpd >/dev/null 2>&1; then
-        ntpd -n -q -p "$SERVER" >/dev/null 2>&1 && return 0
-        ntpd -gq -p "$SERVER" >/dev/null 2>&1 && return 0
-        ntpd -qg -p "$SERVER" >/dev/null 2>&1 && return 0
+        if ntpd --version 2>/dev/null | grep -q '^ntpd '; then
+            printf '\n' | timeout -s KILL 15 ntpd -n -gq -c /proc/self/fd/0 -- "$SERVER" >/dev/null 2>&1 && return 0
+        else
+            ntpd -n -q -p "$SERVER" >/dev/null 2>&1 && return 0
+        fi
     fi
     if command -v busybox >/dev/null 2>&1; then
         busybox ntpd -n -q -p "$SERVER" >/dev/null 2>&1 && return 0
