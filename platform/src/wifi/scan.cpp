@@ -1,9 +1,12 @@
 #include "oc/wifi/scan.h"
 
+#include "scan_command.h"
+
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstddef>
 #include <cstdlib>
@@ -34,15 +37,11 @@ constexpr const char *kAirportPath =
     "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport";
 #endif
 
-struct CommandResult {
-    bool success = false;
-    bool timed_out = false;
-    int exit_code = -1;
-    std::string output;
-    std::string error;
-};
-
 std::string SecurityFromFlags(const std::string &flags);
+
+} // namespace
+
+namespace detail {
 
 CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, std::size_t max_output_bytes) {
     CommandResult result;
@@ -116,7 +115,7 @@ CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, s
         fcntl(pipe_fds[0], F_SETFL, flags | O_NONBLOCK);
     }
 
-    int elapsed_ms = 0;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     constexpr int kPollStepMs = 100;
 
     while (true) {
@@ -167,8 +166,7 @@ CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, s
             return result;
         }
 
-        elapsed_ms += kPollStepMs;
-        if (elapsed_ms >= timeout_ms) {
+        if (std::chrono::steady_clock::now() >= deadline) {
             result.timed_out = true;
             result.error = "command timed out";
             kill(-pid, SIGKILL);
@@ -178,6 +176,13 @@ CommandResult RunCommand(const std::vector<std::string> &args, int timeout_ms, s
         }
     }
 }
+
+} // namespace detail
+
+namespace {
+
+using detail::CommandResult;
+using detail::RunCommand;
 
 std::vector<std::string> SplitLines(const std::string &input) {
     std::vector<std::string> lines;

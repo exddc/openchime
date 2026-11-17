@@ -28,11 +28,15 @@ if(OC_BUILD_HTTP)
     http_router_test.cpp
     product_route_test.cpp
     static_files_test.cpp
-    tls_server_test.cpp)
+    tls_server_test.cpp
+    wifi_scan_command_test.cpp)
 
-  target_include_directories(oc_platform_http_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_include_directories(
+    oc_platform_http_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../src")
   target_compile_options(oc_platform_http_tests PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_definitions(oc_platform_http_tests PRIVATE "OC_PROCESS_HELPER=\"$<TARGET_FILE:oc_process_helper>\"")
   target_link_libraries(oc_platform_http_tests PRIVATE oc_platform_http doctest::doctest)
+  add_dependencies(oc_platform_http_tests oc_process_helper)
 
   doctest_discover_tests(oc_platform_http_tests PROPERTIES TIMEOUT 30)
 endif()
